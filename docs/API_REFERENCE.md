@@ -1,5 +1,90 @@
 # API Reference
 
+## Providers
+
+### ReactIdentityProvider (Recommended)
+
+Unified provider that manages all connectors and features with a single configuration.
+
+```tsx
+<ReactIdentityProvider
+  config={{
+    connector: {
+      type: 'localStorage' | 'fetch',
+      appId: string,
+      apiKey?: string,
+      baseUrl?: string,
+      endpoints?: {
+        identity?: string,
+        settings?: string,
+        subscription?: string,
+        featureFlags?: string,
+      },
+    },
+    tenantResolver?: {
+      strategy: 'query-param' | 'subdomain',
+      queryParam?: { paramName: string, storageKey: string },
+    },
+    features?: {
+      settings?: boolean,
+      subscription?: boolean,
+      featureFlags?: boolean,
+    },
+    components?: {
+      LoadingComponent?: React.ComponentType,
+      LandingComponent?: React.ComponentType,
+      ErrorComponent?: React.ComponentType<{ error: string }>,
+    },
+  }}
+  settingsSchema?: ZodSchema
+  settingsDefaults?: any
+  settingsVersion?: string
+  subscriptionPlans?: Plan[]
+  paymentGateway?: PaymentGateway
+>
+```
+
+### Individual Providers (Legacy)
+
+#### IdentityProvider
+
+Authentication and user management.
+
+```tsx
+<IdentityProvider>
+```
+
+#### SettingsProvider
+
+Schema-validated settings management.
+
+```tsx
+<SettingsProvider 
+  schema={ZodSchema}
+  defaults={DefaultValues}
+  config?: SettingsConfig
+>
+```
+
+#### SubscriptionProvider
+
+Billing and subscription management.
+
+```tsx
+<SubscriptionProvider>
+```
+
+#### TenantPaymentProvider
+
+Payment processing for tenants to charge their customers.
+
+```tsx
+<TenantPaymentProvider
+  paymentGateway={paymentGateway}
+  config={paymentConfig}
+>
+```
+
 ## Hooks
 
 ### useAuth()
@@ -8,52 +93,159 @@ Primary authentication hook providing login/logout functionality and user state.
 
 ```tsx
 const { 
-  user, 
-  isAuthenticated, 
-  isLoading, 
+  auth,
   login, 
   logout, 
-  refreshToken 
+  signup
 } = useAuth();
 ```
 
 **Returns:**
-- `user: User | null` - Current authenticated user
-- `isAuthenticated: boolean` - Authentication status
-- `isLoading: boolean` - Loading state for auth operations
-- `login: (credentials: LoginCredentials) => Promise<void>` - Login function
+- `auth: AuthState` - Authentication state object
+- `login: (email: string, password: string) => Promise<void>` - Login function
 - `logout: () => Promise<void>` - Logout function
-- `refreshToken: () => Promise<void>` - Refresh authentication token
+- `signup: (email: string, password: string, name: string) => Promise<void>` - Signup function
 
 **Types:**
 ```tsx
+interface AuthState {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
+}
+
 interface User {
   id: string;
   email: string;
-  name: string;
+  name?: string;
   tenantId: string;
-  roles: string[];
-  permissions: string[];
-  isActive: boolean;
+  roles?: string[];
+  permissions?: string[];
   createdAt: Date;
   lastLoginAt?: Date;
 }
-
-interface LoginCredentials {
-  email: string;
-  password: string;
-  tenantId?: string;
-}
 ```
 
-### useRoles()
+### useFeatureFlags()
 
-Role and permission checking with one-liner access control.
+Feature flag management and checking.
 
 ```tsx
 const { 
-  roles, 
-  permissions, 
+  flags, 
+  isEnabled,
+  toggleFlag,
+  refreshFlags
+} = useFeatureFlags();
+```
+
+**Returns:**
+- `flags: Record<string, boolean>` - Current feature flags state
+- `isEnabled: (key: string) => boolean` - Check if flag is enabled
+- `toggleFlag: (key: string, enabled: boolean) => Promise<void>` - Toggle flag
+- `refreshFlags: () => Promise<void>` - Refresh flags from backend
+
+### useSettings()
+
+Settings management with schema validation.
+
+```tsx
+const { 
+  values, 
+  updateSetting,
+  isDirty,
+  save,
+  reset
+} = useSettings<T>();
+```
+
+**Returns:**
+- `values: T` - Current settings values
+- `updateSetting: (key: keyof T, value: any) => void` - Update setting
+- `isDirty: boolean` - Whether settings have unsaved changes
+- `save: () => Promise<void>` - Save changes
+- `reset: () => void` - Reset to defaults
+
+### useSubscription()
+
+Subscription and billing management.
+
+```tsx
+const { 
+  subscription,
+  plans,
+  usage,
+  limits,
+  subscribe,
+  cancelSubscription,
+  changePlan,
+  getUsage,
+  checkLimit
+} = useSubscription();
+```
+
+**Returns:**
+- `subscription: Subscription | null` - Current subscription
+- `plans: Plan[]` - Available plans
+- `usage: Usage` - Current usage statistics
+- `limits: Limits` - Current plan limits
+- `subscribe: (planId: string) => Promise<void>` - Subscribe to plan
+- `cancelSubscription: () => Promise<void>` - Cancel subscription
+- `changePlan: (planId: string) => Promise<void>` - Change plan
+- `getUsage: (metric: string) => number` - Get usage for specific metric
+- `checkLimit: (metric: string) => boolean` - Check if limit is exceeded
+
+### useTenantPayment()
+
+Payment processing for tenant-to-customer payments.
+
+```tsx
+const {
+  processPayment,
+  paymentHistory,
+  paymentMethods,
+  addPaymentMethod,
+  refundPayment
+} = useTenantPayment();
+```
+
+**Returns:**
+- `processPayment: (amount: number, currency: string, customerId: string) => Promise<PaymentResult>` - Process payment
+- `paymentHistory: Payment[]` - Payment history
+- `paymentMethods: PaymentMethod[]` - Available payment methods
+- `addPaymentMethod: (method: PaymentMethod) => Promise<void>` - Add payment method
+- `refundPayment: (paymentId: string, amount?: number) => Promise<void>` - Refund payment
+
+### useTenant()
+
+Tenant information and management.
+
+```tsx
+const { 
+  tenantId,
+  tenant,
+  isLoading,
+  switchTenant,
+  availableTenants
+} = useTenant();
+```
+
+**Returns:**
+- `tenantId: string | null` - Current tenant ID
+- `tenant: Tenant | null` - Current tenant object
+- `isLoading: boolean` - Loading state
+- `switchTenant: (tenantId: string) => Promise<void>` - Switch to different tenant
+- `availableTenants: Tenant[]` - Available tenants for user
+
+### useRoles()
+
+Role and permission management.
+
+```tsx
+const { 
+  roles,
+  permissions,
   hasRole, 
   hasPermission, 
   hasAnyRole, 
@@ -131,26 +323,6 @@ interface FeatureFlag {
 }
 ```
 
-### useTenant()
-
-Multi-tenant operations and tenant switching.
-
-```tsx
-const { 
-  currentTenant, 
-  availableTenants, 
-  isLoading, 
-  switchTenant, 
-  refreshTenants 
-} = useTenant();
-```
-
-**Returns:**
-- `currentTenant: Tenant | null` - Current active tenant
-- `availableTenants: Tenant[]` - Available tenants for user
-- `isLoading: boolean` - Loading state for tenant operations
-- `switchTenant: (tenantId: string) => Promise<void>` - Switch to different tenant
-- `refreshTenants: () => Promise<void>` - Refresh tenant list
 
 ### useSession()
 
@@ -263,6 +435,65 @@ Admin interface for managing feature flags.
 />
 ```
 
+### SubscriptionGuard
+
+Conditional rendering based on subscription plan or status.
+
+```tsx
+<SubscriptionGuard 
+  requiredPlan="pro"
+  requiredStatus="active"
+  fallback={<UpgradePrompt />}
+>
+  <ProFeatures />
+</SubscriptionGuard>
+```
+
+**Props:**
+- `requiredPlan?: string` - Required subscription plan
+- `requiredStatus?: string` - Required subscription status
+- `fallback?: ReactNode` - Content to show when requirements not met
+
+### FeatureGate
+
+Feature-based access control with upgrade prompts.
+
+```tsx
+<FeatureGate 
+  feature="advanced-analytics"
+  fallback={<UpgradePrompt />}
+  showUpgradePrompt={true}
+>
+  <AdvancedAnalytics />
+</FeatureGate>
+```
+
+**Props:**
+- `feature: string` - Feature identifier
+- `fallback?: ReactNode` - Content to show when feature not available
+- `showUpgradePrompt?: boolean` - Show upgrade prompt in fallback
+
+### LimitGate
+
+Usage limit enforcement with warnings.
+
+```tsx
+<LimitGate 
+  limit="api_calls"
+  warningThreshold={0.8}
+  blockThreshold={1.0}
+  fallback={<LimitExceeded />}
+>
+  <ApiUsageWidget />
+</LimitGate>
+```
+
+**Props:**
+- `limit: string` - Limit identifier
+- `warningThreshold?: number` - Threshold to show warning (0-1)
+- `blockThreshold?: number` - Threshold to block access (0-1)
+- `fallback?: ReactNode` - Content to show when limit exceeded
+
 ## Connectors
 
 ### LocalStorageConnector
@@ -353,6 +584,48 @@ interface IdentityConfig {
   sessionTimeout?: number;
   autoRefresh?: boolean;
   debugMode?: boolean;
+}
+```
+
+## Payment Gateways
+
+The library supports multiple payment gateways through a pluggable architecture.
+
+### Stripe Gateway
+
+```tsx
+import { StripePaymentGateway } from 'react-identity-access';
+
+const stripeGateway = new StripePaymentGateway({
+  publicKey: process.env.REACT_APP_STRIPE_PUBLIC_KEY,
+  secretKey: process.env.STRIPE_SECRET_KEY,
+});
+```
+
+### MercadoPago Gateway
+
+```tsx
+import { MercadoPagoPaymentGateway } from 'react-identity-access';
+
+const mercadoPagoGateway = new MercadoPagoPaymentGateway({
+  publicKey: process.env.REACT_APP_MERCADOPAGO_PUBLIC_KEY,
+  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN,
+});
+```
+
+### Custom Gateway
+
+```tsx
+import { BasePaymentGateway } from 'react-identity-access';
+
+class CustomPaymentGateway extends BasePaymentGateway {
+  async processPayment(amount: number, currency: string, paymentMethod: any) {
+    // Your implementation
+  }
+  
+  async refundPayment(paymentId: string, amount?: number) {
+    // Your implementation
+  }
 }
 ```
 

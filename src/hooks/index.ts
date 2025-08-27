@@ -3,9 +3,11 @@ export { useRoles } from './useRoles';
 export { useTenant } from './useTenant';
 export { useFeatureFlags } from './useFeatureFlags';
 export { useSession } from './useSession';
+export { useSubscription } from './useSubscription';
 
 export type { UseAuthReturn } from './useAuth';
 export type { UseRolesReturn } from './useRoles';
 export type { UseTenantReturn } from './useTenant';
 export type { UseFeatureFlagsReturn } from './useFeatureFlags';
 export type { UseSessionReturn } from './useSession';
+export type { UseSubscriptionReturn } from './useSubscription';

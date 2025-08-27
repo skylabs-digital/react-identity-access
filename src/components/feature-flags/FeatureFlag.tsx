@@ -1,5 +1,5 @@
 import { ReactNode } from 'react';
-import { useFeatureFlags } from '../../hooks/useFeatureFlags';
+import { useFeatureFlags } from '../../providers/FeatureFlagsProvider';
 
 export interface FeatureFlagProps {
   flag: string;

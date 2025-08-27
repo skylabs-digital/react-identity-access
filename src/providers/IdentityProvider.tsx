@@ -1,46 +1,48 @@
-import React, { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
-import { IdentityConnector } from '../connectors/base/IdentityConnector';
-import {
-  AuthState,
-  TenantState,
-  RoleState,
-  SessionState,
-  FeatureFlagsState,
-  IdentityConfig,
-  TenantResolver,
-  InitialState,
-  User,
-  Tenant,
-  Role,
-  Permission,
-  FeatureFlag,
-} from '../types';
+import { createContext, useContext, useReducer, useEffect, ReactNode, useMemo } from 'react';
+import { useConnector } from './ConnectorProvider';
+import { useTenant } from './TenantProvider';
+import { LoginCredentials, AuthResponse, User, Role, Permission } from '../types';
+import { BaseConnector, TokenInterceptor } from '../connectors/base/BaseConnector';
 
-// Context interfaces
-interface IdentityContextValue {
-  auth: AuthState;
-  tenant: TenantState;
-  roles: RoleState;
-  session: SessionState;
-  featureFlags: FeatureFlagsState;
-  connector: IdentityConnector;
-  config: IdentityConfig;
+export interface IdentityConfig {
+  autoLogin?: boolean;
+  sessionTimeout?: number;
+  requireEmailVerification?: boolean;
 }
 
+interface AuthState {
+  user: User | null;
+  isAuthenticated: boolean;
+  isLoading: boolean;
+  error: string | null;
+}
+
+interface RoleState {
+  roles: Role[];
+  permissions: Permission[];
+  isLoading: boolean;
+}
+
+interface IdentityContextValue {
+  auth: AuthState;
+  roles: RoleState;
+  connector: BaseConnector;
+  tenant: any;
+  session: any;
+  featureFlags: any;
+  login: (credentials: LoginCredentials) => Promise<AuthResponse>;
+  logout: () => Promise<void>;
+  signup: (email: string, password: string, name: string) => Promise<void>;
+  tokenInterceptor: TokenInterceptor;
+}
+
+const IdentityContext = createContext<IdentityContextValue | null>(null);
+
 interface IdentityProviderProps {
-  connector: IdentityConnector;
   config?: IdentityConfig;
-  tenantResolver?: TenantResolver;
-  initialState?: InitialState;
-  LoadingComponent?: React.ComponentType;
-  LandingComponent?: React.ComponentType;
   children: ReactNode;
 }
 
-// Create contexts
-const IdentityContext = createContext<IdentityContextValue | null>(null);
-
-// Initial states
 const initialAuthState: AuthState = {
   user: null,
   isAuthenticated: false,
@@ -48,71 +50,42 @@ const initialAuthState: AuthState = {
   error: null,
 };
 
-const initialTenantState: TenantState = {
-  currentTenant: null,
-  availableTenants: [],
-  isLoading: true,
-  resolutionStrategy: 'subdomain',
-  showLanding: false,
-};
-
 const initialRoleState: RoleState = {
   roles: [],
-  currentUserRoles: [],
   permissions: [],
   isLoading: false,
 };
 
-const initialSessionState: SessionState = {
-  tokens: null,
-  isValid: false,
-  expiresAt: null,
-  lastActivity: null,
-  isRefreshing: false,
-};
-
-const initialFeatureFlagsState: FeatureFlagsState = {
-  flags: {},
-  serverFlags: {},
-  tenantOverrides: {},
-  editableFlags: [],
-  isLoading: false,
-  lastSync: null,
-  error: null,
-};
-
-// Action types
 type IdentityAction =
   | { type: 'AUTH_LOADING'; payload: boolean }
   | { type: 'AUTH_SUCCESS'; payload: User }
   | { type: 'AUTH_ERROR'; payload: string }
   | { type: 'AUTH_LOGOUT' }
-  | { type: 'TENANT_LOADING'; payload: boolean }
-  | { type: 'TENANT_SET'; payload: Tenant }
-  | { type: 'TENANT_ERROR'; payload: string }
   | { type: 'ROLES_SET'; payload: { roles: Role[]; permissions: Permission[] } }
-  | { type: 'SESSION_SET'; payload: any }
-  | { type: 'FEATURE_FLAGS_SET'; payload: Record<string, FeatureFlag> }
-  | { type: 'FEATURE_FLAG_UPDATE'; payload: { key: string; enabled: boolean } };
+  | { type: 'LOADING'; payload: boolean }
+  | { type: 'SET_USER'; payload: User }
+  | { type: 'SET_ROLES'; payload: Role[] }
+  | { type: 'SET_PERMISSIONS'; payload: Permission[] }
+  | { type: 'ERROR'; payload: string }
+  | { type: 'LOGIN_SUCCESS'; payload: AuthResponse }
+  | { type: 'LOGOUT' };
 
-// Combined state
 interface IdentityState {
   auth: AuthState;
-  tenant: TenantState;
   roles: RoleState;
-  session: SessionState;
-  featureFlags: FeatureFlagsState;
+  loading: boolean;
+  error: string | null;
+  user: User | null;
 }
 
 const initialState: IdentityState = {
   auth: initialAuthState,
-  tenant: initialTenantState,
   roles: initialRoleState,
-  session: initialSessionState,
-  featureFlags: initialFeatureFlagsState,
+  loading: false,
+  error: null,
+  user: null,
 };
 
-// Reducer
 function identityReducer(state: IdentityState, action: IdentityAction): IdentityState {
   switch (action.type) {
     case 'AUTH_LOADING':
@@ -147,306 +120,325 @@ function identityReducer(state: IdentityState, action: IdentityAction): Identity
       return {
         ...state,
         auth: initialAuthState,
-        session: initialSessionState,
-      };
-
-    case 'TENANT_LOADING':
-      return {
-        ...state,
-        tenant: { ...state.tenant, isLoading: action.payload },
-      };
-
-    case 'TENANT_SET':
-      return {
-        ...state,
-        tenant: {
-          ...state.tenant,
-          currentTenant: action.payload,
-          isLoading: false,
-          showLanding: false,
-        },
-      };
-
-    case 'TENANT_ERROR':
-      return {
-        ...state,
-        tenant: {
-          ...state.tenant,
-          isLoading: false,
-          showLanding: true,
-        },
       };
 
     case 'ROLES_SET':
       return {
         ...state,
         roles: {
-          ...state.roles,
-          currentUserRoles: action.payload.roles,
+          roles: action.payload.roles,
           permissions: action.payload.permissions,
           isLoading: false,
         },
       };
 
-    case 'SESSION_SET':
+    case 'LOADING':
       return {
         ...state,
-        session: {
-          ...state.session,
-          ...action.payload,
+        loading: action.payload,
+      };
+
+    case 'SET_USER':
+      return {
+        ...state,
+        user: action.payload,
+      };
+
+    case 'SET_ROLES':
+      return {
+        ...state,
+        roles: {
+          ...state.roles,
+          roles: action.payload,
         },
       };
 
-    case 'FEATURE_FLAGS_SET': {
-      const flags = action.payload;
-      const editableFlags = Object.keys(flags).filter(
-        key => flags[key].serverEnabled && flags[key].adminEditable
-      );
-
+    case 'SET_PERMISSIONS':
       return {
         ...state,
-        featureFlags: {
-          ...state.featureFlags,
-          flags,
-          editableFlags,
+        roles: {
+          ...state.roles,
+          permissions: action.payload,
+        },
+      };
+
+    case 'ERROR':
+      return {
+        ...state,
+        error: action.payload,
+      };
+
+    case 'LOGIN_SUCCESS':
+      return {
+        ...state,
+        auth: {
+          user: action.payload.user,
+          isAuthenticated: true,
           isLoading: false,
-          lastSync: new Date(),
-          serverFlags: Object.fromEntries(
-            Object.entries(flags).map(([key, flag]) => [key, flag.serverEnabled])
-          ),
+          error: null,
         },
       };
-    }
 
-    case 'FEATURE_FLAG_UPDATE': {
-      const { key, enabled } = action.payload;
+    case 'LOGOUT':
       return {
         ...state,
-        featureFlags: {
-          ...state.featureFlags,
-          tenantOverrides: {
-            ...state.featureFlags.tenantOverrides,
-            [key]: enabled,
-          },
-        },
+        auth: initialAuthState,
+        user: null,
       };
-    }
 
     default:
       return state;
   }
 }
 
-export function IdentityProvider({
-  connector,
-  config = {},
-  tenantResolver,
-  initialState: ssrInitialState,
-  LoadingComponent,
-  LandingComponent,
-  children,
-}: IdentityProviderProps) {
-  // Create initial state with SSR data if provided
-  const createInitialState = (): IdentityState => {
-    const baseState = { ...initialState };
+// Session management utility functions
+const SessionStorage = {
+  clear: () => {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_refresh_token');
+    localStorage.removeItem('auth_user');
+    localStorage.removeItem('auth_expires_at');
+  },
 
-    if (initialState) {
-      // Apply SSR tenant data
-      if (ssrInitialState?.tenant) {
-        baseState.tenant = {
-          ...baseState.tenant,
-          currentTenant: ssrInitialState.tenant,
-          isLoading: false,
-          showLanding: false,
-        };
-      }
+  store: (authData: AuthResponse) => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('auth_token', authData.tokens.accessToken);
+    localStorage.setItem('auth_refresh_token', authData.tokens.refreshToken);
+    localStorage.setItem('auth_user', JSON.stringify(authData.user));
+    localStorage.setItem('auth_expires_at', authData.tokens.expiresAt.toString());
+  },
 
-      // Apply SSR user data
-      if (ssrInitialState?.user) {
-        baseState.auth = {
-          user: ssrInitialState.user,
-          isAuthenticated: true,
-          isLoading: false,
-          error: null,
-        };
-      } else if (ssrInitialState?.tenant) {
-        // If we have tenant data but no user data, set auth to not loading
-        baseState.auth = {
-          ...baseState.auth,
-          isLoading: false,
-        };
-      }
+  getToken: () => {
+    if (typeof window === 'undefined') return { token: null, expiresAt: null };
+    return {
+      token: localStorage.getItem('auth_token'),
+      expiresAt: localStorage.getItem('auth_expires_at'),
+    };
+  },
 
-      // Apply SSR feature flags
-      if (ssrInitialState?.featureFlags) {
-        const flags = ssrInitialState.featureFlags;
-        const editableFlags = Object.keys(flags).filter(
-          key => flags[key].serverEnabled && flags[key].adminEditable
-        );
+  getRefreshToken: () => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem('auth_refresh_token');
+  },
 
-        baseState.featureFlags = {
-          ...baseState.featureFlags,
-          flags,
-          editableFlags,
-          isLoading: false,
-          lastSync: new Date(),
-          serverFlags: Object.fromEntries(
-            Object.entries(flags).map(([key, flag]) => [key, flag.serverEnabled])
-          ),
-        };
-      }
+  isTokenExpired: (expiresAt: string | null) => {
+    if (!expiresAt) return true;
+    return Date.now() > parseInt(expiresAt);
+  },
 
-      // Apply SSR roles and permissions
-      if (ssrInitialState?.roles && ssrInitialState?.permissions) {
-        baseState.roles = {
-          ...baseState.roles,
-          currentUserRoles: ssrInitialState.roles,
-          permissions: ssrInitialState.permissions,
-          isLoading: false,
-        };
-      }
-    }
+  storeTokens: (authData: AuthResponse) => {
+    if (typeof window === 'undefined') return;
+    localStorage.setItem('auth_token', authData.tokens.accessToken);
+    localStorage.setItem('auth_refresh_token', authData.tokens.refreshToken);
+    localStorage.setItem('auth_expires_at', authData.tokens.expiresAt.toString());
+  },
+};
 
-    return baseState;
-  };
+export function IdentityProvider({ config: _config, children }: IdentityProviderProps) {
+  const { connector, setTokenInterceptor } = useConnector();
+  const { tenantId } = useTenant();
+  const [state, dispatch] = useReducer(identityReducer, initialState);
 
-  const [state, dispatch] = useReducer(identityReducer, createInitialState());
-
-  // Initialize the system
+  // Initialize authentication
   useEffect(() => {
-    // Skip initialization completely if we have any SSR data
-    if (ssrInitialState?.tenant || ssrInitialState?.user) {
-      // SSR data is already loaded, no need to fetch from backend
-      return;
-    }
-
-    initializeIdentitySystem();
-  }, []);
-
-  const initializeIdentitySystem = async () => {
-    try {
-      // 1. Resolve tenant first
-      const tenantId = resolveTenantFromUrl();
-
-      if (tenantId) {
-        dispatch({ type: 'TENANT_LOADING', payload: true });
-        try {
-          const tenant = await connector.getTenant(tenantId);
-          dispatch({ type: 'TENANT_SET', payload: tenant });
-
-          // Load feature flags for this tenant
-          await loadFeatureFlags(tenantId);
-        } catch {
-          dispatch({ type: 'TENANT_ERROR', payload: 'Tenant not found' });
-          return;
-        }
-      } else {
-        dispatch({ type: 'TENANT_ERROR', payload: 'No tenant specified' });
-        return;
-      }
-
-      // 2. Check for existing session
-      dispatch({ type: 'AUTH_LOADING', payload: true });
+    const loadUserData = async () => {
       try {
-        const user = await connector.getCurrentUser();
-        dispatch({ type: 'AUTH_SUCCESS', payload: user });
+        dispatch({ type: 'LOADING', payload: true });
 
-        // Load user roles and permissions
-        await loadUserRoles(user.id);
-      } catch {
-        // No existing session, that's ok
-        dispatch({ type: 'AUTH_LOADING', payload: false });
+        // Get current user using generic CRUD API
+        const userResponse = await connector.get<User>('currentUser');
+        if (!userResponse.success) {
+          throw new Error(userResponse.message || 'Failed to get current user');
+        }
+
+        const user = userResponse.data;
+        dispatch({ type: 'SET_USER', payload: user });
+
+        // Load user roles using generic CRUD API
+        const rolesResponse = await connector.list<Role>(`users/${user.id}/roles`);
+        if (rolesResponse.success) {
+          const roles = rolesResponse.data;
+          dispatch({ type: 'SET_ROLES', payload: roles });
+
+          // Load permissions for these roles
+          const roleIds = roles.map((role: Role) => role.id);
+          const permissionsResponse = await connector.list<Permission>(
+            `roles/permissions?roleIds=${roleIds.join(',')}`
+          );
+          if (permissionsResponse.success) {
+            dispatch({ type: 'SET_PERMISSIONS', payload: permissionsResponse.data });
+          }
+        }
+      } catch (error: any) {
+        dispatch({ type: 'ERROR', payload: error.message || 'Failed to load user data' });
       }
-    } catch {
-      console.error('Failed to initialize identity system');
-      dispatch({ type: 'AUTH_ERROR', payload: 'Initialization failed' });
-    }
-  };
+    };
 
-  const resolveTenantFromUrl = (): string | null => {
-    if (!tenantResolver) {
-      // Default subdomain resolution
-      const hostname = window.location.hostname;
-      const parts = hostname.split('.');
-      if (parts.length > 2) {
-        return parts[0]; // First subdomain
-      }
-      return null;
-    }
+    loadUserData();
+  }, [tenantId]);
 
-    if (tenantResolver.strategy === 'subdomain' && tenantResolver.subdomain) {
-      const hostname = window.location.hostname;
-      const pattern = tenantResolver.subdomain.pattern;
-      const match = hostname.match(pattern.replace('{tenant}', '(.+)'));
-      return match ? match[1] : null;
-    }
-
-    if (tenantResolver.strategy === 'query-param' && tenantResolver.queryParam) {
-      const urlParams = new URLSearchParams(window.location.search);
-      const tenantId = urlParams.get(tenantResolver.queryParam.paramName);
-
-      if (tenantId && tenantResolver.queryParam.storageKey) {
-        sessionStorage.setItem(tenantResolver.queryParam.storageKey, tenantId);
-      }
-
-      return tenantId || sessionStorage.getItem(tenantResolver.queryParam.storageKey || 'tenantId');
-    }
-
-    return null;
-  };
-
-  const loadUserRoles = async (userId: string) => {
+  const login = async (credentials: LoginCredentials) => {
     try {
-      const roles = await connector.getUserRoles(userId);
-      const roleIds = roles.map(r => r.id);
-      const permissions = await connector.getPermissions(roleIds);
+      dispatch({ type: 'LOADING', payload: true });
 
-      dispatch({
-        type: 'ROLES_SET',
-        payload: { roles, permissions },
-      });
-    } catch {
-      console.error('Failed to load user roles');
+      // Use generic CRUD API to authenticate
+      const loginData = {
+        email: credentials.email,
+        password: credentials.password,
+      };
+      const response = await connector.create<AuthResponse>('auth/login', loginData);
+
+      if (response.success) {
+        // Store session data using utility
+        const authData = response.data;
+        SessionStorage.store(authData);
+
+        dispatch({ type: 'LOGIN_SUCCESS', payload: authData });
+        return authData;
+      } else {
+        throw new Error(response.message || 'Login failed');
+      }
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : 'Login failed';
+      dispatch({ type: 'ERROR', payload: errorMessage });
+      throw error;
     }
   };
 
-  const loadFeatureFlags = async (tenantId: string) => {
+  const logout = async () => {
     try {
-      const flags = await connector.getFeatureFlags(tenantId);
-      dispatch({ type: 'FEATURE_FLAGS_SET', payload: flags });
-    } catch {
-      console.error('Failed to load feature flags');
+      // Use generic CRUD API to logout
+      await connector.create('auth/logout', {});
+
+      // Clear session data using utility
+      SessionStorage.clear();
+
+      dispatch({ type: 'LOGOUT' });
+    } catch (error) {
+      console.error('Logout error:', error);
+      // Still clear local state and session even if server logout fails
+      SessionStorage.clear();
+      dispatch({ type: 'LOGOUT' });
     }
   };
+
+  const signup = async (email: string, _password: string, name: string) => {
+    if (!tenantId) {
+      throw new Error('No tenant selected');
+    }
+
+    try {
+      dispatch({ type: 'LOADING', payload: true });
+
+      // For now, create a mock user since signup is not implemented in base connector
+      // This could be extended to support actual signup via connector
+      const mockUser: User = {
+        id: `user_${Date.now()}`,
+        email,
+        name,
+        tenantId,
+        roles: ['user'],
+        isActive: true,
+        createdAt: new Date(),
+      };
+
+      // Store user via connector's generic API
+      await connector.create('users', mockUser);
+      dispatch({ type: 'AUTH_SUCCESS', payload: mockUser });
+
+      // Load user roles using connector's generic API
+      const rolesResponse = await connector.list('roles');
+      if (rolesResponse.success) {
+        const userRoles = rolesResponse.data.filter(
+          (role: any) => mockUser.roles.includes(role.name) || mockUser.roles.includes(role.id)
+        ) as Role[];
+        dispatch({ type: 'SET_ROLES', payload: userRoles });
+      }
+    } catch (error: any) {
+      dispatch({ type: 'AUTH_ERROR', payload: error.message || 'Signup failed' });
+    }
+  };
+
+  // Token interceptor for connector authentication - memoized to prevent infinite re-renders
+  const tokenInterceptor = useMemo(
+    () => ({
+      getAccessToken: async (): Promise<string | null> => {
+        const { token, expiresAt } = SessionStorage.getToken();
+
+        if (!token || !expiresAt) return null;
+
+        // Check if token is expired
+        if (SessionStorage.isTokenExpired(expiresAt)) {
+          // Try to refresh token
+          return await tokenInterceptor.refreshToken();
+        }
+
+        return token;
+      },
+
+      refreshToken: async (): Promise<string | null> => {
+        const refreshToken = SessionStorage.getRefreshToken();
+        if (!refreshToken) {
+          await tokenInterceptor.onTokenExpired();
+          return null;
+        }
+
+        try {
+          // Call refresh endpoint
+          const response = await connector.create<AuthResponse>('auth/refresh', { refreshToken });
+          if (response.success) {
+            const authData = response.data;
+            SessionStorage.storeTokens(authData);
+            return authData.tokens.accessToken;
+          }
+        } catch (error) {
+          console.error('Token refresh failed:', error);
+        }
+
+        await tokenInterceptor.onTokenExpired();
+        return null;
+      },
+
+      onTokenExpired: async (): Promise<void> => {
+        // Clear session and logout
+        SessionStorage.clear();
+        dispatch({ type: 'LOGOUT' });
+      },
+    }),
+    [connector, dispatch]
+  );
+
+  // Register token interceptor with connector
+  useEffect(() => {
+    setTokenInterceptor(tokenInterceptor);
+  }, [setTokenInterceptor, tokenInterceptor]);
 
   const contextValue: IdentityContextValue = {
     auth: state.auth,
-    tenant: state.tenant,
     roles: state.roles,
-    session: state.session,
-    featureFlags: state.featureFlags,
     connector,
-    config,
+    tenant: { tenantId },
+    session: state.auth, // For compatibility, map auth to session
+    featureFlags: {}, // Empty for now, will be populated by feature flag provider
+    login,
+    logout,
+    signup,
+    tokenInterceptor,
   };
-
-  // Show loading component while initializing
-  if (state.auth.isLoading || state.tenant.isLoading) {
-    return LoadingComponent ? <LoadingComponent /> : <div>Loading...</div>;
-  }
-
-  // Show landing component if tenant resolution failed
-  if (state.tenant.showLanding) {
-    return LandingComponent ? <LandingComponent /> : <div>Please select a tenant</div>;
-  }
 
   return <IdentityContext.Provider value={contextValue}>{children}</IdentityContext.Provider>;
 }
 
-// Hook to use the identity context
-export function useIdentityContext(): IdentityContextValue {
+export function useAuth(): IdentityContextValue {
   const context = useContext(IdentityContext);
   if (!context) {
-    throw new Error('useIdentityContext must be used within IdentityProvider');
+    throw new Error('useAuth must be used within an IdentityProvider');
   }
   return context;
+}
+
+// Legacy export for compatibility
+export function useIdentityContext(): IdentityContextValue {
+  return useAuth();
 }

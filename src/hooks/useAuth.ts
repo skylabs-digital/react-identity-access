@@ -15,38 +15,29 @@ export interface UseAuthReturn {
 }
 
 export function useAuth(): UseAuthReturn {
-  const { auth, connector, tenant } = useIdentityContext();
+  const context = useIdentityContext();
+  const { auth } = context;
 
   const login = useCallback(
     async (credentials: LoginCredentials) => {
-      const tenantId = tenant.currentTenant?.id;
-      await connector.login({
-        ...credentials,
-        tenantId,
-      });
-
-      // The provider will handle the state update through context
-      window.location.reload(); // Simple approach to reinitialize
+      await context.login(credentials);
+      // The provider handles state updates automatically
     },
-    [connector, tenant.currentTenant?.id]
+    [context]
   );
 
   const logout = useCallback(async () => {
-    try {
-      await connector.logout();
-      window.location.reload(); // Simple approach to clear state
-    } catch (error) {
-      console.error('Logout error:', error);
-      // Force logout even if API call fails
-      window.location.reload();
-    }
-  }, [connector]);
+    await context.logout();
+    // The provider handles state updates automatically
+  }, [context]);
 
-  const signup = useCallback(async (_credentials: SignupCredentials) => {
-    // For now, signup is not implemented in the connector
-    // This would typically create a new user account
-    throw new Error('Signup not implemented yet');
-  }, []);
+  const signup = useCallback(
+    async (credentials: SignupCredentials) => {
+      await context.signup(credentials.email, credentials.password, credentials.name);
+      // The provider handles state updates automatically
+    },
+    [context]
+  );
 
   const updateProfile = useCallback(
     async (updates: Partial<User>) => {
@@ -54,16 +45,32 @@ export function useAuth(): UseAuthReturn {
         throw new Error('No authenticated user');
       }
 
-      await connector.updateUser(updates);
+      // Use connector's generic CRUD API to update user
+      const response = await context.connector.update<User>(
+        `users/${auth.user.id}`,
+        auth.user.id,
+        updates
+      );
+      if (!response.success) {
+        throw new Error(
+          typeof response.error === 'string' ? response.error : 'Failed to update profile'
+        );
+      }
       // Reload to get updated user data
       window.location.reload();
     },
-    [connector, auth.user]
+    [context.connector, auth.user]
   );
 
   const refreshSession = useCallback(async () => {
-    await connector.extendSession();
-  }, [connector]);
+    // Use connector's generic CRUD API to extend session
+    const response = await context.connector.create('auth/extend-session', {});
+    if (!response.success) {
+      throw new Error(
+        typeof response.error === 'string' ? response.error : 'Failed to refresh session'
+      );
+    }
+  }, [context.connector]);
 
   return {
     user: auth.user,

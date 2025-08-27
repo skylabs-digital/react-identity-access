@@ -1,15 +1,16 @@
 # React Identity Access
 
-A comprehensive React library for authentication, authorization, multi-tenancy, feature flags, and settings management with one-liner APIs for rapid prototyping.
+A comprehensive React library for authentication, authorization, multi-tenancy, feature flags, and settings management with modular providers and one-liner APIs for rapid prototyping.
 
 ## Features
 
+- **Modular Architecture**: Use only what you need with independent providers
 - **One-Liner Authentication**: `const { login, user } = useAuth()`
 - **Declarative Guards**: `<ProtectedRoute>`, `<RoleGuard>`, `<PermissionGuard>`
 - **Multi-Tenant Support**: Subdomain and query parameter strategies
-- **Feature Flags**: Server + tenant admin dual control
-- **Settings Management**: Type-safe configuration with public/private settings
-- **Role-Based Access Control**: Flexible RBAC with permissions
+- **Feature Flags**: Dynamic feature toggles with tenant-specific overrides
+- **Settings Management**: Schema-validated configuration with auto-save
+- **Subscription Management**: Billing and plan management
 - **TypeScript First**: Full type safety and IntelliSense
 - **Rapid Prototyping**: 90% functionality out-of-the-box
 
@@ -23,48 +24,82 @@ npm install react-identity-access
 yarn add react-identity-access
 ```
 
-### Basic Setup (2 minutes)
+### Basic Setup (1 minute) - Unified Provider
 
 ```tsx
-import { 
-  IdentityProvider, 
-  SettingsProvider, 
-  LocalStorageConnector, 
-  SettingsLocalStorageConnector,
-  z
-} from 'react-identity-access';
-import { mySeedData } from './seedData'; // Define your own seed data
-
-const identityConnector = new LocalStorageConnector({
-  seedData: mySeedData // Required: provide your own seed data
-});
-
-const settingsConnector = new SettingsLocalStorageConnector();
+import { ReactIdentityProvider, z } from 'react-identity-access';
 
 const settingsSchema = z.object({
-  siteName: z.string().public(),
-  theme: z.enum(['light', 'dark']).public(),
+  siteName: z.string(),
+  theme: z.enum(['light', 'dark']),
   maxUsers: z.number(),
 });
 
 function App() {
+  const config = {
+    connector: {
+      type: 'localStorage',
+      appId: 'my-app',
+    },
+    tenantResolver: {
+      strategy: 'query-param',
+      queryParam: {
+        paramName: 'tenant',
+        storageKey: 'app-tenant',
+      },
+    },
+    features: {
+      settings: true,
+      subscription: true,
+      featureFlags: true,
+    },
+  };
+
   return (
-    <IdentityProvider connector={identityConnector}>
-      <SettingsProvider
-        appId="my-app"
-        tenantId="default"
-        version="1.0.0"
-        connector={settingsConnector}
-        schema={settingsSchema}
-        defaults={{
-          siteName: 'My App',
-          theme: 'light',
-          maxUsers: 100,
-        }}
-      >
-        <YourAppContent />
-      </SettingsProvider>
-    </IdentityProvider>
+    <ReactIdentityProvider
+      config={config}
+      settingsSchema={settingsSchema}
+      settingsDefaults={{
+        siteName: 'My App',
+        theme: 'light',
+        maxUsers: 100,
+      }}
+    >
+      <YourAppContent />
+    </ReactIdentityProvider>
+  );
+}
+```
+
+### Production Setup
+
+```tsx
+function App() {
+  const config = {
+    connector: {
+      type: 'fetch',
+      appId: 'my-app',
+      apiKey: process.env.REACT_APP_API_KEY,
+      baseUrl: 'https://api.myapp.com',
+    },
+    tenantResolver: {
+      strategy: 'subdomain',
+    },
+    features: {
+      settings: true,
+      subscription: true,
+      featureFlags: true,
+    },
+  };
+
+  return (
+    <ReactIdentityProvider
+      config={config}
+      settingsSchema={settingsSchema}
+      settingsDefaults={defaults}
+    >
+      <YourAppContent />
+    </ReactIdentityProvider>
   );
 }
 ```
@@ -75,14 +110,14 @@ function App() {
 import { useAuth } from 'react-identity-access';
 
 function LoginButton() {
-  const { login, logout, user, isAuthenticated } = useAuth();
+  const { login, logout, auth } = useAuth();
 
-  if (isAuthenticated) {
-    return <button onClick={logout}>Logout {user?.name}</button>;
+  if (auth.isAuthenticated) {
+    return <button onClick={logout}>Logout {auth.user?.email}</button>;
   }
 
   return (
-    <button onClick={() => login({ email: 'admin@acme.com', password: 'admin123' })}>
+    <button onClick={() => login('admin@acme.com', 'admin123')}>
       Login
     </button>
   );
@@ -92,7 +127,14 @@ function LoginButton() {
 ### Declarative Protection
 
 ```tsx
-import { ProtectedRoute, RoleGuard, FeatureFlag } from 'react-identity-access';
+import { 
+  ProtectedRoute, 
+  RoleGuard, 
+  FeatureFlag,
+  SubscriptionGuard,
+  FeatureGate,
+  LimitGate 
+} from 'react-identity-access';
 
 function App() {
   return (
@@ -116,6 +158,18 @@ function Dashboard() {
       <FeatureFlag flag="new-dashboard">
         <NewDashboard />
       </FeatureFlag>
+      
+      <SubscriptionGuard requiredPlan="pro">
+        <ProFeatures />
+      </SubscriptionGuard>
+      
+      <FeatureGate feature="advanced-analytics" fallback={<UpgradePrompt />}>
+        <AdvancedAnalytics />
+      </FeatureGate>
+      
+      <LimitGate limit="api_calls" warningThreshold={0.8}>
+        <ApiUsageWidget />
+      </LimitGate>
     </div>
   );
 }
@@ -126,13 +180,13 @@ function Dashboard() {
 | Guide | Description |
 |-------|-------------|
 | **[Quick Start](./docs/QUICK_START.md)** | Get up and running in 5 minutes |
+| **[Unified Provider](./docs/UNIFIED_PROVIDER.md)** | ⭐ **NEW**: Single provider for all features |
+| **[System Status](./docs/SYSTEM_STATUS.md)** | Current implementation status and roadmap |
 | **[API Reference](./docs/API_REFERENCE.md)** | Complete hook and component documentation |
 | **[Settings Management](./docs/SETTINGS.md)** | Configuration and settings system guide |
-| **[Seed Data Guide](./docs/SEED_DATA_GUIDE.md)** | How to configure your own seed data |
-| **[SSR Integration](./docs/SSR_INTEGRATION.md)** | Server-Side Rendering setup guide |
+| **[Feature Flags](./docs/FEATURE_FLAGS.md)** | Feature flag system documentation |
 | **[Examples](./docs/EXAMPLES.md)** | Real-world usage patterns |
 | **[Architecture](./docs/ARCHITECTURE.md)** | System design and concepts |
-| **[Implementation](./docs/IMPLEMENTATION.md)** | Technical details and extensibility |
 
 ## 🔐 Development Credentials
 
@@ -146,25 +200,69 @@ The library comes with pre-seeded test data for immediate development:
 
 ## 🚀 Core Concepts
 
+### Unified Provider Architecture
+
+The `ReactIdentityProvider` unifies all functionality with a single configuration:
+
+```tsx
+// Single unified provider with all features
+<ReactIdentityProvider
+  config={{
+    connector: { type: 'localStorage', appId: 'my-app' },
+    tenantResolver: { strategy: 'query-param' },
+    features: {
+      settings: true,
+      subscription: true,
+      featureFlags: true,
+    },
+  }}
+  settingsSchema={schema}
+  settingsDefaults={defaults}
+>
+  <YourApp />
+</ReactIdentityProvider>
+```
+
+### Legacy Modular Architecture (Still Supported)
+
+For backward compatibility, individual providers can still be used:
+
+```tsx
+// Individual providers for granular control
+<IdentityProvider>
+  <SettingsProvider schema={schema} defaults={defaults}>
+    <SubscriptionProvider>
+      <YourApp />
+    </SubscriptionProvider>
+  </SettingsProvider>
+</IdentityProvider>
+```
+
 ### One-Liner APIs
 
-Every common authentication task can be accomplished with a single line:
+Every common task can be accomplished with a single line:
 
 ```tsx
 // Authentication
-const { login, user, isAuthenticated } = useAuth();
+const { login, logout, auth } = useAuth();
 
 // Role checking
 const { hasRole, hasPermission } = useRoles();
 
 // Feature flags
-const { isEnabled } = useFeatureFlags();
+const { flags, isEnabled, toggleFlag } = useFeatureFlags();
 
 // Multi-tenancy
-const { currentTenant, switchTenant } = useTenant();
+const { tenantId, tenant } = useTenant();
 
 // Settings management
-const { settings, updateSetting } = useSettings();
+const { values, updateSetting, save } = useSettings();
+
+// Subscription management
+const { subscription, plans, subscribe, usage, limits } = useSubscription();
+
+// Payment processing (for tenant-to-customer payments)
+const { processPayment, paymentHistory } = useTenantPayment();
 ```
 
 ### Declarative Components
@@ -191,6 +289,18 @@ Protect content and routes declaratively without imperative checks:
 <SettingsConditional settingKey="theme" expectedValue="dark">
   <DarkModeStyles />
 </SettingsConditional>
+
+<SubscriptionGuard requiredPlan="enterprise">
+  <EnterpriseFeatures />
+</SubscriptionGuard>
+
+<FeatureGate feature="ai-assistant" fallback={<UpgradePrompt />}>
+  <AIAssistant />
+</FeatureGate>
+
+<LimitGate limit="storage" warningThreshold={0.9}>
+  <StorageUsageIndicator />
+</LimitGate>
 ```
 
 ### Multi-Tenant Architecture
@@ -199,32 +309,54 @@ Configure tenant resolution strategy based on your deployment:
 
 ```tsx
 // Production: subdomain-based
-const connector = new LocalStorageConnector({
-  tenantStrategy: 'subdomain' // tenant.yourdomain.com
-});
+<TenantProvider config={{ strategy: 'subdomain' }}>
+  <YourApp />
+</TenantProvider>
 
 // Development: query parameter
-const connector = new LocalStorageConnector({
-  tenantStrategy: 'query-param' // ?tenant=acme-corp
-});
+<TenantProvider config={{
+  strategy: 'query-param',
+  queryParam: {
+    paramName: 'tenant',
+    storageKey: 'app-tenant',
+  },
+}}>
+  <YourApp />
+</TenantProvider>
 ```
 
-### SSR Integration
+### Backend Configuration
 
-Inject initial state from your SSR framework to eliminate loading states:
+Choose between localStorage (development) or fetch (production):
 
 ```tsx
-// Next.js, Remix, Gatsby, etc.
-<IdentityProvider 
-  connector={connector}
-  initialState={{
-    tenant: ssrTenantData,
-    user: ssrUserData,
-    featureFlags: ssrFeatureFlags
-  }}
->
-  <App />
-</IdentityProvider>
+// Development: localStorage mock data
+const devConfig = {
+  connector: {
+    type: 'localStorage',
+    appId: 'my-app',
+  },
+};
+
+// Production: API backend
+const prodConfig = {
+  connector: {
+    type: 'fetch',
+    appId: 'my-app',
+    apiKey: process.env.REACT_APP_API_KEY,
+    baseUrl: 'https://api.myapp.com',
+    endpoints: {
+      identity: '/api/v1/identity',
+      settings: '/api/v1/settings',
+      subscription: '/api/v1/subscription',
+      featureFlags: '/api/v1/feature-flags',
+    },
+  },
+};
+
+<ReactIdentityProvider config={config}>
+  <YourApp />
+</ReactIdentityProvider>
 ```
 
 ### Feature Flag System
@@ -247,38 +379,32 @@ Dual control system with server and tenant admin levels:
 
 ### Settings Management
 
-Type-safe configuration system with public/private settings:
+Schema-validated configuration system with auto-save:
 
 - **Schema Validation**: Zod-based type safety and validation
-- **Public/Private Settings**: Control visibility to end users
+- **Auto-Save**: Automatic persistence with dirty state tracking
 - **Multi-Tenant**: Tenant-specific configuration management
-- **Multiple Connectors**: LocalStorage, API, or custom backends
+- **Version Control**: Settings versioning and migration support
 
 ```tsx
-// Settings schema with public/private fields
+// Settings schema
 const settingsSchema = z.object({
-  siteName: z.string().public(),      // Visible to all users
-  theme: z.enum(['light', 'dark']).public(),
-  maxUsers: z.number(),               // Private by default
+  siteName: z.string(),
+  theme: z.enum(['light', 'dark']),
+  maxUsers: z.number(),
   adminEmail: z.string().email(),
 });
 
 // Using settings
-const { settings, updateSetting } = useSettings();
+const { values, updateSetting, isDirty, save } = useSettings();
 
-// Conditional rendering based on settings
-<SettingsConditional settingKey="theme" expectedValue="dark">
-  <DarkModeInterface />
-</SettingsConditional>
+// Update settings
+updateSetting('theme', 'dark');
 
-// Admin panel for settings management
-<SettingsAdminPanel
-  title="App Configuration"
-  sections={[
-    { key: 'general', label: 'General', fields: ['siteName', 'theme'] },
-    { key: 'limits', label: 'Limits', fields: ['maxUsers'] }
-  ]}
-/>
+// Manual save (or use autoSave config)
+if (isDirty) {
+  await save();
+}
 ```
 
 ## 💡 Examples
@@ -287,27 +413,29 @@ const { settings, updateSetting } = useSettings();
 
 ```tsx
 function ClientApp() {
-  const { user, login, logout } = useAuth();
-  const { hasRole } = useRoles();
+  const { auth, login, logout } = useAuth();
+  const { isEnabled } = useFeatureFlags();
 
   return (
     <div>
-      {user ? (
+      {auth.isAuthenticated ? (
         <div>
-          <h1>Welcome, {user.name}!</h1>
+          <h1>Welcome, {auth.user?.email}!</h1>
           
-          <RoleGuard role="premium">
+          {isEnabled('premium-features') && (
             <PremiumFeatures />
-          </RoleGuard>
+          )}
           
-          <FeatureFlag flag="new-ui">
+          {isEnabled('new-ui') && (
             <NewUserInterface />
-          </FeatureFlag>
+          )}
           
           <button onClick={logout}>Logout</button>
         </div>
       ) : (
-        <LoginForm onLogin={login} />
+        <button onClick={() => login('demo@example.com', 'password')}>
+          Login
+        </button>
       )}
     </div>
   );
@@ -318,31 +446,43 @@ function ClientApp() {
 
 ```tsx
 function AdminPanel() {
-  const { toggleFlag, flags } = useFeatureFlags();
+  const { flags, toggleFlag } = useFeatureFlags();
+  const { values: settings, updateSetting } = useSettings();
+  const { subscription, plans } = useSubscription();
 
   return (
-    <ProtectedRoute requireRole="admin">
-      <div>
-        <h1>Admin Panel</h1>
-        
-        <PermissionGuard permission="users:manage">
-          <UserManagement />
-        </PermissionGuard>
-        
-        <PermissionGuard permission="features:manage">
-          <div>
-            <h2>Feature Flags</h2>
-            {flags.map(flag => (
-              <FeatureToggle 
-                key={flag.key} 
-                flag={flag.key} 
-                onToggle={toggleFlag}
-              />
-            ))}
-          </div>
-        </PermissionGuard>
-      </div>
-    </ProtectedRoute>
+    <div>
+      <h1>Admin Panel</h1>
+      
+      <section>
+        <h2>Feature Flags</h2>
+        {Object.entries(flags).map(([key, enabled]) => (
+          <label key={key}>
+            <input
+              type="checkbox"
+              checked={enabled}
+              onChange={(e) => toggleFlag(key, e.target.checked)}
+            />
+            {key}
+          </label>
+        ))}
+      </section>
+      
+      <section>
+        <h2>Settings</h2>
+        <input
+          value={settings.siteName}
+          onChange={(e) => updateSetting('siteName', e.target.value)}
+          placeholder="Site Name"
+        />
+      </section>
+      
+      <section>
+        <h2>Subscription</h2>
+        <p>Current Plan: {subscription?.planId || 'None'}</p>
+        <p>Status: {subscription?.status || 'Inactive'}</p>
+      </section>
+    </div>
   );
 }
 ```
@@ -351,28 +491,22 @@ function AdminPanel() {
 
 ```tsx
 function MultiTenantDashboard() {
-  const { currentTenant, switchTenant, availableTenants } = useTenant();
+  const { tenantId, tenant } = useTenant();
+  const { auth } = useAuth();
 
   return (
     <div>
       <header>
-        <h1>{currentTenant?.name} Dashboard</h1>
-        <select 
-          value={currentTenant?.id} 
-          onChange={(e) => switchTenant(e.target.value)}
-        >
-          {availableTenants.map(tenant => (
-            <option key={tenant.id} value={tenant.id}>
-              {tenant.name}
-            </option>
-          ))}
-        </select>
+        <h1>{tenant?.name || tenantId} Dashboard</h1>
+        <p>User: {auth.user?.email}</p>
       </header>
       
       <main>
-        <RoleGuard role="admin" fallback={<UserDashboard />}>
+        {auth.user?.roles?.includes('admin') ? (
           <AdminDashboard />
-        </RoleGuard>
+        ) : (
+          <UserDashboard />
+        )}
       </main>
     </div>
   );

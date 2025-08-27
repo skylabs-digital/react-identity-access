@@ -272,3 +272,217 @@ export class TenantError extends Error {
     this.code = code;
   }
 }
+
+// Subscription & Payment Types
+export interface SubscriptionPlan {
+  id: string;
+  name: string;
+  displayName: string;
+  description: string;
+  price: number;
+  currency: string;
+  interval: 'monthly' | 'yearly';
+  features: string[];
+  limits: Record<string, number>; // e.g., { users: 10, storage: 1000 }
+  isActive: boolean;
+  trialDays?: number;
+}
+
+export interface Subscription {
+  id: string;
+  tenantId: string;
+  planId: string;
+  plan: SubscriptionPlan;
+  status: 'active' | 'canceled' | 'past_due' | 'trialing' | 'incomplete';
+  currentPeriodStart: Date;
+  currentPeriodEnd: Date;
+  cancelAtPeriodEnd: boolean;
+  trialStart?: Date;
+  trialEnd?: Date;
+  createdAt: Date;
+  updatedAt: Date;
+}
+
+export interface PaymentMethod {
+  id: string;
+  type: 'card' | 'bank_account' | 'digital_wallet';
+  provider: 'stripe' | 'mercadopago' | 'paypal';
+  last4?: string;
+  brand?: string;
+  expiryMonth?: number;
+  expiryYear?: number;
+  isDefault: boolean;
+  metadata?: Record<string, any>;
+}
+
+export interface Invoice {
+  id: string;
+  tenantId: string;
+  subscriptionId: string;
+  amount: number;
+  currency: string;
+  status: 'draft' | 'open' | 'paid' | 'void' | 'uncollectible';
+  dueDate: Date;
+  paidAt?: Date;
+  invoiceUrl?: string;
+  downloadUrl?: string;
+  items: InvoiceItem[];
+  createdAt: Date;
+}
+
+export interface InvoiceItem {
+  id: string;
+  description: string;
+  quantity: number;
+  unitPrice: number;
+  amount: number;
+}
+
+export interface Payment {
+  id: string;
+  tenantId: string;
+  invoiceId?: string;
+  amount: number;
+  currency: string;
+  status: 'pending' | 'succeeded' | 'failed' | 'canceled';
+  paymentMethodId: string;
+  gateway: 'stripe' | 'mercadopago' | 'paypal';
+  gatewayTransactionId?: string;
+  failureReason?: string;
+  createdAt: Date;
+  processedAt?: Date;
+}
+
+export interface BillingAddress {
+  line1: string;
+  line2?: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+}
+
+export interface Customer {
+  id: string;
+  tenantId: string;
+  email: string;
+  name: string;
+  phone?: string;
+  billingAddress?: BillingAddress;
+  paymentMethods: PaymentMethod[];
+  defaultPaymentMethodId?: string;
+  metadata?: Record<string, any>;
+}
+
+// Payment Gateway Abstraction
+export interface PaymentGateway {
+  name: string;
+  initialize(config: Record<string, any>): Promise<void>;
+  createPaymentIntent(
+    amount: number,
+    currency: string,
+    metadata?: Record<string, any>
+  ): Promise<PaymentIntent>;
+  confirmPayment(paymentIntentId: string, paymentMethodId: string): Promise<PaymentResult>;
+  createCustomer(customer: Omit<Customer, 'id' | 'paymentMethods'>): Promise<string>;
+  addPaymentMethod(customerId: string, paymentMethodData: any): Promise<PaymentMethod>;
+  removePaymentMethod(paymentMethodId: string): Promise<void>;
+  createSubscription(customerId: string, planId: string): Promise<Subscription>;
+  cancelSubscription(subscriptionId: string): Promise<void>;
+  getInvoices(customerId: string): Promise<Invoice[]>;
+}
+
+export interface PaymentIntent {
+  id: string;
+  amount: number;
+  currency: string;
+  status:
+    | 'requires_payment_method'
+    | 'requires_confirmation'
+    | 'requires_action'
+    | 'processing'
+    | 'succeeded'
+    | 'canceled';
+  clientSecret?: string;
+  metadata?: Record<string, any>;
+}
+
+export interface PaymentResult {
+  success: boolean;
+  paymentIntent: PaymentIntent;
+  error?: string;
+}
+
+// Subscription State
+export interface SubscriptionState {
+  subscription: Subscription | null;
+  plans: SubscriptionPlan[];
+  paymentMethods: PaymentMethod[];
+  invoices: Invoice[];
+  payments: Payment[];
+  isLoading: boolean;
+  error: string | null;
+  lastSync: Date | null;
+}
+
+// Tenant Payment System (for tenants to charge their customers)
+export interface TenantPaymentConfig {
+  id: string;
+  tenantId: string;
+  enabledGateways: string[];
+  defaultGateway: string;
+  gatewayConfigs: Record<string, Record<string, any>>;
+  webhookEndpoints: Record<string, string>;
+  isActive: boolean;
+}
+
+export interface TenantCustomer {
+  id: string;
+  tenantId: string;
+  email: string;
+  name: string;
+  phone?: string;
+  billingAddress?: BillingAddress;
+  metadata?: Record<string, any>;
+  createdAt: Date;
+}
+
+export interface TenantPayment {
+  id: string;
+  tenantId: string;
+  customerId: string;
+  amount: number;
+  currency: string;
+  description: string;
+  status: 'pending' | 'succeeded' | 'failed' | 'refunded';
+  gateway: string;
+  gatewayTransactionId?: string;
+  metadata?: Record<string, any>;
+  createdAt: Date;
+  processedAt?: Date;
+}
+
+// Error Types
+export class SubscriptionError extends Error {
+  code: 'SUBSCRIPTION_NOT_FOUND' | 'PLAN_NOT_FOUND' | 'PAYMENT_FAILED' | 'SUBSCRIPTION_CANCELED';
+
+  constructor(message: string, code: SubscriptionError['code']) {
+    super(message);
+    this.name = 'SubscriptionError';
+    this.code = code;
+  }
+}
+
+export class PaymentError extends Error {
+  code:
+    | 'PAYMENT_METHOD_REQUIRED'
+    | 'INSUFFICIENT_FUNDS'
+    | 'GATEWAY_ERROR'
+    | 'INVALID_PAYMENT_METHOD';
+
+  constructor(message: string, code: PaymentError['code']) {
+    super(message);
+    this.name = 'PaymentError';
+    this.code = code;
+  }
+}

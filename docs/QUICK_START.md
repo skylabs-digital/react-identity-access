@@ -10,18 +10,33 @@ yarn add react-identity-access
 
 ## Basic Setup (5 minutes)
 
-### 1. Wrap your app with IdentityProvider
+### 1. Wrap your app with modular providers
 
 ```tsx
-import { IdentityProvider, LocalStorageConnector } from 'react-identity-access';
-
-const connector = new LocalStorageConnector();
+import { 
+  ConnectorProvider, 
+  TenantProvider, 
+  IdentityProvider, 
+  FeatureFlagsProvider, 
+  SettingsProvider,
+  SubscriptionProvider 
+} from 'react-identity-access';
 
 function App() {
   return (
-    <IdentityProvider connector={connector}>
-      <YourAppContent />
-    </IdentityProvider>
+    <ConnectorProvider config={{ type: 'localStorage', appId: 'my-app' }}>
+      <TenantProvider config={{ strategy: 'query-param' }}>
+        <IdentityProvider>
+          <FeatureFlagsProvider>
+            <SettingsProvider schema={settingsSchema} defaults={defaults}>
+              <SubscriptionProvider>
+                <YourAppContent />
+              </SubscriptionProvider>
+            </SettingsProvider>
+          </FeatureFlagsProvider>
+        </IdentityProvider>
+      </TenantProvider>
+    </ConnectorProvider>
   );
 }
 ```
@@ -32,19 +47,19 @@ function App() {
 import { useAuth } from 'react-identity-access';
 
 function LoginButton() {
-  const { login, logout, user, isAuthenticated } = useAuth();
+  const { login, logout, auth } = useAuth();
 
-  if (isAuthenticated) {
+  if (auth.isAuthenticated) {
     return (
       <div>
-        Welcome, {user?.name}!
+        Welcome, {auth.user?.email}!
         <button onClick={logout}>Logout</button>
       </div>
     );
   }
 
   return (
-    <button onClick={() => login({ email: 'admin@acme.com', password: 'admin123' })}>
+    <button onClick={() => login('admin@acme.com', 'admin123')}>
       Login
     </button>
   );
@@ -113,57 +128,79 @@ function NewFeatureSection() {
 }
 ```
 
+### 4. Use feature flags and settings
+
+```tsx
+import { useFeatureFlags, useSettings } from 'react-identity-access';
+
+function AppContent() {
+  const { flags, isEnabled, toggleFlag } = useFeatureFlags();
+  const { values: settings, updateSetting } = useSettings();
+
+  return (
+    <div>
+      {isEnabled('new-dashboard') && (
+        <NewDashboard />
+      )}
+      
+      <div>
+        <h2>Settings</h2>
+        <input
+          value={settings.siteName}
+          onChange={(e) => updateSetting('siteName', e.target.value)}
+        />
+      </div>
+    </div>
+  );
+}
+```
+
 ## Multi-Tenant Setup
 
 ### Configure tenant resolution
 
 ```tsx
-const connector = new LocalStorageConnector({
-  tenantStrategy: 'subdomain', // or 'query-param'
-});
-
-<IdentityProvider 
-  connector={connector}
-  tenantConfig={{
-    strategy: 'subdomain',
-    fallbackUrl: '/select-tenant'
-  }}
->
+// Production: subdomain-based
+<TenantProvider config={{ strategy: 'subdomain' }}>
   <App />
-</IdentityProvider>
+</TenantProvider>
+
+// Development: query parameter
+<TenantProvider config={{
+  strategy: 'query-param',
+  queryParam: {
+    paramName: 'tenant',
+    storageKey: 'app-tenant',
+  },
+}}>
+  <App />
+</TenantProvider>
 ```
 
-### Switch tenants
+### Access tenant information
 
 ```tsx
 import { useTenant } from 'react-identity-access';
 
-function TenantSwitcher() {
-  const { currentTenant, switchTenant, availableTenants } = useTenant();
+function TenantInfo() {
+  const { tenantId, tenant } = useTenant();
 
   return (
-    <select 
-      value={currentTenant?.id} 
-      onChange={(e) => switchTenant(e.target.value)}
-    >
-      {availableTenants.map(tenant => (
-        <option key={tenant.id} value={tenant.id}>
-          {tenant.name}
-        </option>
-      ))}
-    </select>
+    <div>
+      <h1>{tenant?.name || tenantId} Dashboard</h1>
+      <p>Tenant ID: {tenantId}</p>
+    </div>
   );
 }
 ```
 
 ## Development Credentials
 
-The LocalStorageConnector comes with pre-seeded test data:
+The localStorage connector comes with pre-seeded test data:
 
 ```
-Super Admin: superadmin@system.com / admin123
-Admin: admin@acme.com / admin123  
-User: user@acme.com / user123
+Admin: demo@example.com / password
+User: user@example.com / password
 ```
 
 ## Next Steps

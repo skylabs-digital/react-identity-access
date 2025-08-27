@@ -33,7 +33,7 @@ export function useFeatureFlags(): UseFeatureFlagsReturn {
       // Check for user segment targeting
       if (flag.userSegment && auth.user) {
         const userHasSegment = flag.userSegment.some(
-          segment =>
+          (segment: any) =>
             auth.user!.roles.includes(segment) ||
             (auth.user!.permissions && auth.user!.permissions.includes(segment))
         );
@@ -80,7 +80,16 @@ export function useFeatureFlags(): UseFeatureFlagsReturn {
         throw new Error('No current tenant');
       }
 
-      await connector.updateFeatureFlag(tenant.currentTenant.id, flagKey, enabled);
+      const response = await connector.update<FeatureFlag>(
+        `tenants/${tenant.currentTenant.id}/feature-flags/${flagKey}`,
+        flagKey,
+        { tenantOverride: enabled }
+      );
+      if (!response.success) {
+        throw new Error(
+          typeof response.error === 'string' ? response.error : 'Failed to update feature flag'
+        );
+      }
       // The provider should handle updating the state
       // For now, we'll trigger a simple state update
       window.dispatchEvent(

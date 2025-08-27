@@ -1,10 +1,17 @@
-// Core Provider
-export { IdentityProvider, useIdentityContext } from './providers/IdentityProvider';
+// Core Providers
+export * from './providers/ConnectorProvider';
+export * from './providers/IdentityProvider';
+export * from './providers/TenantProvider';
+export * from './providers/FeatureFlagsProvider';
+export * from './providers/SettingsProvider';
+export * from './providers/SubscriptionProvider';
+export * from './providers/TenantPaymentProvider';
 
 // Connectors
-export { IdentityConnector } from './connectors/base/IdentityConnector';
+export { BaseConnector } from './connectors/base/BaseConnector';
 export { LocalStorageConnector } from './connectors/localStorage/LocalStorageConnector';
 export type { LocalStorageConnectorConfig } from './connectors/localStorage/LocalStorageConnector';
+// LocalStorageSubscriptionConnector removed - using LocalStorageConnector for subscriptions
 
 // Hooks
 export { useAuth } from './hooks/useAuth';
@@ -12,6 +19,7 @@ export { useRoles } from './hooks/useRoles';
 export { useTenant } from './hooks/useTenant';
 export { useFeatureFlags } from './hooks/useFeatureFlags';
 export { useSession } from './hooks/useSession';
+export { useSubscription } from './hooks/useSubscription';
 
 export type {
   UseAuthReturn,
@@ -19,53 +27,25 @@ export type {
   UseTenantReturn,
   UseFeatureFlagsReturn,
   UseSessionReturn,
+  UseSubscriptionReturn,
 } from './hooks';
 
 // Guards
-export { ProtectedRoute } from './components/guards/ProtectedRoute';
-export { RoleGuard } from './components/guards/RoleGuard';
-export { PermissionGuard } from './components/guards/PermissionGuard';
-
-export type {
-  ProtectedRouteProps,
-  RoleGuardProps,
-  PermissionGuardProps,
-} from './components/guards';
-
-// Feature Flags
-export { FeatureFlag } from './components/feature-flags/FeatureFlag';
-export { FeatureToggle } from './components/feature-flags/FeatureToggle';
-
-export type { FeatureFlagProps, FeatureToggleProps } from './components/feature-flags';
-
-// Settings Management
-export { SettingsProvider, useSettings } from './settings/core/SettingsProvider';
-export type {
-  SettingsProviderProps,
-  SettingsContextValue,
-  SettingsConnector,
-} from './settings/core/types';
-
-// Settings Connectors
 export {
-  LocalStorageConnector as SettingsLocalStorageConnector,
-  localStorageConnector as settingsLocalStorageConnector,
-  FetchConnector as SettingsFetchConnector,
-  createFetchConnector as createSettingsFetchConnector,
-} from './settings/connectors';
-export type { FetchConnectorConfig as SettingsFetchConnectorConfig } from './settings/connectors';
+  FeatureFlag,
+  FeatureGate,
+  LimitGate,
+  SubscriptionGuard,
+  RoleGuard,
+  ProtectedRoute,
+} from './components';
 
-// Settings Components
-export { SettingsConditional, SettingsSwitch, SettingsAdminPanel } from './settings/components';
-export type {
-  SettingsConditionalProps,
-  SettingsSwitchProps,
-  SettingsAdminPanelProps,
-  SettingsSection,
-} from './settings/components';
+// Utilities
+export * from './utils/dot-notation';
+export * from './utils/zod/schema-analyzer';
 
-// Settings Utilities
-export { getNestedValue, setNestedValue, hasNestedValue } from './settings/utils/dot-notation';
+// Gateways
+export * from './gateways';
 
 // Types
 export type {

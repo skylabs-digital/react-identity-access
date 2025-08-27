@@ -20,9 +20,15 @@ export function useTenant(): UseTenantReturn {
         throw new Error('User must be authenticated to switch tenants');
       }
 
-      // Get user's available tenants
-      const userTenants = await connector.getUserTenants(auth.user.id);
-      const targetTenant = userTenants.find(t => t.id === tenantId);
+      // Get user's available tenants using generic CRUD API
+      const response = await connector.list<Tenant>(`users/${auth.user.id}/tenants`);
+      if (!response.success) {
+        throw new Error(
+          typeof response.error === 'string' ? response.error : 'Failed to get user tenants'
+        );
+      }
+      const userTenants = response.data;
+      const targetTenant = userTenants.find((t: any) => t.id === tenantId);
 
       if (!targetTenant) {
         throw new Error('User does not have access to this tenant');

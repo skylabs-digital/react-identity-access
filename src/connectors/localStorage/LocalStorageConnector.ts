@@ -1,59 +1,210 @@
-import { IdentityConnector } from '../base/IdentityConnector';
-import {
-  LoginCredentials,
-  AuthResponse,
-  TokenPair,
-  User,
-  Role,
-  Permission,
-  Tenant,
-  FeatureFlag,
-  AuthenticationError,
-  TenantError,
-} from '../../types';
-import { MockDataStore } from './MockDataStore';
+import { BaseConnector, ConnectorConfig, SeedData } from '../base/BaseConnector';
 
-export interface LocalStorageConnectorConfig {
+export interface LocalStorageConnectorConfig extends ConnectorConfig {
+  storagePrefix?: string;
   simulateDelay?: boolean;
   minDelay?: number;
   maxDelay?: number;
   errorRate?: number;
-  debugMode?: boolean;
-  storagePrefix?: string;
-  seedData: {
-    tenants?: Tenant[];
-    users?: User[];
-    roles?: Role[];
-    featureFlags?: Record<string, FeatureFlag>;
-  };
 }
 
-export class LocalStorageConnector extends IdentityConnector {
-  private storage: Storage;
-  private mockData: MockDataStore;
+export class LocalStorageConnector extends BaseConnector {
   private storagePrefix: string;
+  private storage: Storage;
 
   constructor(config: LocalStorageConnectorConfig) {
     super(config);
-    this.storage = window.localStorage;
-    this.storagePrefix = config.storagePrefix || 'identity_';
-    this.mockData = new MockDataStore(config.seedData);
-
-    // Initialize storage with seed data if not exists
-    this.initializeStorage();
+    this.storagePrefix = config.storagePrefix || `${config.appId}_`;
+    this.storage = typeof window !== 'undefined' ? window.localStorage : ({} as Storage);
   }
 
-  private initializeStorage() {
-    const existingData = this.getStorageItem('initialized');
-    if (!existingData) {
-      this.mockData.seedStorage(this.storage, this.storagePrefix);
-      this.setStorageItem('initialized', 'true');
+  protected async getItem<T>(path: string): Promise<T | null> {
+    const stored = this.getStorageItem(path);
+    if (stored) {
+      try {
+        return JSON.parse(stored);
+      } catch {
+        return null;
+      }
     }
+
+    // Fallback to seed data
+    const seedKey = this.mapPathToSeedKey(path);
+    if (seedKey && this.seedData?.[seedKey]) {
+      const seedArray = this.seedData[seedKey] as any[];
+      return seedArray.length > 0 ? seedArray[0] : null;
+    }
+
+    return null;
   }
 
-  public forceReinitialize() {
-    this.storage.removeItem(`${this.storagePrefix}initialized`);
-    this.initializeStorage();
+  protected async getList<T>(path: string): Promise<T[]> {
+    const stored = this.getStorageItem(path);
+    if (stored) {
+      try {
+        const parsed = JSON.parse(stored);
+        return Array.isArray(parsed) ? parsed : [];
+      } catch {
+        // Fall through to seed data
+      }
+    }
+
+    // Fallback to seed data
+    const seedKey = this.mapPathToSeedKey(path);
+    if (seedKey && this.seedData?.[seedKey]) {
+      return this.seedData[seedKey] as T[];
+    }
+
+    return [];
+  }
+
+  protected async setItem<T>(path: string, value: T): Promise<void> {
+    this.setStorageItem(path, JSON.stringify(value));
+  }
+
+  protected async createItem<T>(path: string, data: any): Promise<T> {
+    // Handle authentication routes specially
+    if (path === 'auth/login') {
+      return this.handleLogin(data) as T;
+    }
+
+    if (path === 'auth/signup') {
+      return this.handleSignup(data) as T;
+    }
+
+    if (path === 'auth/logout') {
+      return this.handleLogout() as T;
+    }
+
+    // Default behavior for other paths
+    const id = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const item = { ...data, id } as T;
+
+    // Get existing list and add new item
+    const existingList = await this.getList<T>(path);
+    const updatedList = [...existingList, item];
+    await this.setItem(path, updatedList);
+
+    return item;
+  }
+
+  private async handleLogin(credentials: { email: string; password: string }): Promise<any> {
+    const users = await this.getList<any>('users');
+    const passwords = this.seedData?.passwords || {};
+
+    // Find user by email
+    const user = users.find(u => u.email === credentials.email);
+    if (!user) {
+      throw new Error('Invalid credentials');
+    }
+
+    // Check password
+    const expectedPassword = passwords[user.id];
+    if (!expectedPassword || expectedPassword !== credentials.password) {
+      throw new Error('Invalid credentials');
+    }
+
+    // Return user data and tokens - session management is handled by IdentityProvider
+    return {
+      user,
+      tokens: {
+        accessToken: `mock_token_${user.id}`,
+        refreshToken: `mock_refresh_${user.id}`,
+        expiresAt: new Date(Date.now() + 3600 * 1000),
+        tokenType: 'Bearer' as const,
+      },
+    };
+  }
+
+  private async handleSignup(data: {
+    email: string;
+    password: string;
+    name: string;
+  }): Promise<any> {
+    const users = await this.getList<any>('users');
+
+    // Check if user already exists
+    const existingUser = users.find(u => u.email === data.email);
+    if (existingUser) {
+      throw new Error('User already exists');
+    }
+
+    // Create new user
+    const newUser = {
+      id: `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      email: data.email,
+      name: data.name,
+      isActive: true,
+      roles: ['user'],
+      permissions: [],
+      tenantId: 'acme-corp', // Default tenant for demo
+      createdAt: new Date().toISOString(),
+    };
+
+    // Add to users list
+    const updatedUsers = [...users, newUser];
+    await this.setItem('users', updatedUsers);
+
+    // Store password
+    const passwords = this.getStorageItem('passwords');
+    const passwordsObj = passwords ? JSON.parse(passwords) : {};
+    passwordsObj[newUser.id] = data.password;
+    this.setStorageItem('passwords', JSON.stringify(passwordsObj));
+
+    return {
+      user: newUser,
+      tokens: {
+        accessToken: `mock_token_${newUser.id}`,
+        refreshToken: `mock_refresh_${newUser.id}`,
+        expiresAt: new Date(Date.now() + 3600 * 1000),
+        tokenType: 'Bearer' as const,
+      },
+    };
+  }
+
+  private async handleLogout(): Promise<any> {
+    // Logout doesn't need to do anything in LocalStorage connector
+    // Session management is handled by IdentityProvider
+    return { success: true };
+  }
+
+  protected async updateItem<T>(path: string, id: string, updates: Partial<T>): Promise<T> {
+    const existingList = await this.getList<T & { id: string }>(path);
+    const itemIndex = existingList.findIndex(item => item.id === id);
+
+    if (itemIndex === -1) {
+      throw new Error(`Item with id ${id} not found in ${path}`);
+    }
+
+    const updatedItem = { ...existingList[itemIndex], ...updates };
+    existingList[itemIndex] = updatedItem;
+    await this.setItem(path, existingList);
+
+    return updatedItem;
+  }
+
+  protected async deleteItem(path: string, id: string): Promise<void> {
+    const existingList = await this.getList<{ id: string }>(path);
+    const filteredList = existingList.filter(item => item.id !== id);
+    await this.setItem(path, filteredList);
+  }
+
+  private mapPathToSeedKey(path: string): keyof SeedData | null {
+    const pathMappings: Record<string, keyof SeedData> = {
+      users: 'users',
+      roles: 'roles',
+      permissions: 'permissions',
+      tenants: 'tenants',
+      'feature-flags': 'featureFlags',
+      featureFlags: 'featureFlags',
+      'auth/login': 'users',
+      'auth/me': 'users',
+      'auth/logout': 'users',
+      'auth/signup': 'users',
+      currentUser: 'users',
+    };
+
+    return pathMappings[path] || null;
   }
 
   private getStorageItem(key: string): string | null {
@@ -64,237 +215,10 @@ export class LocalStorageConnector extends IdentityConnector {
     this.storage.setItem(`${this.storagePrefix}${key}`, value);
   }
 
-  private async simulateDelay(): Promise<void> {
-    if (!this.config.simulateDelay) return;
-
-    const delay =
-      Math.random() * (this.config.maxDelay - this.config.minDelay) + this.config.minDelay;
-
-    return new Promise(resolve => setTimeout(resolve, delay));
-  }
-
-  private simulateError(): void {
-    if (this.config.errorRate && Math.random() < this.config.errorRate) {
-      throw new Error('Simulated network error');
-    }
-  }
-
-  async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    await this.simulateDelay();
-    this.simulateError();
-
-    const users = JSON.parse(this.getStorageItem('users') || '[]');
-    const user = users.find(
-      (u: User) =>
-        u.email === credentials.email &&
-        u.isActive &&
-        (!credentials.tenantId || u.tenantId === credentials.tenantId)
-    );
-
-    if (!user) {
-      throw new AuthenticationError('Invalid credentials', 'INVALID_CREDENTIALS');
-    }
-
-    // For demo purposes, validate password (in real implementation, verify password hash)
-    if (credentials.password !== 'password') {
-      throw new AuthenticationError('Invalid credentials', 'INVALID_CREDENTIALS');
-    }
-
-    const tokens = this.generateTokens(user);
-    this.setStorageItem('currentUser', JSON.stringify(user));
-    this.setStorageItem('tokens', JSON.stringify(tokens));
-
-    return { user, tokens };
-  }
-
-  async logout(): Promise<void> {
-    await this.simulateDelay();
-
-    this.storage.removeItem(`${this.storagePrefix}currentUser`);
-    this.storage.removeItem(`${this.storagePrefix}tokens`);
-  }
-
-  async refreshToken(_refreshToken: string): Promise<TokenPair> {
-    await this.simulateDelay();
-
-    const currentUser = this.getCurrentUserSync();
-    if (!currentUser) {
-      throw new AuthenticationError('No active session', 'INVALID_TOKEN');
-    }
-
-    return this.generateTokens(currentUser);
-  }
-
-  async getCurrentUser(): Promise<User> {
-    await this.simulateDelay();
-
-    const user = this.getCurrentUserSync();
-    if (!user) {
-      throw new AuthenticationError('No active session', 'INVALID_TOKEN');
-    }
-
-    return user;
-  }
-
-  private getCurrentUserSync(): User | null {
-    const userData = this.getStorageItem('currentUser');
-    return userData ? JSON.parse(userData) : null;
-  }
-
-  async updateUser(updates: Partial<User>): Promise<User> {
-    await this.simulateDelay();
-
-    const currentUser = this.getCurrentUserSync();
-    if (!currentUser) {
-      throw new AuthenticationError('No active session', 'INVALID_TOKEN');
-    }
-
-    const updatedUser = { ...currentUser, ...updates };
-    this.setStorageItem('currentUser', JSON.stringify(updatedUser));
-
-    // Update in users array
-    const users = JSON.parse(this.getStorageItem('users') || '[]');
-    const userIndex = users.findIndex((u: User) => u.id === currentUser.id);
-    if (userIndex >= 0) {
-      users[userIndex] = updatedUser;
-      this.setStorageItem('users', JSON.stringify(users));
-    }
-
-    return updatedUser;
-  }
-
-  async getUserRoles(userId: string): Promise<Role[]> {
-    await this.simulateDelay();
-
-    const roles = JSON.parse(this.getStorageItem('roles') || '[]');
-    const user = JSON.parse(this.getStorageItem('users') || '[]').find(
-      (u: User) => u.id === userId
-    );
-
-    if (!user) return [];
-
-    return roles.filter(
-      (role: Role) => user.roles.includes(role.name) || user.roles.includes(role.id)
-    );
-  }
-
-  async getPermissions(roleIds: string[]): Promise<Permission[]> {
-    await this.simulateDelay();
-
-    const roles = JSON.parse(this.getStorageItem('roles') || '[]');
-    const permissions: Permission[] = [];
-
-    roleIds.forEach(roleId => {
-      const role = roles.find((r: Role) => r.id === roleId || r.name === roleId);
-      if (role) {
-        permissions.push(...role.permissions);
-      }
-    });
-
-    return permissions;
-  }
-
-  async getTenants(): Promise<Tenant[]> {
-    await this.simulateDelay();
-
-    const tenants = JSON.parse(this.getStorageItem('tenants') || '[]');
-    return tenants;
-  }
-
-  async getTenant(tenantId: string): Promise<Tenant> {
-    await this.simulateDelay();
-
-    const tenants = JSON.parse(this.getStorageItem('tenants') || '[]');
-    const tenant = tenants.find((t: Tenant) => t.id === tenantId);
-
-    if (!tenant) {
-      throw new TenantError('Tenant not found', 'TENANT_NOT_FOUND');
-    }
-
-    return tenant;
-  }
-
-  async getUserTenants(userId: string): Promise<Tenant[]> {
-    await this.simulateDelay();
-
-    const tenants = JSON.parse(this.getStorageItem('tenants') || '[]');
-    const user = JSON.parse(this.getStorageItem('users') || '[]').find(
-      (u: User) => u.id === userId
-    );
-
-    if (!user) return [];
-
-    // For simplicity, return tenant where user belongs
-    return tenants.filter((t: Tenant) => t.id === user.tenantId);
-  }
-
-  async validateSession(token: string): Promise<boolean> {
-    await this.simulateDelay();
-
-    const tokens = this.getStorageItem('tokens');
-    if (!tokens) return false;
-
-    const { accessToken, expiresAt } = JSON.parse(tokens);
-    return accessToken === token && new Date(expiresAt) > new Date();
-  }
-
-  async extendSession(): Promise<void> {
-    await this.simulateDelay();
-
-    const currentUser = this.getCurrentUserSync();
-    if (currentUser) {
-      const newTokens = this.generateTokens(currentUser);
-      this.setStorageItem('tokens', JSON.stringify(newTokens));
-    }
-  }
-
-  async getFeatureFlags(tenantId: string): Promise<Record<string, FeatureFlag>> {
-    await this.simulateDelay();
-
-    const allFlags = JSON.parse(this.getStorageItem('featureFlags') || '{}');
-    const tenantFlags: Record<string, FeatureFlag> = {};
-
-    // Filter flags for this tenant
-    Object.entries(allFlags).forEach(([key, flag]) => {
-      const typedFlag = flag as FeatureFlag;
-      if (!typedFlag.tenantId || typedFlag.tenantId === tenantId) {
-        tenantFlags[key] = typedFlag;
-      }
-    });
-
-    return tenantFlags;
-  }
-
-  async updateFeatureFlag(_tenantId: string, flagKey: string, enabled: boolean): Promise<void> {
-    await this.simulateDelay();
-
-    const allFlags = JSON.parse(this.getStorageItem('featureFlags') || '{}');
-
-    if (allFlags[flagKey]) {
-      allFlags[flagKey].tenantOverride = enabled;
-      allFlags[flagKey].overrideAt = new Date().toISOString();
-      allFlags[flagKey].overrideBy = this.getCurrentUserSync()?.id || 'system';
-
-      this.setStorageItem('featureFlags', JSON.stringify(allFlags));
-    }
-  }
-
-  private generateTokens(user: User): TokenPair {
-    const now = new Date();
-    const expiresAt = new Date(now.getTime() + (this.config.sessionTimeout || 3600000)); // 1 hour default
-
-    return {
-      accessToken: `mock_access_token_${user.id}_${now.getTime()}`,
-      refreshToken: `mock_refresh_token_${user.id}_${now.getTime()}`,
-      expiresAt,
-      tokenType: 'Bearer',
-    };
-  }
-
   protected mapError(error: unknown): Error {
     if (error instanceof Error) {
       return error;
     }
-    return new Error('Unknown error occurred');
+    return new Error(String(error));
   }
 }

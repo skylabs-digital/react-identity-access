@@ -18,14 +18,22 @@ export function useSession(): UseSessionReturn {
   const { session, connector } = useIdentityContext();
 
   const extendSession = useCallback(async (): Promise<void> => {
-    await connector.extendSession();
+    const response = await connector.create('auth/extend-session', {});
+    if (!response.success) {
+      throw new Error(
+        typeof response.error === 'string' ? response.error : 'Failed to extend session'
+      );
+    }
   }, [connector]);
 
   const validateSession = useCallback(async (): Promise<boolean> => {
     if (!session.tokens?.accessToken) return false;
 
     try {
-      return await connector.validateSession(session.tokens.accessToken);
+      const response = await connector.create('auth/validate-session', {
+        accessToken: session.tokens.accessToken,
+      });
+      return response.success;
     } catch {
       return false;
     }

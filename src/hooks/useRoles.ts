@@ -75,7 +75,7 @@ export function useRoles(): UseRolesReturn {
   );
 
   return {
-    roles: roles.currentUserRoles,
+    roles: roles.roles,
     permissions: roles.permissions,
     hasRole,
     hasPermission,
