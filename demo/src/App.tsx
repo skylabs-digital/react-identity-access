@@ -10,7 +10,7 @@ import { useAuth } from '../../src/hooks/useAuth';
 import { PublicLanding } from './components/PublicLanding';
 import { UserDashboard } from './components/UserDashboard';
 import { AdminPanel, defaultSettings, settingsSchema } from './components/AdminPanel';
-import { mockUsers, mockTenants, mockPasswords, mockFeatureFlags } from './mockData';
+import { mockUsers, mockTenants, mockPasswords, mockFeatureFlags, mockSubscriptionPlans, mockRoles, mockPermissions } from './mockData';
 
 // Demo handles authentication inline, no separate login page needed
 
@@ -63,6 +63,9 @@ export const App: React.FC = () => {
             users: mockUsers,
             passwords: mockPasswords,
             featureFlags: mockFeatureFlags,
+            subscriptionPlans: mockSubscriptionPlans,
+            roles: mockRoles,
+            permissions: mockPermissions,
           },
         }}
       >

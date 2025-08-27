@@ -143,6 +143,8 @@ export class FetchConnector extends BaseConnector {
       tenants: 'tenants',
       'feature-flags': 'featureFlags',
       featureFlags: 'featureFlags',
+      'subscription-plans': 'subscriptionPlans',
+      subscriptionPlans: 'subscriptionPlans',
       'auth/login': 'users',
       'auth/me': 'users',
     };

@@ -145,6 +145,24 @@ export function SettingsProvider<T>({
       dispatch({ type: 'LOADING', payload: true });
 
       const settingsKey = `settings_${tenantId}_${config.version}`;
+
+      // First try to load from localStorage directly
+      const storageKey = `demo-app_${settingsKey}`;
+      const storedSettings = localStorage.getItem(storageKey);
+
+      if (storedSettings) {
+        try {
+          const parsed = JSON.parse(storedSettings);
+          console.log('Loaded settings from localStorage:', parsed);
+          dispatch({ type: 'SET_VALUES', payload: parsed });
+          dispatch({ type: 'LOADING', payload: false });
+          return;
+        } catch {
+          console.warn('Failed to parse stored settings, falling back to connector');
+        }
+      }
+
+      // Fallback to connector (which will use seed data if nothing in storage)
       const response = await connector.get<T>(settingsKey);
 
       if (response.success && response.data) {
@@ -167,19 +185,12 @@ export function SettingsProvider<T>({
 
   const updateSetting = <K extends keyof T>(key: K, value: T[K]) => {
     dispatch({ type: 'UPDATE_SETTING', payload: { key, value } });
-
-    if (config.autoSave) {
-      // Debounce auto-save
-      setTimeout(() => save(), 1000);
-    }
+    // Removed auto-save - now requires manual save
   };
 
   const updateSettings = (updates: Partial<T>) => {
     dispatch({ type: 'UPDATE_SETTINGS', payload: updates });
-
-    if (config.autoSave) {
-      setTimeout(() => save(), 1000);
-    }
+    // Removed auto-save - now requires manual save
   };
 
   const save = async () => {
@@ -188,24 +199,37 @@ export function SettingsProvider<T>({
       const validatedSettings = schema.parse(state.values);
 
       const settingsKey = `settings_${tenantId}_${config.version}`;
+      console.log('Saving settings with key:', settingsKey);
+      console.log('Settings data:', validatedSettings);
 
       // Try to get existing settings first
       const existingResponse = await connector.get<T>(settingsKey);
+      console.log('Existing settings response:', existingResponse);
 
-      let response;
-      if (existingResponse.success && existingResponse.data) {
-        // Update existing settings
-        response = await connector.update<T>(settingsKey, 'settings', validatedSettings);
-      } else {
-        // Create new settings
-        response = await connector.create<T>(settingsKey, validatedSettings);
-      }
+      // For settings, we want to store as a single object, not in an array
+      // Use setItem directly to store the settings object
+      const settingsWithId = { ...validatedSettings, id: settingsKey } as T;
+
+      // Store directly in localStorage as a single object
+      const storageKey = `demo-app_${settingsKey}`;
+      localStorage.setItem(storageKey, JSON.stringify(settingsWithId));
+
+      console.log('Settings saved directly to localStorage:', settingsWithId);
+
+      // Create a success response
+      const response = {
+        success: true,
+        data: settingsWithId,
+        message: 'Settings saved successfully',
+      };
+
+      console.log('Save response:', response);
 
       if (response.success) {
         dispatch({ type: 'MARK_CLEAN' });
       } else {
-        const errorMessage =
-          typeof response.error === 'string' ? response.error : 'Failed to save settings';
+        console.error('Settings save failed:', response);
+        const errorMessage = response.message || 'Failed to save settings';
         throw new Error(errorMessage);
       }
     } catch (error: any) {

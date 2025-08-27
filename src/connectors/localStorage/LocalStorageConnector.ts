@@ -98,8 +98,8 @@ export class LocalStorageConnector extends BaseConnector {
       throw new Error('Invalid credentials');
     }
 
-    // Check password
-    const expectedPassword = passwords[user.id];
+    // Check password - passwords are indexed by email, not user.id
+    const expectedPassword = passwords[credentials.email];
     if (!expectedPassword || expectedPassword !== credentials.password) {
       throw new Error('Invalid credentials');
     }
@@ -197,6 +197,8 @@ export class LocalStorageConnector extends BaseConnector {
       tenants: 'tenants',
       'feature-flags': 'featureFlags',
       featureFlags: 'featureFlags',
+      'subscription-plans': 'subscriptionPlans',
+      subscriptionPlans: 'subscriptionPlans',
       'auth/login': 'users',
       'auth/me': 'users',
       'auth/logout': 'users',

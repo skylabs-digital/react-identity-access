@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import React, { ReactNode } from 'react';
 import { useFeatureFlags } from '../../providers/FeatureFlagsProvider';
 
 export interface FeatureFlagProps {
@@ -7,11 +7,11 @@ export interface FeatureFlagProps {
   fallback?: ReactNode;
 }
 
-export const FeatureFlag: React.FC<FeatureFlagProps> = ({ flag, children, fallback }) => {
+export const FeatureFlag = ({ flag, children, fallback }: FeatureFlagProps) => {
   const { isEnabled } = useFeatureFlags();
 
   if (!isEnabled(flag)) {
-    return fallback || null;
+    return <>{fallback || null}</>;
   }
 
   return <>{children}</>;

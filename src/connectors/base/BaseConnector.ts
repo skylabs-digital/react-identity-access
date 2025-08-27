@@ -1,4 +1,4 @@
-import { User, Role, Permission, Tenant, FeatureFlag } from '../../types';
+import { User, Role, Permission, Tenant, FeatureFlag, SubscriptionPlan } from '../../types';
 import { ApiResponse, createSuccessResponse, createErrorResponse } from '../../types/responses';
 
 export interface SeedData {
@@ -8,6 +8,7 @@ export interface SeedData {
   permissions?: Permission[];
   featureFlags?: Record<string, FeatureFlag>;
   passwords?: Record<string, string>;
+  subscriptionPlans?: SubscriptionPlan[];
 }
 
 export interface TokenInterceptor {
@@ -28,11 +29,18 @@ export interface ConnectorConfig {
 
 export abstract class BaseConnector {
   protected config: ConnectorConfig;
+  protected tokenInterceptor?: TokenInterceptor;
   protected seedData?: SeedData;
 
   constructor(config: ConnectorConfig) {
     this.config = config;
+    this.tokenInterceptor = config.tokenInterceptor;
     this.seedData = config.seedData;
+  }
+
+  // Method to update token interceptor after construction
+  setTokenInterceptor(interceptor: TokenInterceptor) {
+    this.tokenInterceptor = interceptor;
   }
 
   // Generic CRUD operations with seed data fallback

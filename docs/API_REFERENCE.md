@@ -1,344 +1,375 @@
 # API Reference
 
+Complete API documentation for React Identity Access.
+
 ## Providers
 
-### ReactIdentityProvider (Recommended)
+### ConnectorProvider
 
-Unified provider that manages all connectors and features with a single configuration.
+The root provider that manages data access abstraction.
 
 ```tsx
-<ReactIdentityProvider
-  config={{
-    connector: {
-      type: 'localStorage' | 'fetch',
-      appId: string,
-      apiKey?: string,
-      baseUrl?: string,
-      endpoints?: {
-        identity?: string,
-        settings?: string,
-        subscription?: string,
-        featureFlags?: string,
-      },
-    },
-    tenantResolver?: {
-      strategy: 'query-param' | 'subdomain',
-      queryParam?: { paramName: string, storageKey: string },
-    },
-    features?: {
-      settings?: boolean,
-      subscription?: boolean,
-      featureFlags?: boolean,
-    },
-    components?: {
-      LoadingComponent?: React.ComponentType,
-      LandingComponent?: React.ComponentType,
-      ErrorComponent?: React.ComponentType<{ error: string }>,
-    },
-  }}
-  settingsSchema?: ZodSchema
-  settingsDefaults?: any
-  settingsVersion?: string
-  subscriptionPlans?: Plan[]
-  paymentGateway?: PaymentGateway
+<ConnectorProvider
+  config={ConnectorConfig}
+  onTokenInterceptorReady?: (interceptor: TokenInterceptor) => void
 >
 ```
 
-### Individual Providers (Legacy)
+#### ConnectorConfig
 
-#### IdentityProvider
-
-Authentication and user management.
-
-```tsx
-<IdentityProvider>
+```typescript
+interface ConnectorConfig {
+  type: 'localStorage' | 'fetch';
+  appId: string;
+  seedData?: SeedData;
+  
+  // Fetch connector specific
+  baseUrl?: string;
+  apiKey?: string;
+  timeout?: number;
+  
+  // LocalStorage connector specific
+  storagePrefix?: string;
+}
 ```
 
-#### SettingsProvider
+#### SeedData
 
-Schema-validated settings management.
+```typescript
+interface SeedData {
+  tenants?: Tenant[];
+  users?: User[];
+  passwords?: Password[];
+  roles?: Role[];
+  permissions?: Permission[];
+  featureFlags?: FeatureFlag[];
+  subscriptionPlans?: SubscriptionPlan[];
+}
+```
+
+### TenantProvider
+
+Manages multi-tenant resolution and context.
 
 ```tsx
-<SettingsProvider 
-  schema={ZodSchema}
-  defaults={DefaultValues}
-  config?: SettingsConfig
+<TenantProvider config={TenantConfig}>
+```
+
+#### TenantConfig
+
+```typescript
+interface TenantConfig {
+  strategy: 'subdomain' | 'query-param' | 'static';
+  static?: {
+    tenantId: string;
+  };
+  fallback?: string;
+}
+```
+
+### IdentityProvider
+
+Handles authentication and authorization.
+
+```tsx
+<IdentityProvider config?: IdentityConfig>
+```
+
+#### IdentityConfig
+
+```typescript
+interface IdentityConfig {
+  autoLogin?: boolean;
+  sessionTimeout?: number;
+  requireEmailVerification?: boolean;
+}
+```
+
+### FeatureFlagsProvider
+
+Manages dynamic feature control.
+
+```tsx
+<FeatureFlagsProvider config?: FeatureFlagsConfig>
+```
+
+### SubscriptionProvider
+
+Handles billing and subscription management.
+
+```tsx
+<SubscriptionProvider config?: SubscriptionConfig>
+```
+
+### SettingsProvider
+
+Manages application configuration with schema validation.
+
+```tsx
+<SettingsProvider<T>
+  schema={ZodSchema<T>}
+  defaults={T}
+  config={SettingsConfig}
 >
 ```
 
-#### SubscriptionProvider
+#### SettingsConfig
 
-Billing and subscription management.
-
-```tsx
-<SubscriptionProvider>
-```
-
-#### TenantPaymentProvider
-
-Payment processing for tenants to charge their customers.
-
-```tsx
-<TenantPaymentProvider
-  paymentGateway={paymentGateway}
-  config={paymentConfig}
->
+```typescript
+interface SettingsConfig {
+  version: string;
+  autoSave?: boolean;
+}
 ```
 
 ## Hooks
 
-### useAuth()
+### useAuth
 
-Primary authentication hook providing login/logout functionality and user state.
+Access authentication state and methods.
 
-```tsx
-const { 
-  auth,
-  login, 
-  logout, 
-  signup
+```typescript
+const {
+  auth: AuthState,
+  login: (credentials: LoginCredentials) => Promise<AuthResponse>,
+  logout: () => Promise<void>,
+  signup: (email: string, password: string, name: string) => Promise<void>
 } = useAuth();
 ```
 
-**Returns:**
-- `auth: AuthState` - Authentication state object
-- `login: (email: string, password: string) => Promise<void>` - Login function
-- `logout: () => Promise<void>` - Logout function
-- `signup: (email: string, password: string, name: string) => Promise<void>` - Signup function
+#### AuthState
 
-**Types:**
-```tsx
+```typescript
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
 }
+```
 
+#### LoginCredentials
+
+```typescript
+interface LoginCredentials {
+  email: string;
+  password: string;
+}
+```
+
+#### User
+
+```typescript
 interface User {
   id: string;
   email: string;
-  name?: string;
+  name: string;
   tenantId: string;
-  roles?: string[];
+  roles: string[];
   permissions?: string[];
+  isActive: boolean;
   createdAt: Date;
   lastLoginAt?: Date;
 }
 ```
 
-### useFeatureFlags()
+### useFeatureFlags
 
-Feature flag management and checking.
+Access feature flag state and controls.
 
-```tsx
-const { 
-  flags, 
-  isEnabled,
-  toggleFlag,
-  refreshFlags
+```typescript
+const {
+  flags: Record<string, boolean>,
+  isLoading: boolean,
+  error: string | null,
+  isEnabled: (flag: string) => boolean,
+  toggleFlag: (flag: string, enabled: boolean) => Promise<void>,
+  refreshFlags: () => Promise<void>
 } = useFeatureFlags();
 ```
 
-**Returns:**
-- `flags: Record<string, boolean>` - Current feature flags state
-- `isEnabled: (key: string) => boolean` - Check if flag is enabled
-- `toggleFlag: (key: string, enabled: boolean) => Promise<void>` - Toggle flag
-- `refreshFlags: () => Promise<void>` - Refresh flags from backend
+### useSettings
 
-### useSettings()
+Access and manage application settings.
 
-Settings management with schema validation.
-
-```tsx
-const { 
-  values, 
-  updateSetting,
-  isDirty,
-  save,
-  reset
+```typescript
+const {
+  values: T,
+  isLoading: boolean,
+  error: string | null,
+  isDirty: boolean,
+  updateSetting: <K extends keyof T>(key: K, value: T[K]) => Promise<void>,
+  updateSettings: (updates: Partial<T>) => Promise<void>,
+  save: () => Promise<void>,
+  reset: () => void,
+  refresh: () => Promise<void>
 } = useSettings<T>();
 ```
 
-**Returns:**
-- `values: T` - Current settings values
-- `updateSetting: (key: keyof T, value: any) => void` - Update setting
-- `isDirty: boolean` - Whether settings have unsaved changes
-- `save: () => Promise<void>` - Save changes
-- `reset: () => void` - Reset to defaults
+### useSubscription
 
-### useSubscription()
+Access subscription state and management.
 
-Subscription and billing management.
-
-```tsx
-const { 
-  subscription,
-  plans,
-  usage,
-  limits,
-  subscribe,
-  cancelSubscription,
-  changePlan,
-  getUsage,
-  checkLimit
+```typescript
+const {
+  subscription: Subscription | null,
+  plans: SubscriptionPlan[],
+  isLoading: boolean,
+  error: string | null,
+  subscribe: (planId: string, options?: SubscribeOptions) => Promise<void>,
+  cancelSubscription: () => Promise<void>,
+  changePlan: (planId: string) => Promise<void>,
+  refreshSubscription: () => Promise<void>
 } = useSubscription();
 ```
 
-**Returns:**
-- `subscription: Subscription | null` - Current subscription
-- `plans: Plan[]` - Available plans
-- `usage: Usage` - Current usage statistics
-- `limits: Limits` - Current plan limits
-- `subscribe: (planId: string) => Promise<void>` - Subscribe to plan
-- `cancelSubscription: () => Promise<void>` - Cancel subscription
-- `changePlan: (planId: string) => Promise<void>` - Change plan
-- `getUsage: (metric: string) => number` - Get usage for specific metric
-- `checkLimit: (metric: string) => boolean` - Check if limit is exceeded
+#### Subscription
 
-### useTenantPayment()
-
-Payment processing for tenant-to-customer payments.
-
-```tsx
-const {
-  processPayment,
-  paymentHistory,
-  paymentMethods,
-  addPaymentMethod,
-  refundPayment
-} = useTenantPayment();
+```typescript
+interface Subscription {
+  id: string;
+  tenantId: string;
+  planId: string;
+  status: 'active' | 'canceled' | 'past_due' | 'trialing';
+  currentPeriodStart: Date;
+  currentPeriodEnd: Date;
+  cancelAtPeriodEnd: boolean;
+  trialEnd?: Date;
+  limits: Record<string, number>;
+}
 ```
 
-**Returns:**
-- `processPayment: (amount: number, currency: string, customerId: string) => Promise<PaymentResult>` - Process payment
-- `paymentHistory: Payment[]` - Payment history
-- `paymentMethods: PaymentMethod[]` - Available payment methods
-- `addPaymentMethod: (method: PaymentMethod) => Promise<void>` - Add payment method
-- `refundPayment: (paymentId: string, amount?: number) => Promise<void>` - Refund payment
+#### SubscriptionPlan
 
-### useTenant()
+```typescript
+interface SubscriptionPlan {
+  id: string;
+  name: string;
+  description: string;
+  price: number;
+  currency: string;
+  interval: 'month' | 'year';
+  features: string[];
+  limits: Record<string, number>;
+  isPopular?: boolean;
+}
+```
 
-Tenant information and management.
+### useTenant
 
-```tsx
-const { 
-  tenantId,
-  tenant,
-  isLoading,
-  switchTenant,
-  availableTenants
+Access tenant resolution state.
+
+```typescript
+const {
+  tenantId: string | null,
+  isLoading: boolean,
+  error: string | null
 } = useTenant();
 ```
 
-**Returns:**
-- `tenantId: string | null` - Current tenant ID
-- `tenant: Tenant | null` - Current tenant object
-- `isLoading: boolean` - Loading state
-- `switchTenant: (tenantId: string) => Promise<void>` - Switch to different tenant
-- `availableTenants: Tenant[]` - Available tenants for user
-
-### useRoles()
-
-Role and permission management.
-
-```tsx
-const { 
-  roles,
-  permissions,
-  hasRole, 
-  hasPermission, 
-  hasAnyRole, 
-  hasAllRoles,
-  canAccess 
-} = useRoles();
-```
-
-**Returns:**
-- `roles: string[]` - Current user's roles
-- `permissions: string[]` - Current user's permissions
-- `hasRole: (role: string) => boolean` - Check single role
-- `hasPermission: (permission: string) => boolean` - Check single permission
-- `hasAnyRole: (roles: string[]) => boolean` - Check if user has any of the roles
-- `hasAllRoles: (roles: string[]) => boolean` - Check if user has all roles
-- `canAccess: (resource: string, action: string) => boolean` - Check resource:action permission
-
-**Examples:**
-```tsx
-// Simple role check
-if (hasRole('admin')) {
-  // Show admin content
-}
-
-// Permission check
-if (hasPermission('users:write')) {
-  // Show edit button
-}
-
-// Multiple role check
-if (hasAnyRole(['admin', 'moderator'])) {
-  // Show moderation tools
-}
-
-// Resource-action check
-if (canAccess('users', 'delete')) {
-  // Show delete button
-}
-```
-
-### useFeatureFlags()
-
-Feature flag management with server and tenant admin dual control.
-
-```tsx
-const { 
-  flags, 
-  isEnabled, 
-  getFlag, 
-  toggleFlag, 
-  refreshFlags 
-} = useFeatureFlags();
-```
-
-**Returns:**
-- `flags: FeatureFlag[]` - All available feature flags
-- `isEnabled: (key: string) => boolean` - Check if flag is enabled
-- `getFlag: (key: string) => FeatureFlag | undefined` - Get flag details
-- `toggleFlag: (key: string, enabled: boolean) => Promise<void>` - Toggle flag (admin only)
-- `refreshFlags: () => Promise<void>` - Refresh flags from server
-
-**Types:**
-```tsx
-interface FeatureFlag {
-  key: string;
-  name: string;
-  description: string;
-  category: 'ui' | 'feature' | 'experiment' | 'rollout';
-  serverEnabled: boolean;
-  adminEditable: boolean;
-  defaultState: boolean;
-  tenantId?: string;
-  rolloutPercentage?: number;
-  tenantOverride?: boolean;
-}
-```
-
-
-### useSession()
-
-Session management and validation.
-
-```tsx
-const { 
-  session, 
-  isValid, 
-  expiresAt, 
-  refreshSession, 
-  clearSession 
-} = useSession();
-```
-
 ## Components
+
+### FeatureFlag
+
+Conditionally render content based on feature flags.
+
+```tsx
+<FeatureFlag 
+  flag={string}
+  fallback?: ReactNode
+>
+  {children}
+</FeatureFlag>
+```
+
+**Props:**
+- `flag`: Feature flag key to check
+- `fallback`: Content to render when flag is disabled
+- `children`: Content to render when flag is enabled
+
+### FeatureGate
+
+Advanced feature gating with subscription integration.
+
+```tsx
+<FeatureGate
+  feature={string}
+  requiredPlan?: string
+  fallback?: ReactNode
+>
+  {children}
+</FeatureGate>
+```
+
+**Props:**
+- `feature`: Feature key to check
+- `requiredPlan`: Required subscription plan
+- `fallback`: Content when access denied
+- `children`: Protected content
+
+### SubscriptionGuard
+
+Protect content based on subscription status.
+
+```tsx
+<SubscriptionGuard
+  requiredPlan?: string
+  requiredStatus?: SubscriptionStatus
+  fallback?: ReactNode
+>
+  {children}
+</SubscriptionGuard>
+```
+
+**Props:**
+- `requiredPlan`: Minimum plan required
+- `requiredStatus`: Required subscription status
+- `fallback`: Content when requirements not met
+- `children`: Protected content
+
+### LimitGate
+
+Enforce usage limits with warnings.
+
+```tsx
+<LimitGate
+  feature={string}
+  current={number}
+  limit={number}
+  warningThreshold?: number
+  fallback?: ReactNode
+>
+  {children}
+</LimitGate>
+```
+
+**Props:**
+- `feature`: Feature being limited
+- `current`: Current usage count
+- `limit`: Maximum allowed usage
+- `warningThreshold`: Warning threshold (0-1)
+- `fallback`: Content when limit exceeded
+- `children`: Content when within limits
+
+### RoleGuard
+
+Protect content based on user roles.
+
+```tsx
+<RoleGuard
+  requiredRoles={string[]}
+  requireAll?: boolean
+  fallback?: ReactNode
+>
+  {children}
+</RoleGuard>
+```
+
+**Props:**
+- `requiredRoles`: Array of required roles
+- `requireAll`: Whether all roles are required (default: false)
+- `fallback`: Content when access denied
+- `children`: Protected content
 
 ### ProtectedRoute
 
@@ -346,305 +377,199 @@ Route-level protection with authentication and authorization.
 
 ```tsx
 <ProtectedRoute
-  requireAuth={true}
-  requireRole="admin"
-  requirePermission="users:read"
-  requireAnyRole={["admin", "moderator"]}
-  requireAllRoles={["user", "verified"]}
-  fallback={<AccessDenied />}
-  loadingComponent={<Spinner />}
-  redirectTo="/login"
+  requiredRoles?: string[]
+  requiredPlan?: string
+  redirectTo?: string
 >
-  <AdminPanel />
+  {children}
 </ProtectedRoute>
 ```
 
 **Props:**
-- `requireAuth?: boolean` - Require authentication (default: true)
-- `requireRole?: string` - Require specific role
-- `requirePermission?: string` - Require specific permission
-- `requireAnyRole?: string[]` - Require any of the specified roles
-- `requireAllRoles?: string[]` - Require all specified roles
-- `fallback?: ReactNode` - Component to show when access denied
-- `loadingComponent?: ReactNode` - Component to show while loading
-- `redirectTo?: string` - URL to redirect to when access denied
+- `requiredRoles`: Required user roles
+- `requiredPlan`: Required subscription plan
+- `redirectTo`: Redirect path when access denied
+- `children`: Protected route content
 
-### RoleGuard
+## Types
 
-Declarative role-based content protection.
+### Core Types
 
-```tsx
-<RoleGuard 
-  role="admin"
-  roles={["admin", "moderator"]}
-  requireAll={false}
-  fallback={<div>Access Denied</div>}
->
-  <AdminContent />
-</RoleGuard>
-```
+```typescript
+interface Tenant {
+  id: string;
+  name: string;
+  domain?: string;
+  isActive: boolean;
+  createdAt: Date;
+  settings?: Record<string, any>;
+}
 
-**Props:**
-- `role?: string` - Single role requirement
-- `roles?: string[]` - Multiple role options
-- `requireAll?: boolean` - Require all roles vs any role (default: false)
-- `fallback?: ReactNode` - Content to show when access denied
+interface Role {
+  id: string;
+  name: string;
+  description: string;
+  permissions: string[];
+  tenantId?: string;
+}
 
-### PermissionGuard
+interface Permission {
+  id: string;
+  name: string;
+  description: string;
+  resource: string;
+  action: string;
+}
 
-Permission-based content protection.
-
-```tsx
-<PermissionGuard 
-  permission="users:write"
-  permissions={["users:read", "users:write"]}
-  requireAll={true}
-  fallback={<div>Insufficient permissions</div>}
->
-  <EditUserForm />
-</PermissionGuard>
-```
-
-### FeatureFlag
-
-Conditional rendering based on feature flags.
-
-```tsx
-<FeatureFlag 
-  flag="new-dashboard"
-  fallback={<OldDashboard />}
->
-  <NewDashboard />
-</FeatureFlag>
-```
-
-**Props:**
-- `flag: string` - Feature flag key
-- `fallback?: ReactNode` - Content to show when flag is disabled
-
-### FeatureToggle
-
-Admin interface for managing feature flags.
-
-```tsx
-<FeatureToggle 
-  flag="beta-features"
-  adminOnly={true}
-  showDescription={true}
-  onToggle={(key, enabled) => console.log(`${key}: ${enabled}`)}
-/>
-```
-
-### SubscriptionGuard
-
-Conditional rendering based on subscription plan or status.
-
-```tsx
-<SubscriptionGuard 
-  requiredPlan="pro"
-  requiredStatus="active"
-  fallback={<UpgradePrompt />}
->
-  <ProFeatures />
-</SubscriptionGuard>
-```
-
-**Props:**
-- `requiredPlan?: string` - Required subscription plan
-- `requiredStatus?: string` - Required subscription status
-- `fallback?: ReactNode` - Content to show when requirements not met
-
-### FeatureGate
-
-Feature-based access control with upgrade prompts.
-
-```tsx
-<FeatureGate 
-  feature="advanced-analytics"
-  fallback={<UpgradePrompt />}
-  showUpgradePrompt={true}
->
-  <AdvancedAnalytics />
-</FeatureGate>
-```
-
-**Props:**
-- `feature: string` - Feature identifier
-- `fallback?: ReactNode` - Content to show when feature not available
-- `showUpgradePrompt?: boolean` - Show upgrade prompt in fallback
-
-### LimitGate
-
-Usage limit enforcement with warnings.
-
-```tsx
-<LimitGate 
-  limit="api_calls"
-  warningThreshold={0.8}
-  blockThreshold={1.0}
-  fallback={<LimitExceeded />}
->
-  <ApiUsageWidget />
-</LimitGate>
-```
-
-**Props:**
-- `limit: string` - Limit identifier
-- `warningThreshold?: number` - Threshold to show warning (0-1)
-- `blockThreshold?: number` - Threshold to block access (0-1)
-- `fallback?: ReactNode` - Content to show when limit exceeded
-
-## Connectors
-
-### LocalStorageConnector
-
-Mock connector for development and testing.
-
-```tsx
-const connector = new LocalStorageConnector({
-  simulateDelay: true,
-  errorRate: 0.1,
-  storagePrefix: 'myapp_',
-  seedData: customSeedData
-});
-```
-
-**Options:**
-- `simulateDelay?: boolean` - Simulate network delays (default: false)
-- `errorRate?: number` - Simulate random errors (0-1, default: 0)
-- `storagePrefix?: string` - localStorage key prefix
-- `seedData?: SeedData` - Custom mock data
-
-### Custom Connector
-
-Implement the abstract `IdentityConnector` class:
-
-```tsx
-class CustomConnector extends IdentityConnector {
-  async login(credentials: LoginCredentials): Promise<AuthResponse> {
-    // Your implementation
-  }
-  
-  async logout(): Promise<void> {
-    // Your implementation
-  }
-  
-  async getCurrentUser(): Promise<User | null> {
-    // Your implementation
-  }
-  
-  // ... implement other required methods
+interface FeatureFlag {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  defaultState: boolean;
+  adminEditable: boolean;
+  tenantId?: string;
 }
 ```
 
-## Provider Configuration
+### Response Types
 
-### IdentityProvider
-
-Root provider that manages authentication context.
-
-```tsx
-<IdentityProvider
-  connector={connector}
-  config={{
-    tenantStrategy: 'subdomain',
-    fallbackUrl: '/select-tenant'
-  }}
-  initialState={{
-    tenant: ssrTenantData,
-    user: ssrUserData,
-    featureFlags: ssrFeatureFlags
-  }}
->
-  <App />
-</IdentityProvider>
-```
-
-**Props:**
-- `connector: IdentityConnector` - Backend connector implementation
-- `config?: IdentityConfig` - Library configuration
-- `tenantResolver?: TenantResolver` - Tenant resolution strategy
-- `initialState?: InitialState` - SSR-injected initial state
-- `LoadingComponent?: React.ComponentType` - Custom loading component
-- `LandingComponent?: React.ComponentType` - Custom tenant selection component
-
-**Types:**
-```tsx
-interface InitialState {
-  tenant?: Tenant;
-  user?: User;
-  featureFlags?: Record<string, FeatureFlag>;
-  roles?: Role[];
-  permissions?: Permission[];
+```typescript
+interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
+  metadata?: {
+    total?: number;
+    page?: number;
+    limit?: number;
+    totalPages?: number;
+    hasNext?: boolean;
+    hasPrev?: boolean;
+  };
 }
 
-interface IdentityConfig {
-  tenantStrategy?: 'subdomain' | 'query-param';
-  fallbackUrl?: string;
-  sessionTimeout?: number;
-  autoRefresh?: boolean;
-  debugMode?: boolean;
+interface AuthResponse {
+  user: User;
+  tokens: {
+    accessToken: string;
+    refreshToken: string;
+    expiresAt: number;
+  };
 }
 ```
 
-## Payment Gateways
+### Configuration Types
 
-The library supports multiple payment gateways through a pluggable architecture.
-
-### Stripe Gateway
-
-```tsx
-import { StripePaymentGateway } from 'react-identity-access';
-
-const stripeGateway = new StripePaymentGateway({
-  publicKey: process.env.REACT_APP_STRIPE_PUBLIC_KEY,
-  secretKey: process.env.STRIPE_SECRET_KEY,
-});
-```
-
-### MercadoPago Gateway
-
-```tsx
-import { MercadoPagoPaymentGateway } from 'react-identity-access';
-
-const mercadoPagoGateway = new MercadoPagoPaymentGateway({
-  publicKey: process.env.REACT_APP_MERCADOPAGO_PUBLIC_KEY,
-  accessToken: process.env.MERCADOPAGO_ACCESS_TOKEN,
-});
-```
-
-### Custom Gateway
-
-```tsx
-import { BasePaymentGateway } from 'react-identity-access';
-
-class CustomPaymentGateway extends BasePaymentGateway {
-  async processPayment(amount: number, currency: string, paymentMethod: any) {
-    // Your implementation
-  }
+```typescript
+interface ConnectorConfig {
+  type: 'localStorage' | 'fetch';
+  appId: string;
+  seedData?: SeedData;
+  tokenInterceptor?: TokenInterceptor;
   
-  async refundPayment(paymentId: string, amount?: number) {
-    // Your implementation
-  }
+  // Fetch-specific
+  baseUrl?: string;
+  apiKey?: string;
+  timeout?: number;
+  
+  // LocalStorage-specific
+  storagePrefix?: string;
+}
+
+interface TokenInterceptor {
+  getAccessToken(): Promise<string | null>;
+  refreshToken(): Promise<string | null>;
+  onTokenExpired(): Promise<void>;
 }
 ```
 
 ## Error Handling
 
-The library provides specific error types for different scenarios:
+### Error Types
 
-```tsx
-import { AuthenticationError, TenantError, PermissionError } from 'react-identity-access';
+```typescript
+type ErrorCode = 
+  | 'UNAUTHORIZED'
+  | 'FORBIDDEN' 
+  | 'NOT_FOUND'
+  | 'VALIDATION_ERROR'
+  | 'INTERNAL_ERROR'
+  | 'NETWORK_ERROR';
 
-try {
-  await login(credentials);
-} catch (error) {
-  if (error instanceof AuthenticationError) {
-    // Handle authentication failure
-  } else if (error instanceof TenantError) {
-    // Handle tenant-related errors
-  } else if (error instanceof PermissionError) {
-    // Handle permission errors
-  }
+type ErrorSeverity = 'INFO' | 'WARNING' | 'ERROR' | 'CRITICAL';
+
+type ErrorCategory = 'BUSINESS' | 'TECHNICAL' | 'SECURITY';
+```
+
+### Error Response
+
+```typescript
+interface ErrorResponse {
+  success: false;
+  error: string;
+  code?: ErrorCode;
+  severity?: ErrorSeverity;
+  category?: ErrorCategory;
+  details?: Record<string, any>;
 }
+```
+
+## Utilities
+
+### Schema Validation
+
+```typescript
+import { z } from 'zod';
+
+// Built-in schemas
+const userSchema = z.object({
+  id: z.string(),
+  email: z.string().email(),
+  name: z.string().min(1),
+  tenantId: z.string(),
+  roles: z.array(z.string()),
+  isActive: z.boolean()
+});
+
+const tenantSchema = z.object({
+  id: z.string(),
+  name: z.string().min(1),
+  domain: z.string().optional(),
+  isActive: z.boolean()
+});
+```
+
+### Dot Notation Utilities
+
+```typescript
+// Update nested objects using dot notation
+updateSetting('appearance.theme', 'dark');
+updateSetting('notifications.email.enabled', true);
+
+// Get nested values
+const theme = getSetting('appearance.theme');
+```
+
+### Helper Functions
+
+```typescript
+// Create standardized responses
+function createSuccessResponse<T>(
+  data: T, 
+  message?: string, 
+  metadata?: any
+): ApiResponse<T>;
+
+function createErrorResponse(
+  error: string, 
+  code?: ErrorCode, 
+  category?: ErrorCategory
+): ApiResponse<never>;
+
+// Validation helpers
+function validateEmail(email: string): boolean;
+function validatePassword(password: string): boolean;
+function validateTenantId(tenantId: string): boolean;
 ```

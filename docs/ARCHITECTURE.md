@@ -1,310 +1,410 @@
-# Architecture Design
+# Architecture
 
-## Core Principles
+This document describes the internal architecture and design patterns of React Identity Access.
 
-1. **Separation of Concerns** - Each provider handles a specific domain
-2. **Pluggable Architecture** - Connectors can be swapped without code changes
-3. **Type Safety** - Full TypeScript support with strict typing
-4. **Developer Experience** - Simple APIs with powerful debugging capabilities
-5. **Performance** - Minimal re-renders and efficient state management
+## System Overview
 
-## System Architecture
-
-### Provider Stack
+React Identity Access follows a layered provider architecture with clear separation of concerns:
 
 ```
-┌─────────────────────────────────────┐
-│           IdentityProvider          │ ← Root configuration & connector
-├─────────────────────────────────────┤
-│           TenantProvider            │ ← Multi-tenancy context
-├─────────────────────────────────────┤
-│            AuthProvider             │ ← Authentication state
-├─────────────────────────────────────┤
-│            RoleProvider             │ ← Role & permission management
-├─────────────────────────────────────┤
-│          SessionProvider            │ ← Token & session handling
-└─────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                    Application Layer                        │
+├─────────────────────────────────────────────────────────────┤
+│  Components: FeatureFlag, SubscriptionGuard, RoleGuard     │
+├─────────────────────────────────────────────────────────────┤
+│  Hooks: useAuth, useFeatureFlags, useSettings, etc.        │
+├─────────────────────────────────────────────────────────────┤
+│                    Provider Layer                           │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │ SettingsProvider (Configuration Management)             │ │
+│  └─────────────────────────────────────────────────────────┘ │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │ SubscriptionProvider (Billing & Plans)                 │ │
+│  └─────────────────────────────────────────────────────────┘ │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │ FeatureFlagsProvider (Feature Control)                 │ │
+│  └─────────────────────────────────────────────────────────┘ │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │ IdentityProvider (Authentication & Authorization)       │ │
+│  └─────────────────────────────────────────────────────────┘ │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │ TenantProvider (Multi-tenancy Resolution)              │ │
+│  └─────────────────────────────────────────────────────────┘ │
+│  ┌─────────────────────────────────────────────────────────┐ │
+│  │ ConnectorProvider (Data Access Abstraction)            │ │
+│  └─────────────────────────────────────────────────────────┘ │
+├─────────────────────────────────────────────────────────────┤
+│                    Data Layer                               │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐  │
+│  │ LocalStorage    │  │ Fetch/REST API  │  │ Custom      │  │
+│  │ Connector       │  │ Connector       │  │ Connector   │  │
+│  └─────────────────┘  └─────────────────┘  └─────────────┘  │
+├─────────────────────────────────────────────────────────────┤
+│                    Storage Layer                            │
+│  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐  │
+│  │ Browser         │  │ REST API        │  │ Database    │  │
+│  │ localStorage    │  │ Backend         │  │ Custom      │  │
+│  └─────────────────┘  └─────────────────┘  └─────────────┘  │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### Data Flow
+## Core Design Principles
 
+### 1. Provider Composition
+Each provider has a single responsibility and can be used independently:
+
+```tsx
+// Minimal setup - just authentication
+<ConnectorProvider>
+  <TenantProvider>
+    <IdentityProvider>
+      <App />
+    </IdentityProvider>
+  </TenantProvider>
+</ConnectorProvider>
+
+// Full setup - all features
+<ConnectorProvider>
+  <TenantProvider>
+    <IdentityProvider>
+      <FeatureFlagsProvider>
+        <SubscriptionProvider>
+          <SettingsProvider>
+            <App />
+          </SettingsProvider>
+        </SubscriptionProvider>
+      </FeatureFlagsProvider>
+    </IdentityProvider>
+  </TenantProvider>
+</ConnectorProvider>
 ```
-User Action → Hook → Provider → Connector → Backend/Storage
-                ↓
-            State Update → Context → Component Re-render
-```
 
-## Core Types
-
-### User & Authentication
+### 2. Connector Abstraction
+Data access is abstracted through the connector pattern:
 
 ```typescript
-interface User {
-  id: string;
-  email: string;
-  name: string;
-  tenantId: string;
-  roles: Role[];
-  metadata?: Record<string, any>;
-  createdAt: Date;
-  lastLoginAt?: Date;
+interface BaseConnector {
+  get<T>(path: string): Promise<ApiResponse<T>>;
+  list<T>(path: string): Promise<ApiResponse<T[]>>;
+  create<T>(path: string, data: any): Promise<ApiResponse<T>>;
+  update<T>(path: string, id: string, updates: Partial<T>): Promise<ApiResponse<T>>;
+  delete(path: string, id: string): Promise<ApiResponse<void>>;
 }
+```
 
+### 3. Multi-Tenant Session Isolation
+Sessions are stored per tenant using the pattern `auth_session_[tenantId]`:
+
+```typescript
+// Tenant A session
+localStorage.getItem('auth_session_acme-corp')
+
+// Tenant B session  
+localStorage.getItem('auth_session_startup-inc')
+```
+
+### 4. Type Safety
+Full TypeScript support with generic types:
+
+```typescript
+interface SettingsProvider<T> {
+  values: T;
+  updateSetting: <K extends keyof T>(key: K, value: T[K]) => void;
+  schema: z.ZodSchema<T>;
+}
+```
+
+## Provider Details
+
+### ConnectorProvider
+**Purpose**: Data access abstraction and configuration
+**Dependencies**: None (root provider)
+**Key Features**:
+- Connector instance management
+- Token interceptor registration
+- Seed data fallback
+
+```typescript
+interface ConnectorConfig {
+  type: 'localStorage' | 'fetch';
+  appId: string;
+  seedData?: SeedData;
+  // Fetch-specific
+  baseUrl?: string;
+  apiKey?: string;
+  timeout?: number;
+}
+```
+
+### TenantProvider
+**Purpose**: Multi-tenant resolution and context
+**Dependencies**: ConnectorProvider
+**Key Features**:
+- Multiple resolution strategies (subdomain, query-param, static)
+- Tenant validation
+- Automatic tenant switching
+
+```typescript
+interface TenantConfig {
+  strategy: 'subdomain' | 'query-param' | 'static';
+  static?: { tenantId: string };
+  fallback?: string;
+}
+```
+
+### IdentityProvider
+**Purpose**: Authentication and authorization
+**Dependencies**: ConnectorProvider, TenantProvider
+**Key Features**:
+- Multi-tenant session management
+- Token refresh and expiration
+- Role-based access control
+- Automatic logout on tenant mismatch
+
+```typescript
 interface AuthState {
   user: User | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   error: string | null;
 }
+```
 
-interface LoginCredentials {
-  email: string;
-  password: string;
-  tenantId?: string;
+### FeatureFlagsProvider
+**Purpose**: Dynamic feature control
+**Dependencies**: ConnectorProvider, TenantProvider
+**Key Features**:
+- Tenant-specific feature flags
+- Admin toggle capabilities
+- Component-based feature gating
+
+```typescript
+interface FeatureFlag {
+  id: string;
+  key: string;
+  name: string;
+  description: string;
+  defaultState: boolean;
+  adminEditable: boolean;
 }
 ```
 
-### Roles & Permissions
+### SubscriptionProvider
+**Purpose**: Billing and subscription management
+**Dependencies**: ConnectorProvider, TenantProvider
+**Key Features**:
+- Plan management
+- Usage tracking
+- Payment integration
+- Subscription lifecycle
 
 ```typescript
-interface Permission {
+interface Subscription {
   id: string;
-  name: string;
-  resource: string;
-  action: string;
-  conditions?: Record<string, any>;
+  tenantId: string;
+  planId: string;
+  status: 'active' | 'canceled' | 'past_due';
+  currentPeriodStart: Date;
+  currentPeriodEnd: Date;
 }
+```
 
-interface Role {
-  id: string;
-  name: string;
-  displayName: string;
-  permissions: Permission[];
-  isSystemRole: boolean;
-  tenantId?: string;
-}
+### SettingsProvider
+**Purpose**: Configuration management
+**Dependencies**: ConnectorProvider, TenantProvider
+**Key Features**:
+- Schema validation with Zod
+- Nested setting updates
+- Manual save mode
+- Version control
 
-interface RoleState {
-  roles: Role[];
-  currentUserRoles: Role[];
-  permissions: Permission[];
+```typescript
+interface SettingsState<T> {
+  values: T;
   isLoading: boolean;
+  error: string | null;
+  isDirty: boolean;
+  lastSync: Date | null;
 }
 ```
 
-### Multi-tenancy
+## Data Flow
 
+### 1. Authentication Flow
+```mermaid
+sequenceDiagram
+    participant App
+    participant IdentityProvider
+    participant Connector
+    participant Storage
+
+    App->>IdentityProvider: login(credentials)
+    IdentityProvider->>Connector: create('auth/login', data)
+    Connector->>Storage: POST /auth/login
+    Storage-->>Connector: AuthResponse
+    Connector-->>IdentityProvider: ApiResponse<AuthResponse>
+    IdentityProvider->>IdentityProvider: SessionStorage.store(authData, tenantId)
+    IdentityProvider-->>App: AuthResponse
+```
+
+### 2. Feature Flag Resolution
+```mermaid
+sequenceDiagram
+    participant Component
+    participant FeatureFlagsProvider
+    participant Connector
+    participant Storage
+
+    Component->>FeatureFlagsProvider: isEnabled('feature_key')
+    FeatureFlagsProvider->>FeatureFlagsProvider: Check local state
+    alt Feature not loaded
+        FeatureFlagsProvider->>Connector: list('featureFlags')
+        Connector->>Storage: GET /featureFlags
+        Storage-->>Connector: FeatureFlag[]
+        Connector-->>FeatureFlagsProvider: ApiResponse<FeatureFlag[]>
+        FeatureFlagsProvider->>FeatureFlagsProvider: Update state
+    end
+    FeatureFlagsProvider-->>Component: boolean
+```
+
+### 3. Settings Update Flow
+```mermaid
+sequenceDiagram
+    participant Component
+    participant SettingsProvider
+    participant Connector
+    participant Storage
+
+    Component->>SettingsProvider: updateSetting('key', value)
+    SettingsProvider->>SettingsProvider: Validate with schema
+    SettingsProvider->>SettingsProvider: Update local state
+    SettingsProvider->>SettingsProvider: Mark as dirty
+    Component->>SettingsProvider: save()
+    SettingsProvider->>Connector: localStorage.setItem(key, data)
+    SettingsProvider->>SettingsProvider: Mark as clean
+    SettingsProvider-->>Component: Success
+```
+
+## Error Handling
+
+### Standardized Error Responses
 ```typescript
-interface Tenant {
-  id: string;
-  name: string;
-  domain?: string; // For subdomain strategy
-  settings: TenantSettings;
-  isActive: boolean;
-  createdAt: Date;
-}
-
-interface TenantResolver {
-  strategy: 'subdomain' | 'query-param';
-  subdomain?: {
-    pattern: string; // e.g., "{tenant}.example.com"
+interface ApiResponse<T> {
+  success: boolean;
+  data?: T;
+  error?: string;
+  message?: string;
+  metadata?: {
+    total?: number;
+    page?: number;
+    limit?: number;
   };
-  queryParam?: {
-    paramName: string; // e.g., "tenant"
-    storageKey: string; // sessionStorage key
-  };
-}
-
-interface TenantSettings {
-  allowSelfRegistration: boolean;
-  requireEmailVerification: boolean;
-  sessionTimeout: number;
-  maxConcurrentSessions: number;
-  customBranding?: {
-    logo?: string;
-    primaryColor?: string;
-    secondaryColor?: string;
-  };
-}
-
-interface TenantState {
-  currentTenant: Tenant | null;
-  availableTenants: Tenant[];
-  isLoading: boolean;
-  resolutionStrategy: 'subdomain' | 'query-param';
-  showLanding: boolean;
 }
 ```
 
-### Session Management
+### Error Boundaries
+Each provider implements error boundaries:
 
 ```typescript
-interface TokenPair {
-  accessToken: string;
-  refreshToken: string;
-  expiresAt: Date;
-  tokenType: 'Bearer';
-}
-
-interface SessionState {
-  tokens: TokenPair | null;
-  isValid: boolean;
-  expiresAt: Date | null;
-  lastActivity: Date | null;
-  isRefreshing: boolean;
+try {
+  const result = await connector.get('path');
+  if (!result.success) {
+    dispatch({ type: 'ERROR', payload: result.error });
+  }
+} catch (error) {
+  dispatch({ type: 'ERROR', payload: error.message });
 }
 ```
 
-## Connector Architecture
+## Performance Considerations
 
-### Base Connector Interface
+### 1. Memoization
+Providers use React.useMemo for expensive computations:
 
 ```typescript
-interface IdentityConnector {
-  // Authentication
-  login(credentials: LoginCredentials): Promise<AuthResponse>;
-  logout(): Promise<void>;
-  refreshToken(refreshToken: string): Promise<TokenPair>;
-  
-  // User Management
-  getCurrentUser(): Promise<User>;
-  updateUser(updates: Partial<User>): Promise<User>;
-  
-  // Roles & Permissions
-  getUserRoles(userId: string): Promise<Role[]>;
-  getPermissions(roleIds: string[]): Promise<Permission[]>;
-  
-  // Multi-tenancy
-  getTenant(tenantId: string): Promise<Tenant>;
-  getUserTenants(userId: string): Promise<Tenant[]>;
-  
-  // Session
-  validateSession(token: string): Promise<boolean>;
-  extendSession(): Promise<void>;
-}
+const tokenInterceptor = useMemo(() => ({
+  getAccessToken: async () => { /* ... */ },
+  refreshToken: async () => { /* ... */ },
+  onTokenExpired: async () => { /* ... */ }
+}), [connector, dispatch, tenantId]);
 ```
 
-### LocalStorage Connector
-
-Simulates backend behavior with:
-- Configurable delays (100-500ms)
-- Error simulation (network failures, invalid credentials)
-- Data persistence across browser sessions
-- Debug logging
-
-### API Connector
-
-Production-ready connector with:
-- HTTP client configuration
-- Automatic retry logic
-- Request/response interceptors
-- Error handling and mapping
-
-## State Management Strategy
-
-### Context Optimization
-
-Each provider manages its own slice of state and only re-renders when its specific data changes:
+### 2. Lazy Loading
+Data is loaded only when needed:
 
 ```typescript
-// Separate contexts prevent unnecessary re-renders
-const AuthContext = createContext<AuthState>();
-const RoleContext = createContext<RoleState>();
-const TenantContext = createContext<TenantState>();
-const SessionContext = createContext<SessionState>();
+useEffect(() => {
+  if (tenantId && !state.loaded) {
+    loadData();
+  }
+}, [tenantId, state.loaded]);
 ```
 
-### Action-Based Updates
-
-All state changes go through action dispatchers:
+### 3. Optimistic Updates
+UI updates immediately, with rollback on failure:
 
 ```typescript
-interface AuthActions {
-  login: (credentials: LoginCredentials) => Promise<void>;
-  logout: () => Promise<void>;
-  updateUser: (updates: Partial<User>) => Promise<void>;
-  clearError: () => void;
+// Optimistic update
+dispatch({ type: 'UPDATE_SETTING', payload: { key, value } });
+
+try {
+  await connector.update(path, id, { [key]: value });
+} catch (error) {
+  // Rollback on failure
+  dispatch({ type: 'REVERT_SETTING', payload: { key } });
 }
 ```
 
 ## Security Considerations
 
-### Token Storage
+### 1. Token Management
+- Automatic token refresh
+- Secure storage patterns
+- Expiration handling
 
-- Access tokens: Memory only (React state)
-- Refresh tokens: Secure storage (httpOnly cookies in production, localStorage in development)
-- Automatic token rotation
-- Secure token transmission
+### 2. Tenant Isolation
+- Session separation per tenant
+- Data access validation
+- Cross-tenant prevention
 
-### Permission Checking
+### 3. Permission Validation
+- Role-based access control
+- Component-level guards
+- API-level authorization
 
-```typescript
-// Client-side permission checking (UI only)
-const hasPermission = (permission: string, resource?: string) => {
-  return userPermissions.some(p => 
-    p.name === permission && 
-    (!resource || p.resource === resource)
-  );
-};
+## Extensibility
 
-// Server-side validation is always required
-```
-
-### CSRF Protection
-
-- CSRF tokens for state-changing operations
-- SameSite cookie attributes
-- Origin validation
-
-## Debug System
-
-### Debug Levels
+### Custom Connectors
+Implement the BaseConnector interface:
 
 ```typescript
-enum DebugLevel {
-  ERROR = 0,
-  WARN = 1,
-  INFO = 2,
-  DEBUG = 3,
-  TRACE = 4
+class CustomConnector extends BaseConnector {
+  protected async getItem<T>(path: string): Promise<T | null> {
+    // Custom implementation
+  }
+  
+  protected async createItem<T>(path: string, data: any): Promise<T> {
+    // Custom implementation
+  }
+  
+  // ... other methods
 }
 ```
 
-### Debug Categories
-
-- `auth` - Authentication flows
-- `roles` - Role and permission operations
-- `session` - Session management
-- `tenant` - Multi-tenancy operations
-- `connector` - Backend communication
-- `performance` - Performance metrics
-
-### Usage
+### Custom Payment Gateways
+Implement the PaymentGateway interface:
 
 ```typescript
-import { debug } from 'react-identity-access';
-
-debug.auth('User login attempt', { email: user.email });
-debug.session('Token refresh initiated', { expiresAt });
-debug.performance('Hook render time', { duration: 15 });
+class CustomPaymentGateway implements PaymentGateway {
+  async createPayment(amount: number, currency: string): Promise<Payment> {
+    // Custom implementation
+  }
+  
+  async processPayment(paymentId: string): Promise<PaymentResult> {
+    // Custom implementation
+  }
+}
 ```
 
-## Performance Optimizations
-
-### Memoization Strategy
-
-- Hook results are memoized when possible
-- Permission calculations are cached
-- Role hierarchies are pre-computed
-
-### Bundle Size
-
-- Tree-shakeable exports
-- Optional features can be excluded
-- Minimal dependencies
-
-### Runtime Performance
-
-- Lazy loading of non-critical features
-- Efficient re-render prevention
-- Background token refresh
+### Plugin System
+The architecture supports plugins through provider composition and custom hooks.

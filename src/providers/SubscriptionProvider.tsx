@@ -120,13 +120,29 @@ export function SubscriptionProvider({
     try {
       dispatch({ type: 'LOADING', payload: true });
 
-      // Load subscription and plans using connector CRUD API
-      const [subscriptionResponse, plansResponse] = await Promise.all([
-        connector.get<Subscription>(`subscriptions/${tenantId}`),
-        connector.list<SubscriptionPlan>('subscription-plans'),
-      ]);
+      // First try to load subscription from localStorage directly
+      const subscriptionKey = `subscriptions_${tenantId}`;
+      const storageKey = `demo-app_${subscriptionKey}`;
+      const storedSubscription = localStorage.getItem(storageKey);
 
-      const subscription = subscriptionResponse.success ? subscriptionResponse.data : null;
+      let subscription = null;
+      if (storedSubscription) {
+        try {
+          subscription = JSON.parse(storedSubscription);
+          console.log('Loaded subscription from localStorage:', subscription);
+        } catch {
+          console.warn('Failed to parse stored subscription, falling back to connector');
+        }
+      }
+
+      // If no stored subscription, try connector (which will use seed data)
+      if (!subscription) {
+        const subscriptionResponse = await connector.get<Subscription>(`subscriptions/${tenantId}`);
+        subscription = subscriptionResponse.success ? subscriptionResponse.data : null;
+      }
+
+      // Load plans using connector CRUD API
+      const plansResponse = await connector.list<SubscriptionPlan>('subscription-plans');
       const plans = plansResponse.success ? plansResponse.data : [];
 
       dispatch({ type: 'SET_SUBSCRIPTION', payload: subscription });
@@ -152,18 +168,14 @@ export function SubscriptionProvider({
         cancelAtPeriodEnd: false,
       };
 
-      const response = await connector.create<Subscription>(
-        `subscriptions/${tenantId}`,
-        newSubscription
-      );
+      // Store subscription directly in localStorage as single object
+      const subscriptionKey = `subscriptions_${tenantId}`;
+      const storageKey = `demo-app_${subscriptionKey}`;
+      localStorage.setItem(storageKey, JSON.stringify(newSubscription));
 
-      if (response.success) {
-        dispatch({ type: 'SET_SUBSCRIPTION', payload: response.data });
-      } else {
-        const errorMessage =
-          typeof response.error === 'string' ? response.error : 'Failed to create subscription';
-        throw new Error(errorMessage);
-      }
+      console.log('Subscription saved directly to localStorage:', newSubscription);
+
+      dispatch({ type: 'SET_SUBSCRIPTION', payload: newSubscription });
     } catch (error: any) {
       dispatch({ type: 'ERROR', payload: error.message || 'Failed to subscribe' });
     }
@@ -180,19 +192,14 @@ export function SubscriptionProvider({
         cancelAtPeriodEnd: true,
       };
 
-      const response = await connector.update<Subscription>(
-        `subscriptions/${tenantId}`,
-        state.subscription.id,
-        updatedSubscription
-      );
+      // Store updated subscription directly in localStorage
+      const subscriptionKey = `subscriptions_${tenantId}`;
+      const storageKey = `demo-app_${subscriptionKey}`;
+      localStorage.setItem(storageKey, JSON.stringify(updatedSubscription));
 
-      if (response.success) {
-        dispatch({ type: 'SET_SUBSCRIPTION', payload: response.data });
-      } else {
-        const errorMessage =
-          typeof response.error === 'string' ? response.error : 'Failed to cancel subscription';
-        throw new Error(errorMessage);
-      }
+      console.log('Subscription updated in localStorage:', updatedSubscription);
+
+      dispatch({ type: 'SET_SUBSCRIPTION', payload: updatedSubscription });
     } catch (error: any) {
       dispatch({ type: 'ERROR', payload: error.message || 'Failed to cancel subscription' });
     }
@@ -209,19 +216,14 @@ export function SubscriptionProvider({
         planId,
       };
 
-      const response = await connector.update<Subscription>(
-        `subscriptions/${tenantId}`,
-        state.subscription.id,
-        updatedSubscription
-      );
+      // Store updated subscription directly in localStorage
+      const subscriptionKey = `subscriptions_${tenantId}`;
+      const storageKey = `demo-app_${subscriptionKey}`;
+      localStorage.setItem(storageKey, JSON.stringify(updatedSubscription));
 
-      if (response.success) {
-        dispatch({ type: 'SET_SUBSCRIPTION', payload: response.data });
-      } else {
-        const errorMessage =
-          typeof response.error === 'string' ? response.error : 'Failed to change plan';
-        throw new Error(errorMessage);
-      }
+      console.log('Subscription plan changed in localStorage:', updatedSubscription);
+
+      dispatch({ type: 'SET_SUBSCRIPTION', payload: updatedSubscription });
     } catch (error: any) {
       dispatch({ type: 'ERROR', payload: error.message || 'Failed to change plan' });
     }

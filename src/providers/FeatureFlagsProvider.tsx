@@ -1,17 +1,11 @@
 import { createContext, useContext, useReducer, useEffect, ReactNode } from 'react';
 import { useConnector } from './ConnectorProvider';
 import { useTenant } from './TenantProvider';
+import { FeatureFlag } from '../types';
 
 export interface FeatureFlagConfig {
   syncInterval?: number; // minutes
   allowOverrides?: boolean;
-}
-
-interface FeatureFlag {
-  key: string;
-  enabled: boolean;
-  description?: string;
-  adminEditable?: boolean;
 }
 
 interface FeatureFlagsState {
@@ -111,7 +105,7 @@ export function FeatureFlagsProvider({ config: _config, children }: FeatureFlags
       if (response.success) {
         const flags = response.data.reduce(
           (acc, flag) => {
-            acc[flag.key] = flag.enabled;
+            acc[flag.key] = flag.defaultState;
             return acc;
           },
           {} as Record<string, boolean>
@@ -132,7 +126,9 @@ export function FeatureFlagsProvider({ config: _config, children }: FeatureFlags
   const toggleFlag = async (key: string, enabled: boolean) => {
     try {
       // Use connector's generic API to update feature flag
-      const response = await connector.update<FeatureFlag>('featureFlags', key, { enabled });
+      const response = await connector.update<FeatureFlag>('featureFlags', key, {
+        defaultState: enabled,
+      });
 
       if (response.success) {
         dispatch({ type: 'TOGGLE_FLAG', payload: { key, enabled } });

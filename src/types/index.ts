@@ -86,6 +86,7 @@ export interface RegisterData {
 
 // Feature Flags
 export interface FeatureFlag {
+  id: string;
   key: string;
   name: string;
   description: string;

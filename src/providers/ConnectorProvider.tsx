@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode, useMemo, useState } from 'react';
+import { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { ConnectorConfig, TokenInterceptor } from '../connectors/base/BaseConnector';
 import { BaseConnector } from '../connectors/base/BaseConnector';
 import { LocalStorageConnector } from '../connectors/localStorage/LocalStorageConnector';
@@ -25,7 +25,7 @@ export function ConnectorProvider({
 }: ConnectorProviderProps) {
   const [tokenInterceptor, setTokenInterceptor] = useState<TokenInterceptor | undefined>();
 
-  // Create connector instance once and memoize it
+  // Create connector instance once and memoize it - don't recreate on tokenInterceptor change
   const connector = useMemo(() => {
     if (config.type === 'localStorage') {
       return new LocalStorageConnector({
@@ -33,7 +33,7 @@ export function ConnectorProvider({
         seedData: config.seedData,
         storagePrefix: `${config.appId}_`,
         type: 'localStorage',
-        tokenInterceptor,
+        tokenInterceptor: undefined, // Will be set later
       });
     } else {
       return new FetchConnector({
@@ -42,10 +42,17 @@ export function ConnectorProvider({
         apiKey: config.apiKey,
         seedData: config.seedData,
         type: 'fetch',
-        tokenInterceptor,
+        tokenInterceptor: undefined, // Will be set later
       });
     }
-  }, [config, tokenInterceptor]);
+  }, [config]);
+
+  // Update connector's tokenInterceptor when it changes
+  useEffect(() => {
+    if (tokenInterceptor && connector) {
+      connector.setTokenInterceptor(tokenInterceptor);
+    }
+  }, [tokenInterceptor, connector]);
 
   // Expose setter function for IdentityProvider to register token interceptor
   const contextValue = {

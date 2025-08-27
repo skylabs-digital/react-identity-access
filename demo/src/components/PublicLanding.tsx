@@ -33,20 +33,21 @@ export function PublicLanding() {
   const [loginForm, setLoginForm] = useState({ email: 'admin@acme-corp.com', password: 'admin123' });
   const [isLoggingIn, setIsLoggingIn] = useState(false);
 
-  // Redirect authenticated users
-  useEffect(() => {
+  // Handle login redirect only on form submission
+  const handleLoginRedirect = () => {
     if (auth.isAuthenticated && auth.user) {
       const isAdmin = auth.user.roles?.includes('admin') || auth.user.permissions?.includes('manage_tenant');
       navigate(isAdmin ? '/admin' : '/dashboard');
     }
-  }, [auth.isAuthenticated, auth.user, navigate]);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoggingIn(true);
     try {
-      await login(loginForm.email, loginForm.password);
-      // Navigation will be handled by useEffect above
+      await login({email: loginForm.email, password: loginForm.password});
+      // Redirect after successful login
+      handleLoginRedirect();
     } catch (error) {
       console.error('Login failed:', error);
       alert('Login failed. Please try again.');
@@ -72,8 +73,58 @@ export function PublicLanding() {
             <TenantSwitcher />
           </div>
           <nav style={{ display: 'flex', gap: '24px', alignItems: 'center' }}>
+            <button 
+              onClick={() => navigate('/')}
+              style={{ 
+                background: 'none', 
+                border: 'none', 
+                color: 'white', 
+                textDecoration: 'none', 
+                fontWeight: '500',
+                cursor: 'pointer',
+                fontSize: '16px'
+              }}
+            >
+              Home
+            </button>
             <a href="#features" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>Features</a>
             <a href="#pricing" style={{ color: 'white', textDecoration: 'none', fontWeight: '500' }}>Pricing</a>
+            {auth.isAuthenticated && (
+              <>
+                <button 
+                  onClick={() => navigate('/dashboard')}
+                  style={{ 
+                    background: 'rgba(255, 255, 255, 0.2)', 
+                    border: '1px solid rgba(255, 255, 255, 0.3)', 
+                    color: 'white', 
+                    padding: '8px 16px',
+                    borderRadius: '6px',
+                    fontWeight: '500',
+                    cursor: 'pointer',
+                    fontSize: '14px'
+                  }}
+                >
+                  Dashboard
+                </button>
+                {(auth.user?.roles?.includes('admin') || auth.user?.permissions?.includes('manage_tenant')) && (
+                  <button 
+                    onClick={() => navigate('/admin')}
+                    style={{ 
+                      background: 'rgba(255, 193, 7, 0.3)', 
+                      border: '1px solid rgba(255, 193, 7, 0.5)', 
+                      color: '#ffc107', 
+                      padding: '8px 16px',
+                      borderRadius: '6px',
+                      fontWeight: '600',
+                      cursor: 'pointer',
+                      fontSize: '14px'
+                    }}
+                  >
+                    Admin
+                  </button>
+                )}
+              </>
+            )}
             <FeatureFlag flag="beta_public_content">
               <span style={{ 
                 background: 'rgba(255, 193, 7, 0.2)', 

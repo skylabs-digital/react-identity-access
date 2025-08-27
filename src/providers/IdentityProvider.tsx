@@ -193,33 +193,58 @@ function identityReducer(state: IdentityState, action: IdentityAction): Identity
 
 // Session management utility functions
 const SessionStorage = {
-  clear: () => {
+  clear: (tenantId?: string) => {
     if (typeof window === 'undefined') return;
-    localStorage.removeItem('auth_token');
-    localStorage.removeItem('auth_refresh_token');
-    localStorage.removeItem('auth_user');
-    localStorage.removeItem('auth_expires_at');
+
+    if (tenantId) {
+      // Clear only specific tenant's credentials
+      localStorage.removeItem(`auth_session_${tenantId}`);
+    } else {
+      // Clear all tenant sessions
+      const keys = Object.keys(localStorage);
+      keys.forEach(key => {
+        if (key.startsWith('auth_session_')) {
+          localStorage.removeItem(key);
+        }
+      });
+      // Also clear legacy single-session keys for backward compatibility
+      localStorage.removeItem('auth_token');
+      localStorage.removeItem('auth_refresh_token');
+      localStorage.removeItem('auth_user');
+      localStorage.removeItem('auth_expires_at');
+    }
   },
 
-  store: (authData: AuthResponse) => {
+  store: (authData: AuthResponse, tenantId: string) => {
     if (typeof window === 'undefined') return;
-    localStorage.setItem('auth_token', authData.tokens.accessToken);
-    localStorage.setItem('auth_refresh_token', authData.tokens.refreshToken);
-    localStorage.setItem('auth_user', JSON.stringify(authData.user));
-    localStorage.setItem('auth_expires_at', authData.tokens.expiresAt.toString());
+
+    const sessionData = {
+      token: authData.tokens.accessToken,
+      refreshToken: authData.tokens.refreshToken,
+      user: authData.user,
+      expiresAt: authData.tokens.expiresAt.toString(),
+    };
+
+    localStorage.setItem(`auth_session_${tenantId}`, JSON.stringify(sessionData));
   },
 
-  getToken: () => {
+  getToken: (tenantId: string) => {
     if (typeof window === 'undefined') return { token: null, expiresAt: null };
+
+    const sessionStr = localStorage.getItem(`auth_session_${tenantId}`);
+    if (sessionStr) {
+      const session = JSON.parse(sessionStr);
+      return {
+        token: session.token,
+        expiresAt: session.expiresAt,
+      };
+    }
+
+    // Fallback to legacy single-session storage for backward compatibility
     return {
       token: localStorage.getItem('auth_token'),
       expiresAt: localStorage.getItem('auth_expires_at'),
     };
-  },
-
-  getRefreshToken: () => {
-    if (typeof window === 'undefined') return null;
-    return localStorage.getItem('auth_refresh_token');
   },
 
   isTokenExpired: (expiresAt: string | null) => {
@@ -227,11 +252,68 @@ const SessionStorage = {
     return Date.now() > parseInt(expiresAt);
   },
 
-  storeTokens: (authData: AuthResponse) => {
+  getRefreshToken: (tenantId: string) => {
+    if (typeof window === 'undefined') return null;
+
+    const sessionStr = localStorage.getItem(`auth_session_${tenantId}`);
+    if (sessionStr) {
+      const session = JSON.parse(sessionStr);
+      return session.refreshToken;
+    }
+
+    // Fallback to legacy single-session storage for backward compatibility
+    return localStorage.getItem('auth_refresh_token');
+  },
+
+  getUser: (tenantId: string) => {
+    if (typeof window === 'undefined') return null;
+
+    const sessionStr = localStorage.getItem(`auth_session_${tenantId}`);
+    if (sessionStr) {
+      const session = JSON.parse(sessionStr);
+      return session.user;
+    }
+
+    // Fallback to legacy single-session storage for backward compatibility
+    const userStr = localStorage.getItem('auth_user');
+    return userStr ? JSON.parse(userStr) : null;
+  },
+
+  storeTokens: (authData: AuthResponse, tenantId: string) => {
     if (typeof window === 'undefined') return;
-    localStorage.setItem('auth_token', authData.tokens.accessToken);
-    localStorage.setItem('auth_refresh_token', authData.tokens.refreshToken);
-    localStorage.setItem('auth_expires_at', authData.tokens.expiresAt.toString());
+
+    const sessionStr = localStorage.getItem(`auth_session_${tenantId}`);
+    if (sessionStr) {
+      const session = JSON.parse(sessionStr);
+      session.token = authData.tokens.accessToken;
+      session.refreshToken = authData.tokens.refreshToken;
+      session.expiresAt = authData.tokens.expiresAt.toString();
+      localStorage.setItem(`auth_session_${tenantId}`, JSON.stringify(session));
+    }
+  },
+
+  getAllSessions: () => {
+    if (typeof window === 'undefined') return {};
+
+    const sessions: Record<string, any> = {};
+    const keys = Object.keys(localStorage);
+
+    keys.forEach(key => {
+      if (key.startsWith('auth_session_')) {
+        const tenantId = key.replace('auth_session_', '');
+        const sessionStr = localStorage.getItem(key);
+        if (sessionStr) {
+          sessions[tenantId] = JSON.parse(sessionStr);
+        }
+      }
+    });
+
+    return sessions;
+  },
+
+  hasSession: (tenantId: string) => {
+    if (typeof window === 'undefined') return false;
+    return localStorage.getItem(`auth_session_${tenantId}`) !== null;
   },
 };
 
@@ -246,32 +328,30 @@ export function IdentityProvider({ config: _config, children }: IdentityProvider
       try {
         dispatch({ type: 'LOADING', payload: true });
 
-        // Get current user using generic CRUD API
-        const userResponse = await connector.get<User>('currentUser');
-        if (!userResponse.success) {
-          throw new Error(userResponse.message || 'Failed to get current user');
+        if (!tenantId) {
+          dispatch({ type: 'AUTH_ERROR', payload: 'No tenant selected' });
+          return;
         }
 
-        const user = userResponse.data;
-        dispatch({ type: 'SET_USER', payload: user });
+        // Check if user is already authenticated for this tenant
+        const storedUser = SessionStorage.getUser(tenantId);
+        const { token, expiresAt } = SessionStorage.getToken(tenantId);
 
-        // Load user roles using generic CRUD API
-        const rolesResponse = await connector.list<Role>(`users/${user.id}/roles`);
-        if (rolesResponse.success) {
-          const roles = rolesResponse.data;
-          dispatch({ type: 'SET_ROLES', payload: roles });
-
-          // Load permissions for these roles
-          const roleIds = roles.map((role: Role) => role.id);
-          const permissionsResponse = await connector.list<Permission>(
-            `roles/permissions?roleIds=${roleIds.join(',')}`
-          );
-          if (permissionsResponse.success) {
-            dispatch({ type: 'SET_PERMISSIONS', payload: permissionsResponse.data });
-          }
+        if (storedUser && token && !SessionStorage.isTokenExpired(expiresAt)) {
+          // User is already authenticated for this tenant
+          dispatch({ type: 'AUTH_SUCCESS', payload: storedUser });
+          return;
         }
+
+        // Clear expired session for this tenant
+        if (token && SessionStorage.isTokenExpired(expiresAt)) {
+          SessionStorage.clear(tenantId);
+        }
+
+        // No valid session found for this tenant
+        dispatch({ type: 'AUTH_ERROR', payload: 'No valid session' });
       } catch (error: any) {
-        dispatch({ type: 'ERROR', payload: error.message || 'Failed to load user data' });
+        dispatch({ type: 'AUTH_ERROR', payload: error.message || 'Failed to load user data' });
       }
     };
 
@@ -282,6 +362,10 @@ export function IdentityProvider({ config: _config, children }: IdentityProvider
     try {
       dispatch({ type: 'LOADING', payload: true });
 
+      if (!tenantId) {
+        throw new Error('No tenant selected');
+      }
+
       // Use generic CRUD API to authenticate
       const loginData = {
         email: credentials.email,
@@ -290,9 +374,9 @@ export function IdentityProvider({ config: _config, children }: IdentityProvider
       const response = await connector.create<AuthResponse>('auth/login', loginData);
 
       if (response.success) {
-        // Store session data using utility
+        // Store session data using utility for this tenant
         const authData = response.data;
-        SessionStorage.store(authData);
+        SessionStorage.store(authData, tenantId);
 
         dispatch({ type: 'LOGIN_SUCCESS', payload: authData });
         return authData;
@@ -311,14 +395,18 @@ export function IdentityProvider({ config: _config, children }: IdentityProvider
       // Use generic CRUD API to logout
       await connector.create('auth/logout', {});
 
-      // Clear session data using utility
-      SessionStorage.clear();
+      // Clear session data for current tenant only
+      if (tenantId) {
+        SessionStorage.clear(tenantId);
+      }
 
       dispatch({ type: 'LOGOUT' });
     } catch (error) {
       console.error('Logout error:', error);
       // Still clear local state and session even if server logout fails
-      SessionStorage.clear();
+      if (tenantId) {
+        SessionStorage.clear(tenantId);
+      }
       dispatch({ type: 'LOGOUT' });
     }
   };
@@ -364,7 +452,9 @@ export function IdentityProvider({ config: _config, children }: IdentityProvider
   const tokenInterceptor = useMemo(
     () => ({
       getAccessToken: async (): Promise<string | null> => {
-        const { token, expiresAt } = SessionStorage.getToken();
+        if (!tenantId) return null;
+
+        const { token, expiresAt } = SessionStorage.getToken(tenantId);
 
         if (!token || !expiresAt) return null;
 
@@ -378,7 +468,9 @@ export function IdentityProvider({ config: _config, children }: IdentityProvider
       },
 
       refreshToken: async (): Promise<string | null> => {
-        const refreshToken = SessionStorage.getRefreshToken();
+        if (!tenantId) return null;
+
+        const refreshToken = SessionStorage.getRefreshToken(tenantId);
         if (!refreshToken) {
           await tokenInterceptor.onTokenExpired();
           return null;
@@ -389,7 +481,7 @@ export function IdentityProvider({ config: _config, children }: IdentityProvider
           const response = await connector.create<AuthResponse>('auth/refresh', { refreshToken });
           if (response.success) {
             const authData = response.data;
-            SessionStorage.storeTokens(authData);
+            SessionStorage.storeTokens(authData, tenantId);
             return authData.tokens.accessToken;
           }
         } catch (error) {
@@ -401,12 +493,14 @@ export function IdentityProvider({ config: _config, children }: IdentityProvider
       },
 
       onTokenExpired: async (): Promise<void> => {
-        // Clear session and logout
-        SessionStorage.clear();
+        // Clear session for current tenant and logout
+        if (tenantId) {
+          SessionStorage.clear(tenantId);
+        }
         dispatch({ type: 'LOGOUT' });
       },
     }),
-    [connector, dispatch]
+    [connector, dispatch, tenantId]
   );
 
   // Register token interceptor with connector
