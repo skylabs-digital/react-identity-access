@@ -27,6 +27,16 @@ module.exports = [
         module: 'readonly',
         require: 'readonly',
         exports: 'readonly',
+        window: 'readonly',
+        document: 'readonly',
+        navigator: 'readonly',
+        localStorage: 'readonly',
+        sessionStorage: 'readonly',
+        fetch: 'readonly',
+        setTimeout: 'readonly',
+        clearTimeout: 'readonly',
+        setInterval: 'readonly',
+        clearInterval: 'readonly',
       },
     },
     plugins: {
@@ -55,6 +65,6 @@ module.exports = [
     },
   },
   {
-    ignores: ['**/dist/**', 'node_modules/**', 'src/__tests__.disabled/**', 'template/**', '**/build/**', 'eslint.config.js'],
+    ignores: ['**/dist/**', 'node_modules/**', 'build/**', 'eslint.config.js'],
   },
 ];

@@ -1,72 +1,57 @@
-// Core Providers
-export * from './providers/ConnectorProvider';
-export * from './providers/IdentityProvider';
-export * from './providers/TenantProvider';
-export * from './providers/FeatureFlagsProvider';
-export * from './providers/SettingsProvider';
-export * from './providers/SubscriptionProvider';
-export * from './providers/TenantPaymentProvider';
+// Export providers
+export { AppProvider, useApp, useApi, useTenant } from './providers/AppProvider';
+export type { AppConfig } from './providers/AppProvider';
+export { AuthProvider, useAuth } from './providers/AuthProvider';
+export type { AuthConfig, AuthContextValue } from './providers/AuthProvider';
+export { FeatureFlagProvider, useFeatureFlags } from './providers/FeatureFlagProvider';
+export type { FeatureFlagConfig, FeatureFlagContextValue } from './providers/FeatureFlagProvider';
+export type { FeatureFlag as FeatureFlagType } from './types/api';
+export { SubscriptionProvider, useSubscription } from './providers/SubscriptionProvider';
+export type { SubscriptionConfig, SubscriptionContextValue } from './providers/SubscriptionProvider';
 
-// Connectors
-export { BaseConnector } from './connectors/base/BaseConnector';
-export { LocalStorageConnector } from './connectors/localStorage/LocalStorageConnector';
-export type { LocalStorageConnectorConfig } from './connectors/localStorage/LocalStorageConnector';
-// LocalStorageSubscriptionConnector removed - using LocalStorageConnector for subscriptions
+// Export components
+export { Protected } from './components/Protected';
+export { ProtectedRoute } from './components/ProtectedRoute';
+export { SubscriptionGuard } from './components/SubscriptionGuard';
+export { FeatureFlag } from './components/FeatureFlag';
+export { LoginForm } from './components/LoginForm';
+export { SignupForm } from './components/SignupForm';
+export { PasswordRecoveryForm } from './components/PasswordRecoveryForm';
 
-// Hooks
-export { useAuth } from './hooks/useAuth';
-export { useRoles } from './hooks/useRoles';
-export { useTenant } from './hooks/useTenant';
-export { useFeatureFlags } from './hooks/useFeatureFlags';
-export { useSession } from './hooks/useSession';
-export { useSubscription } from './hooks/useSubscription';
+// Export component types
+export type { ProtectedProps } from './components/Protected';
+export type { ProtectedRouteProps } from './components/ProtectedRoute';
+export type { SubscriptionGuardProps } from './components/SubscriptionGuard';
+export type { LoginFormProps, LoginFormCopy, LoginFormStyles } from './components/LoginForm';
+export type { SignupFormProps, SignupFormCopy, SignupFormStyles } from './components/SignupForm';
+export type { PasswordRecoveryFormProps, PasswordRecoveryFormCopy, PasswordRecoveryFormStyles } from './components/PasswordRecoveryForm';
 
-export type {
-  UseAuthReturn,
-  UseRolesReturn,
-  UseTenantReturn,
-  UseFeatureFlagsReturn,
-  UseSessionReturn,
-  UseSubscriptionReturn,
-} from './hooks';
+// Export types
+export { UserType } from './types/api';
+export type { User, PlanFeature, TenantSubscriptionFeatures } from './types/api';
 
-// Guards
-export {
-  FeatureFlag,
-  FeatureGate,
-  LimitGate,
-  SubscriptionGuard,
-  RoleGuard,
-  ProtectedRoute,
-} from './components';
+// Base Services
+export { HttpService } from './services/HttpService';
+export type { RequestOptions } from './services/HttpService';
+export { SessionManager } from './services/SessionManager';
+export type { TokenData, SessionConfig } from './services/SessionManager';
 
-// Utilities
-export * from './utils/dot-notation';
-export * from './utils/zod/schema-analyzer';
+// Main API Service - removed in favor of provider pattern
 
-// Gateways
-export * from './gateways';
+// Domain API Services
+export { AuthApiService } from './services/AuthApiService';
+export { UserApiService } from './services/UserApiService';
+export { RoleApiService } from './services/RoleApiService';
+export { PermissionApiService } from './services/PermissionApiService';
+export { AppApiService } from './services/AppApiService';
+export { TenantApiService } from './services/TenantApiService';
+export { SubscriptionApiService } from './services/SubscriptionApiService';
+export { SubscriptionPlanApiService } from './services/SubscriptionPlanApiService';
+export { FeatureFlagApiService } from './services/FeatureFlagApiService';
+export { HealthApiService } from './services/HealthApiService';
 
 // Types
-export type {
-  User,
-  Tenant,
-  Role,
-  Permission,
-  FeatureFlag as FeatureFlagType,
-  LoginCredentials,
-  SignupCredentials,
-  AuthResponse,
-  TokenPair,
-  AuthState,
-  TenantState,
-  RoleState,
-  SessionState,
-  FeatureFlagsState,
-  IdentityConfig,
-  TenantResolver,
-  TenantSettings,
-  AuthenticationError,
-  TenantError,
-  DebugLog,
-} from './types';
+export * from './types/api';
+
+// Utilities
+export { ApiMappers } from './utils/mappers';

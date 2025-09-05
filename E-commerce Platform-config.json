@@ -1,0 +1,180 @@
+{
+  "app": {
+    "id": "42834f81-f8bd-46c7-9003-8a8ccebc025f",
+    "name": "E-commerce Platform",
+    "description": "Multi-vendor e-commerce solution",
+    "createdAt": "2025-09-03T20:12:54.466Z",
+    "updatedAt": "2025-09-03T20:12:54.497Z"
+  },
+  "settingsSchema": {
+    "type": "object",
+    "properties": {
+      "storeName": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 100
+      },
+      "currency": {
+        "type": "string",
+        "enum": [
+          "USD",
+          "EUR",
+          "GBP",
+          "CAD"
+        ],
+        "default": "USD"
+      },
+      "taxRate": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 1,
+        "default": 0.08
+      },
+      "shippingEnabled": {
+        "type": "boolean",
+        "default": true
+      },
+      "paymentMethods": {
+        "type": "object",
+        "properties": {
+          "stripe": {
+            "type": "boolean",
+            "default": true
+          },
+          "paypal": {
+            "type": "boolean",
+            "default": false
+          },
+          "applePay": {
+            "type": "boolean",
+            "default": false
+          }
+        }
+      }
+    }
+  },
+  "defaultSettings": {
+    "currency": "USD",
+    "taxRate": 0.08,
+    "shippingEnabled": true,
+    "paymentMethods": {
+      "stripe": true,
+      "paypal": false,
+      "applePay": false
+    }
+  },
+  "roles": [
+    {
+      "id": "7f5df43d-77a1-4a9c-acfd-78c71e6d6f4e",
+      "name": "admin",
+      "description": "Store administrator with full access to all features",
+      "permissions": [
+        "products.read",
+        "products.create",
+        "products.write",
+        "products.delete",
+        "orders.read",
+        "orders.create",
+        "orders.write",
+        "orders.delete",
+        "customers.read",
+        "customers.write",
+        "analytics.read",
+        "inventory.read",
+        "inventory.write",
+        "settings.read",
+        "settings.write"
+      ],
+      "isSystemGenerated": false,
+      "isActive": true
+    },
+    {
+      "id": "5ca593b3-cfcc-47f6-a2b1-fd7a2cc11e9f",
+      "name": "manager",
+      "description": "Store manager with product and order management access",
+      "permissions": [
+        "products.read",
+        "products.create",
+        "products.write",
+        "orders.read",
+        "orders.write",
+        "customers.read",
+        "analytics.read",
+        "inventory.read",
+        "inventory.write"
+      ],
+      "isSystemGenerated": false,
+      "isActive": true
+    }
+  ],
+  "featureFlags": [
+    {
+      "id": "b0e4f57e-7388-44a9-8fb6-654694e4ff0c",
+      "name": "Inventory Forecasting",
+      "description": "Enable AI-powered inventory forecasting and auto-reordering",
+      "isActive": true,
+      "isTenantConfigurable": true,
+      "overrides": []
+    },
+    {
+      "id": "7628435b-1508-403c-a925-5ecd96a79942",
+      "name": "Social Commerce Integration",
+      "description": "Enable social media selling and integration features",
+      "isActive": false,
+      "isTenantConfigurable": true,
+      "overrides": []
+    }
+  ],
+  "subscriptionPlans": [
+    {
+      "id": "e74ddd0e-c000-406f-a675-5ae750f76d50",
+      "name": "Free",
+      "description": "Default free plan for new tenants",
+      "isPaid": false,
+      "monthlyPrice": 0,
+      "yearlyPrice": 0,
+      "currency": "USD",
+      "features": {
+        "0": {
+          "key": "max_products",
+          "name": "Maximum Products",
+          "value": 50,
+          "type": "NUMBER"
+        },
+        "1": {
+          "key": "storage_gb",
+          "name": "Storage (GB)",
+          "value": 2,
+          "type": "NUMBER"
+        },
+        "2": {
+          "key": "monthly_orders",
+          "name": "Monthly Orders",
+          "value": 100,
+          "type": "NUMBER"
+        }
+      },
+      "isDefault": false,
+      "isActive": true
+    }
+  ],
+  "tenants": [
+    {
+      "id": "2f9d3cb2-dc3b-491f-844f-326332040d64",
+      "name": "Tech Store Inc.",
+      "subscription": {
+        "planId": "e74ddd0e-c000-406f-a675-5ae750f76d50",
+        "status": "ACTIVE"
+      }
+    }
+  ],
+  "users": [
+    {
+      "id": "f3d4fabf-2dea-47ca-b43e-165b13be6fd0",
+      "email": "test@example.com",
+      "userType": "USER",
+      "isActive": true,
+      "tenantId": "2f9d3cb2-dc3b-491f-844f-326332040d64"
+    }
+  ]
+}

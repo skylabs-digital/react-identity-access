@@ -14,17 +14,30 @@ export default defineConfig({
   build: {
     lib: {
       entry: resolve(__dirname, 'src/index.ts'),
-      name: 'ApiClientService',
+      name: 'ReactIdentityAccess',
       formats: ['es', 'cjs'],
-      fileName: format => `index.${format === 'es' ? 'es.js' : 'js'}`,
+      fileName: format => `index.${format === 'cjs' ? '' : format + '.'}js`,
     },
     rollupOptions: {
-      external: ['react', 'react-dom', 'zod'],
+      external: id => {
+        return (
+          id === 'react' ||
+          id === 'react-dom' ||
+          id === 'react-router' ||
+          id === 'react/jsx-runtime' ||
+          id === 'react/jsx-dev-runtime' ||
+          id.startsWith('react/') ||
+          id.startsWith('react-dom/') ||
+          id.startsWith('react-router/')
+        );
+      },
       output: {
         globals: {
           react: 'React',
           'react-dom': 'ReactDOM',
-          zod: 'z',
+          'react-router': 'ReactRouter',
+          'react/jsx-runtime': 'React',
+          'react/jsx-dev-runtime': 'React',
         },
       },
     },
