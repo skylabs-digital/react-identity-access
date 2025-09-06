@@ -27,9 +27,7 @@ const DefaultFallback = ({ flagName }: { flagName: string }) => (
     <div style={{ fontSize: '14px', fontWeight: '500', marginBottom: '4px' }}>
       Feature Not Available
     </div>
-    <div style={{ fontSize: '12px', opacity: 0.7 }}>
-      Feature flag "{flagName}" is disabled
-    </div>
+    <div style={{ fontSize: '12px', opacity: 0.7 }}>Feature flag "{flagName}" is disabled</div>
   </div>
 );
 

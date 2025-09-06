@@ -94,7 +94,7 @@ export interface Role {
   name: string;
   description: string | null;
   appId: string;
-  permissions: Permission[];
+  permissions: string[]; // API returns permissions as strings in 'resource.action' format
   createdAt: string;
   updatedAt: string;
 }
@@ -143,6 +143,34 @@ export interface App {
   updatedAt: string;
 }
 
+export interface JSONSchema {
+  $schema?: string;
+  $id?: string;
+  title?: string;
+  description?: string;
+  type?: 'object' | 'array' | 'string' | 'number' | 'integer' | 'boolean' | 'null';
+  properties?: { [key: string]: JSONSchema };
+  items?: JSONSchema;
+  required?: string[];
+  enum?: unknown[];
+  minimum?: number;
+  maximum?: number;
+  minLength?: number;
+  maxLength?: number;
+  pattern?: string;
+  format?: string;
+  default?: unknown;
+  placeholder?: string;
+  additionalProperties?: boolean | JSONSchema;
+}
+
+export interface PublicAppInfo {
+  id: string;
+  name: string;
+  description: string | null;
+  settingsSchema: JSONSchema | null;
+}
+
 export interface CreateAppRequest {
   name: string;
   description?: string;
@@ -173,6 +201,14 @@ export interface PublicTenantInfo {
   name: string;
   domain: string | null;
   appId: string;
+}
+
+export interface TenantSettings {
+  [key: string]: any;
+}
+
+export interface UpdateTenantSettingsRequest {
+  settings: TenantSettings;
 }
 
 // Subscription Types

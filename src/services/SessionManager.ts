@@ -6,12 +6,18 @@ export interface TokenData {
   tokenType?: string;
 }
 
+export interface TokenStorage {
+  get(): any;
+  set(data: any): void;
+  clear(): void;
+}
+
 export interface SessionConfig {
   storageKey?: string;
   autoRefresh?: boolean;
   refreshThreshold?: number;
   onRefreshFailed?: () => void;
-  tokenStorage?: any;
+  tokenStorage?: TokenStorage;
   baseUrl?: string; // Base URL for API calls
 }
 
@@ -21,8 +27,8 @@ export class SessionManager {
   private refreshThreshold: number;
   private baseUrl: string;
   private onRefreshFailed?: () => void;
-  private tokenStorage?: any;
-  
+  private tokenStorage: TokenStorage;
+
   // Refresh queue management
   private refreshPromise: Promise<void> | null = null;
   private refreshQueue: Array<{
@@ -35,45 +41,52 @@ export class SessionManager {
     this.autoRefresh = config.autoRefresh ?? true;
     this.refreshThreshold = config.refreshThreshold || 300000; // 5 minutes
     this.onRefreshFailed = config.onRefreshFailed;
-    this.tokenStorage = config.tokenStorage;
     this.baseUrl = config.baseUrl || '';
+
+    // Use provided tokenStorage or create default localStorage implementation
+    this.tokenStorage = config.tokenStorage || {
+      get: () => {
+        try {
+          const stored = localStorage.getItem(this.storageKey);
+          return stored ? JSON.parse(stored) : null;
+        } catch {
+          return null;
+        }
+      },
+      set: (data: any) => {
+        try {
+          localStorage.setItem(this.storageKey, JSON.stringify(data));
+        } catch {
+          // Handle storage errors silently
+        }
+      },
+      clear: () => {
+        try {
+          localStorage.removeItem(this.storageKey);
+        } catch {
+          // Handle storage errors silently
+        }
+      },
+    };
   }
 
   setTokens(tokens: TokenData): void {
     // Convert expiresIn to expiresAt if needed
     const tokenData: TokenData = {
       ...tokens,
-      expiresAt: tokens.expiresAt || (tokens.expiresIn ? Date.now() + (tokens.expiresIn * 1000) : undefined),
+      expiresAt:
+        tokens.expiresAt || (tokens.expiresIn ? Date.now() + tokens.expiresIn * 1000 : undefined),
     };
-    
-    if (this.tokenStorage) {
-      this.tokenStorage.set(tokenData);
-    } else {
-      localStorage.setItem(this.storageKey, JSON.stringify(tokenData));
-    }
+
+    this.tokenStorage.set(tokenData);
   }
 
   getTokens(): TokenData | null {
-    if (this.tokenStorage) {
-      return this.tokenStorage.get();
-    }
-    
-    const stored = localStorage.getItem(this.storageKey);
-    if (!stored) return null;
-
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return null;
-    }
+    return this.tokenStorage.get();
   }
 
   clearTokens(): void {
-    if (this.tokenStorage) {
-      this.tokenStorage.clear();
-    } else {
-      localStorage.removeItem(this.storageKey);
-    }
+    this.tokenStorage.clear();
   }
 
   isTokenExpired(token?: TokenData): boolean {
@@ -97,7 +110,7 @@ export class SessionManager {
 
   async getAuthHeaders(): Promise<Record<string, string>> {
     const tokens = this.getTokens();
-    
+
     // No tokens available
     if (!tokens?.accessToken) {
       return {};
@@ -132,31 +145,31 @@ export class SessionManager {
 
     try {
       await this.refreshPromise;
-      
+
       // Refresh successful, process queue
       const newTokens = this.getTokens();
-      const headers: Record<string, string> = newTokens?.accessToken 
+      const headers: Record<string, string> = newTokens?.accessToken
         ? { Authorization: `Bearer ${newTokens.accessToken}` }
         : {};
 
       // Resolve all queued requests
       this.refreshQueue.forEach(({ resolve }) => resolve(headers));
       this.refreshQueue = [];
-      
+
       return headers;
     } catch (error) {
       // Refresh failed, reject all queued requests
       const refreshError = error instanceof Error ? error : new Error('Token refresh failed');
-      
+
       this.refreshQueue.forEach(({ reject }) => reject(refreshError));
       this.refreshQueue = [];
-      
+
       // Clear session and notify
       this.clearSession();
       if (this.onRefreshFailed) {
         this.onRefreshFailed();
       }
-      
+
       return {};
     } finally {
       this.refreshPromise = null;
@@ -169,7 +182,7 @@ export class SessionManager {
     }
 
     const url = `${this.baseUrl}/auth/refresh`;
-    
+
     const response = await fetch(url, {
       method: 'POST',
       headers: {
@@ -194,42 +207,20 @@ export class SessionManager {
   }
 
   setUser(user: any): void {
-    const userKey = `${this.storageKey}_user`;
-    if (this.tokenStorage) {
-      // If using custom storage, store user data alongside tokens
-      const currentData = this.tokenStorage.get() || {};
-      this.tokenStorage.set({ ...currentData, user });
-    } else {
-      localStorage.setItem(userKey, JSON.stringify(user));
-    }
+    // Store user data alongside tokens
+    const currentData = this.tokenStorage.get() || {};
+    this.tokenStorage.set({ ...currentData, user });
   }
 
   getUser(): any | null {
-    const userKey = `${this.storageKey}_user`;
-    if (this.tokenStorage) {
-      const data = this.tokenStorage.get();
-      return data?.user || null;
-    }
-    
-    const stored = localStorage.getItem(userKey);
-    if (!stored) return null;
-
-    try {
-      return JSON.parse(stored);
-    } catch {
-      return null;
-    }
+    const data = this.tokenStorage.get();
+    return data?.user || null;
   }
 
   clearUser(): void {
-    const userKey = `${this.storageKey}_user`;
-    if (this.tokenStorage) {
-      const currentData = this.tokenStorage.get() || {};
-      delete currentData.user;
-      this.tokenStorage.set(currentData);
-    } else {
-      localStorage.removeItem(userKey);
-    }
+    const currentData = this.tokenStorage.get() || {};
+    delete currentData.user;
+    this.tokenStorage.set(currentData);
   }
 
   clearSession(): void {

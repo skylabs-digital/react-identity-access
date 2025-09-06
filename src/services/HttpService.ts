@@ -79,11 +79,11 @@ export class HttpService {
           if (tokens?.refreshToken) {
             // Trigger refresh through getAuthHeaders with expired token
             await this.sessionManager.getAuthHeaders();
-            
+
             // Retry the original request
             return this.executeRequest<T>(method, endpoint, data, options, true);
           }
-        } catch (refreshError) {
+        } catch {
           // If refresh fails, throw the original 401 error
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
         }

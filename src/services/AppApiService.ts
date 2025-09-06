@@ -1,6 +1,12 @@
 import { HttpService } from './HttpService';
 import { SessionManager } from './SessionManager';
-import type { App, CreateAppRequest, ApiResponse, PaginationParams } from '../types/api';
+import type {
+  ApiResponse,
+  App,
+  CreateAppRequest,
+  PublicAppInfo,
+  PaginationParams,
+} from '../types/api';
 
 export class AppApiService {
   constructor(
@@ -49,6 +55,11 @@ export class AppApiService {
     const response = await this.httpService.put<ApiResponse<App>>(`/apps/${id}`, request, {
       headers: authHeaders,
     });
+    return response.data;
+  }
+
+  async getPublicAppInfo(id: string): Promise<PublicAppInfo> {
+    const response = await this.httpService.get<ApiResponse<PublicAppInfo>>(`/apps/${id}/public`);
     return response.data;
   }
 

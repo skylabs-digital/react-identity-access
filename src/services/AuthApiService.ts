@@ -15,10 +15,7 @@ export class AuthApiService {
 
   // Public endpoints - no auth required
   async login(request: LoginRequest): Promise<LoginResponse> {
-    const response = await this.httpService.post<LoginResponse>(
-      '/auth/login',
-      request
-    );
+    const response = await this.httpService.post<LoginResponse>('/auth/login', request);
     console.log(response);
     return response;
   }
@@ -43,10 +40,7 @@ export class AuthApiService {
   }
 
   async refreshToken(request: RefreshTokenRequest): Promise<RefreshTokenResponse> {
-    const response = await this.httpService.post<RefreshTokenResponse>(
-      '/auth/refresh',
-      request
-    );
+    const response = await this.httpService.post<RefreshTokenResponse>('/auth/refresh', request);
     return response;
   }
 

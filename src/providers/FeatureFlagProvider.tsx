@@ -100,11 +100,7 @@ export function FeatureFlagProvider({ config = {}, children }: FeatureFlagProvid
     };
   }, [featureFlags, loading, error]);
 
-  return (
-    <FeatureFlagContext.Provider value={contextValue}>
-      {children}
-    </FeatureFlagContext.Provider>
-  );
+  return <FeatureFlagContext.Provider value={contextValue}>{children}</FeatureFlagContext.Provider>;
 }
 
 export function useFeatureFlags(): FeatureFlagContextValue {

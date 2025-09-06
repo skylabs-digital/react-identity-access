@@ -7,7 +7,11 @@ export { FeatureFlagProvider, useFeatureFlags } from './providers/FeatureFlagPro
 export type { FeatureFlagConfig, FeatureFlagContextValue } from './providers/FeatureFlagProvider';
 export type { FeatureFlag as FeatureFlagType } from './types/api';
 export { SubscriptionProvider, useSubscription } from './providers/SubscriptionProvider';
-export type { SubscriptionConfig, SubscriptionContextValue } from './providers/SubscriptionProvider';
+export type {
+  SubscriptionConfig,
+  SubscriptionContextValue,
+} from './providers/SubscriptionProvider';
+export { TenantProvider, useTenantSettings, useSettings } from './providers/TenantProvider';
 
 // Export components
 export { Protected } from './components/Protected';
@@ -24,7 +28,11 @@ export type { ProtectedRouteProps } from './components/ProtectedRoute';
 export type { SubscriptionGuardProps } from './components/SubscriptionGuard';
 export type { LoginFormProps, LoginFormCopy, LoginFormStyles } from './components/LoginForm';
 export type { SignupFormProps, SignupFormCopy, SignupFormStyles } from './components/SignupForm';
-export type { PasswordRecoveryFormProps, PasswordRecoveryFormCopy, PasswordRecoveryFormStyles } from './components/PasswordRecoveryForm';
+export type {
+  PasswordRecoveryFormProps,
+  PasswordRecoveryFormCopy,
+  PasswordRecoveryFormStyles,
+} from './components/PasswordRecoveryForm';
 
 // Export types
 export { UserType } from './types/api';
@@ -52,6 +60,7 @@ export { HealthApiService } from './services/HealthApiService';
 
 // Types
 export * from './types/api';
+export type { JSONSchema } from './types/api';
 
 // Utilities
 export { ApiMappers } from './utils/mappers';

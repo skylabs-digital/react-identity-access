@@ -234,22 +234,22 @@ export function SignupForm({
       confirmPassword?: boolean;
       tenantName?: boolean;
     } = {};
-    
+
     if (!name.trim()) errors.name = true;
     if (!email.trim()) errors.email = true;
     if (!password.trim()) errors.password = true;
     if (!confirmPassword.trim()) errors.confirmPassword = true;
     if (isAdmin && !tenantName.trim()) errors.tenantName = true;
-    
+
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
-    
+
     if (password !== confirmPassword) {
       setError(mergedCopy.passwordMismatchError);
       setFieldErrors({ confirmPassword: true });
@@ -289,8 +289,9 @@ export function SignupForm({
   const getButtonStyle = () => ({
     ...mergedStyles.button,
     ...(loading ? mergedStyles.buttonLoading : {}),
-    ...(!name || !email || !password || !confirmPassword || loading || (isAdmin && !tenantName) 
-      ? mergedStyles.buttonDisabled : {}),
+    ...(!name || !email || !password || !confirmPassword || loading || (isAdmin && !tenantName)
+      ? mergedStyles.buttonDisabled
+      : {}),
   });
 
   const isFormValid = name && email && password && confirmPassword && (!isAdmin || tenantName);
@@ -298,14 +299,14 @@ export function SignupForm({
   return (
     <div className={className} style={mergedStyles.container}>
       <h2 style={mergedStyles.title}>{mergedCopy.title}</h2>
-      
+
       <form onSubmit={handleSubmit} style={mergedStyles.form}>
         <div style={mergedStyles.fieldGroup}>
           <label style={mergedStyles.label}>{mergedCopy.nameLabel}</label>
           <input
             type="text"
             value={name}
-            onChange={(e) => {
+            onChange={e => {
               setName(e.target.value);
               if (fieldErrors.name) {
                 setFieldErrors(prev => ({ ...prev, name: false }));
@@ -322,7 +323,7 @@ export function SignupForm({
           <input
             type="email"
             value={email}
-            onChange={(e) => {
+            onChange={e => {
               setEmail(e.target.value);
               if (fieldErrors.email) {
                 setFieldErrors(prev => ({ ...prev, email: false }));
@@ -339,7 +340,7 @@ export function SignupForm({
           <input
             type="password"
             value={password}
-            onChange={(e) => {
+            onChange={e => {
               setPassword(e.target.value);
               if (fieldErrors.password) {
                 setFieldErrors(prev => ({ ...prev, password: false }));
@@ -356,7 +357,7 @@ export function SignupForm({
           <input
             type="password"
             value={confirmPassword}
-            onChange={(e) => {
+            onChange={e => {
               setConfirmPassword(e.target.value);
               if (fieldErrors.confirmPassword) {
                 setFieldErrors(prev => ({ ...prev, confirmPassword: false }));
@@ -376,7 +377,7 @@ export function SignupForm({
             <input
               type="checkbox"
               checked={isAdmin}
-              onChange={(e) => setIsAdmin(e.target.checked)}
+              onChange={e => setIsAdmin(e.target.checked)}
               style={mergedStyles.checkbox}
               disabled={loading}
             />
@@ -397,7 +398,7 @@ export function SignupForm({
             <input
               type="text"
               value={tenantName}
-              onChange={(e) => {
+              onChange={e => {
                 setTenantName(e.target.value);
                 if (fieldErrors.tenantName) {
                   setFieldErrors(prev => ({ ...prev, tenantName: false }));
@@ -410,11 +411,7 @@ export function SignupForm({
           </div>
         )}
 
-        <button
-          type="submit"
-          disabled={!isFormValid || loading}
-          style={getButtonStyle()}
-        >
+        <button type="submit" disabled={!isFormValid || loading} style={getButtonStyle()}>
           {loading ? mergedCopy.loadingText : mergedCopy.submitButton}
         </button>
 
@@ -424,10 +421,7 @@ export function SignupForm({
       {showLoginLink && (
         <div style={mergedStyles.linkContainer}>
           <span style={mergedStyles.divider}>{mergedCopy.loginText} </span>
-          <a
-            onClick={onLoginClick}
-            style={mergedStyles.link}
-          >
+          <a onClick={onLoginClick} style={mergedStyles.link}>
             {mergedCopy.loginLink}
           </a>
         </div>

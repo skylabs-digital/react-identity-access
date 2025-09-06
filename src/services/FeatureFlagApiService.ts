@@ -95,14 +95,11 @@ export class FeatureFlagApiService {
   }
 
   // Public endpoint - no auth required
-  async getTenantFeatureFlags(
-    tenantId: string,
-    appId: string,
-  ): Promise<FeatureFlagItem[]> {
+  async getTenantFeatureFlags(tenantId: string, appId: string): Promise<FeatureFlagItem[]> {
     if (!tenantId || !appId) {
       throw new Error('Tenant ID and App ID are required');
     }
-    
+
     const queryParams = new URLSearchParams();
     queryParams.append('tenantId', tenantId);
     queryParams.append('appId', appId);
@@ -115,25 +112,25 @@ export class FeatureFlagApiService {
     return response.data;
   }
 
-    // Public endpoint - no auth required
-    async getTenantFeatureFlag(
-      flagKey: string,
-      tenantId: string,
-      appId: string,
-    ): Promise<FeatureFlagValueResponse> {
-      if (!flagKey || !tenantId || !appId) {
-        throw new Error('Flag Key, Tenant ID and App ID are required');
-      }
-      
-      const queryParams = new URLSearchParams();
-      queryParams.append('tenantId', tenantId);
-      queryParams.append('appId', appId);
-  
-      const url = `/tenant-feature-flags/${flagKey}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-      const response = await this.httpService.get<ApiResponse<FeatureFlagValueResponse>>(url, {
-        headers: { 'X-Tenant-ID': tenantId },
-      });
-  
-      return response.data;
+  // Public endpoint - no auth required
+  async getTenantFeatureFlag(
+    flagKey: string,
+    tenantId: string,
+    appId: string
+  ): Promise<FeatureFlagValueResponse> {
+    if (!flagKey || !tenantId || !appId) {
+      throw new Error('Flag Key, Tenant ID and App ID are required');
     }
+
+    const queryParams = new URLSearchParams();
+    queryParams.append('tenantId', tenantId);
+    queryParams.append('appId', appId);
+
+    const url = `/tenant-feature-flags/${flagKey}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
+    const response = await this.httpService.get<ApiResponse<FeatureFlagValueResponse>>(url, {
+      headers: { 'X-Tenant-ID': tenantId },
+    });
+
+    return response.data;
+  }
 }

@@ -1,6 +1,11 @@
 import { HttpService } from './HttpService';
 import { SessionManager } from './SessionManager';
-import type { Subscription, CreateSubscriptionRequest, ApiResponse, TenantSubscriptionFeatures } from '../types/api';
+import type {
+  Subscription,
+  CreateSubscriptionRequest,
+  ApiResponse,
+  TenantSubscriptionFeatures,
+} from '../types/api';
 
 export class SubscriptionApiService {
   constructor(

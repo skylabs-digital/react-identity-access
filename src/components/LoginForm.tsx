@@ -184,17 +184,17 @@ export function LoginForm({
 
   const validateForm = () => {
     const errors: { email?: boolean; password?: boolean } = {};
-    
+
     if (!email.trim()) errors.email = true;
     if (!password.trim()) errors.password = true;
-    
+
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) return;
     if (!tenant?.id) {
       setError('Tenant not found');
@@ -230,14 +230,14 @@ export function LoginForm({
   return (
     <div className={className} style={mergedStyles.container}>
       <h2 style={mergedStyles.title}>{mergedCopy.title}</h2>
-      
+
       <form onSubmit={handleSubmit} style={mergedStyles.form}>
         <div style={mergedStyles.fieldGroup}>
           <label style={mergedStyles.label}>{mergedCopy.emailLabel}</label>
           <input
             type="email"
             value={email}
-            onChange={(e) => {
+            onChange={e => {
               setEmail(e.target.value);
               if (fieldErrors.email) {
                 setFieldErrors(prev => ({ ...prev, email: false }));
@@ -254,7 +254,7 @@ export function LoginForm({
           <input
             type="password"
             value={password}
-            onChange={(e) => {
+            onChange={e => {
               setPassword(e.target.value);
               if (fieldErrors.password) {
                 setFieldErrors(prev => ({ ...prev, password: false }));
@@ -266,11 +266,7 @@ export function LoginForm({
           />
         </div>
 
-        <button
-          type="submit"
-          disabled={!email || !password || loading}
-          style={getButtonStyle()}
-        >
+        <button type="submit" disabled={!email || !password || loading} style={getButtonStyle()}>
           {loading ? mergedCopy.loadingText : mergedCopy.submitButton}
         </button>
 
@@ -280,25 +276,17 @@ export function LoginForm({
       {(showForgotPassword || showSignupLink) && (
         <div style={mergedStyles.linkContainer}>
           {showForgotPassword && (
-            <a
-              onClick={onForgotPassword}
-              style={mergedStyles.link}
-            >
+            <a onClick={onForgotPassword} style={mergedStyles.link}>
               {mergedCopy.forgotPasswordLink}
             </a>
           )}
-          
-          {showForgotPassword && showSignupLink && (
-            <div style={mergedStyles.divider}>•</div>
-          )}
-          
+
+          {showForgotPassword && showSignupLink && <div style={mergedStyles.divider}>•</div>}
+
           {showSignupLink && (
             <div>
               <span style={mergedStyles.divider}>{mergedCopy.signupText} </span>
-              <a
-                onClick={onSignupClick}
-                style={mergedStyles.link}
-              >
+              <a onClick={onSignupClick} style={mergedStyles.link}>
                 {mergedCopy.signupLink}
               </a>
             </div>

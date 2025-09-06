@@ -1,14 +1,16 @@
 import { BrowserRouter as Router, Routes, Route, Link } from 'react-router';
-import { 
-  AppProvider, 
-  AuthProvider, 
-  FeatureFlagProvider, 
-  SubscriptionProvider 
+import {
+  AppProvider,
+  AuthProvider,
+  FeatureFlagProvider,
+  SubscriptionProvider,
+  TenantProvider,
 } from 'react-identity-access';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
+import Settings from './pages/Settings';
 import RolePermissionTest from './components/RolePermissionTest';
 
 function App() {
@@ -17,74 +19,83 @@ function App() {
       config={{
         baseUrl: process.env.REACT_APP_BASE_URL || 'http://localhost:3000',
         appId: process.env.REACT_APP_ID || '42834f81-f8bd-46c7-9003-8a8ccebc025f',
-        tenantMode: 'subdomain',
+        tenantMode: 'selector',
         selectorParam: 'tenant',
       }}
     >
       <AuthProvider>
-        <FeatureFlagProvider>
-          <SubscriptionProvider>
-            <Router>
-              <div className="min-h-screen bg-gray-50">
-                <nav className="bg-white shadow-sm border-b">
-                  <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex justify-between h-16">
-                      <div className="flex items-center space-x-8">
-                        <Link to="/" className="text-xl font-bold text-gray-900">
-                          React Identity Access
-                        </Link>
-                        <div className="flex space-x-4">
-                          <Link
-                            to="/"
-                            className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
-                          >
-                            Home
+        <TenantProvider>
+          <FeatureFlagProvider>
+            <SubscriptionProvider>
+              <Router>
+                <div className="min-h-screen bg-gray-50">
+                  <nav className="bg-white shadow-sm border-b">
+                    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                      <div className="flex justify-between h-16">
+                        <div className="flex items-center space-x-8">
+                          <Link to="/" className="text-xl font-bold text-gray-900">
+                            React Identity Access
                           </Link>
+                          <div className="flex space-x-4">
+                            <Link
+                              to="/"
+                              className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                            >
+                              Home
+                            </Link>
+                            <Link
+                              to="/dashboard"
+                              className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                            >
+                              Dashboard
+                            </Link>
+                            <Link
+                              to="/profile"
+                              className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                            >
+                              Profile
+                            </Link>
+                            <Link
+                              to="/roles"
+                              className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                            >
+                              Roles & Permissions
+                            </Link>
+                            <Link
+                              to="/settings"
+                              className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                            >
+                              Settings
+                            </Link>
+                          </div>
+                        </div>
+                        <div className="flex items-center">
                           <Link
-                            to="/dashboard"
-                            className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                            to="/login"
+                            className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700"
                           >
-                            Dashboard
-                          </Link>
-                          <Link
-                            to="/profile"
-                            className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
-                          >
-                            Profile
-                          </Link>
-                          <Link
-                            to="/roles"
-                            className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
-                          >
-                            Roles & Permissions
+                            Login
                           </Link>
                         </div>
                       </div>
-                      <div className="flex items-center">
-                        <Link
-                          to="/login"
-                          className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700"
-                        >
-                          Login
-                        </Link>
-                      </div>
                     </div>
-                  </div>
-                </nav>
+                  </nav>
 
-                <main>
-                  <Routes>
-                    <Route path="/" element={<Home />} />
-                    <Route path="/login" element={<Login />} />
-                    <Route path="/dashboard" element={<Dashboard />} />
-                    <Route path="/profile" element={<Profile />} />
-                    <Route path="/roles" element={<RolePermissionTest />} />
-                  </Routes>
-                </main>
-              </div>
-            </Router>
-          </SubscriptionProvider>
-        </FeatureFlagProvider>
+                  <main>
+                    <Routes>
+                      <Route path="/" element={<Home />} />
+                      <Route path="/login" element={<Login />} />
+                      <Route path="/dashboard" element={<Dashboard />} />
+                      <Route path="/profile" element={<Profile />} />
+                      <Route path="/settings" element={<Settings />} />
+                      <Route path="/roles" element={<RolePermissionTest />} />
+                    </Routes>
+                  </main>
+                </div>
+              </Router>
+            </SubscriptionProvider>
+          </FeatureFlagProvider>
+        </TenantProvider>
       </AuthProvider>
     </AppProvider>
   );

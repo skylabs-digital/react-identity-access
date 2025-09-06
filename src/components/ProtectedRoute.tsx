@@ -39,19 +39,17 @@ const DefaultFallback = ({ redirectPath }: { redirectPath: string }) => (
       <p style={{ color: '#6b7280', marginBottom: '1.5rem' }}>
         You need to be signed in to access this page.
       </p>
-      <p style={{ fontSize: '0.875rem', color: '#9ca3af' }}>
-        Redirecting to {redirectPath}...
-      </p>
+      <p style={{ fontSize: '0.875rem', color: '#9ca3af' }}>Redirecting to {redirectPath}...</p>
     </div>
   </div>
 );
 
-const InsufficientPermissionsFallback = ({ 
-  userType, 
-  minUserType, 
-  missingPermissions 
-}: { 
-  userType?: UserType; 
+const InsufficientPermissionsFallback = ({
+  userType,
+  minUserType,
+  missingPermissions,
+}: {
+  userType?: UserType;
   minUserType?: UserType;
   missingPermissions?: string[];
 }) => (
@@ -122,13 +120,8 @@ export function ProtectedRoute({
   requireAllPermissions = false,
   fallback,
 }: ProtectedRouteProps) {
-  const { 
-    hasValidSession, 
-    sessionManager, 
-    hasPermission, 
-    hasAnyPermission, 
-    hasAllPermissions 
-  } = useAuth();
+  const { hasValidSession, sessionManager, hasPermission, hasAnyPermission, hasAllPermissions } =
+    useAuth();
   const location = useLocation();
 
   // Check if user has a valid session
@@ -136,21 +129,17 @@ export function ProtectedRoute({
     if (fallback) {
       return <>{fallback}</>;
     }
-    
+
     return (
       <>
         <DefaultFallback redirectPath={redirectTo} />
-        <Navigate 
-          to={redirectTo} 
-          state={{ from: location.pathname }} 
-          replace 
-        />
+        <Navigate to={redirectTo} state={{ from: location.pathname }} replace />
       </>
     );
   }
 
   const user = sessionManager.getUser();
-  
+
   if (!user) {
     // User session exists but no user data - redirect to login
     return <Navigate to={redirectTo} state={{ from: location.pathname }} replace />;
@@ -171,8 +160,8 @@ export function ProtectedRoute({
       // Get missing permissions for better error message
       const missingPermissions = requiredPermissions
         .filter(permission => !hasPermission(permission))
-        .map(permission => typeof permission === 'string' ? permission : permission.name);
-      
+        .map(permission => (typeof permission === 'string' ? permission : permission.name));
+
       return <InsufficientPermissionsFallback missingPermissions={missingPermissions} />;
     }
   }

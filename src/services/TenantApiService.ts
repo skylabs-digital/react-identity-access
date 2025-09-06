@@ -4,6 +4,8 @@ import type {
   Tenant,
   CreateTenantRequest,
   PublicTenantInfo,
+  TenantSettings,
+  UpdateTenantSettingsRequest,
   ApiResponse,
   PaginationParams,
 } from '../types/api';
@@ -90,6 +92,32 @@ export class TenantApiService {
   async getPublicTenantInfo(slug: string): Promise<PublicTenantInfo> {
     const response = await this.httpService.get<ApiResponse<PublicTenantInfo>>(
       `/tenants/${this.appId}/${slug}/public`
+    );
+    return response.data;
+  }
+
+  // Settings endpoints
+  async getTenantSettings(id: string): Promise<TenantSettings> {
+    const response = await this.httpService.get<ApiResponse<TenantSettings>>(
+      `/tenants/${id}/settings`
+    );
+    return response.data;
+  }
+
+  async updateTenantSettings(
+    id: string,
+    request: UpdateTenantSettingsRequest
+  ): Promise<TenantSettings> {
+    if (!this.sessionManager) {
+      throw new Error('SessionManager is required for private endpoints');
+    }
+    const authHeaders = await this.sessionManager.getAuthHeaders();
+    const response = await this.httpService.put<ApiResponse<TenantSettings>>(
+      `/tenants/${id}/settings`,
+      request,
+      {
+        headers: authHeaders,
+      }
     );
     return response.data;
   }

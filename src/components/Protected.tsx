@@ -40,19 +40,19 @@ const DefaultFallback = () => (
         cursor: 'pointer',
         fontSize: '14px',
       }}
-      onClick={() => window.location.href = '/login'}
+      onClick={() => (window.location.href = '/login')}
     >
       Sign In
     </button>
   </div>
 );
 
-const InsufficientPermissionsFallback = ({ 
-  userType, 
-  minUserType, 
-  missingPermissions 
-}: { 
-  userType?: UserType; 
+const InsufficientPermissionsFallback = ({
+  userType,
+  minUserType,
+  missingPermissions,
+}: {
+  userType?: UserType;
   minUserType?: UserType;
   missingPermissions?: string[];
 }) => (
@@ -107,20 +107,15 @@ const hasMinimumUserType = (userType: UserType, minUserType: UserType): boolean 
   return hierarchy[userType] >= hierarchy[minUserType];
 };
 
-export function Protected({ 
-  children, 
-  fallback, 
-  minUserType, 
-  requiredPermissions, 
-  requireAllPermissions = false 
+export function Protected({
+  children,
+  fallback,
+  minUserType,
+  requiredPermissions,
+  requireAllPermissions = false,
 }: ProtectedProps) {
-  const { 
-    hasValidSession, 
-    sessionManager, 
-    hasPermission, 
-    hasAnyPermission, 
-    hasAllPermissions 
-  } = useAuth();
+  const { hasValidSession, sessionManager, hasPermission, hasAnyPermission, hasAllPermissions } =
+    useAuth();
 
   // Check if user has a valid session
   if (!hasValidSession()) {
@@ -128,7 +123,7 @@ export function Protected({
   }
 
   const user = sessionManager.getUser();
-  
+
   if (!user) {
     // User session exists but no user data - show fallback
     return <>{fallback || <DefaultFallback />}</>;
@@ -149,8 +144,8 @@ export function Protected({
       // Get missing permissions for better error message
       const missingPermissions = requiredPermissions
         .filter(permission => !hasPermission(permission))
-        .map(permission => typeof permission === 'string' ? permission : permission.name);
-      
+        .map(permission => (typeof permission === 'string' ? permission : permission.name));
+
       return <InsufficientPermissionsFallback missingPermissions={missingPermissions} />;
     }
   }

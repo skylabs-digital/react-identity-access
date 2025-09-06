@@ -9,7 +9,8 @@ import {
 } from 'react';
 import { HttpService } from '../services/HttpService';
 import { TenantApiService } from '../services/TenantApiService';
-import type { PublicTenantInfo } from '../types/api';
+import { AppApiService } from '../services/AppApiService';
+import type { PublicTenantInfo, PublicAppInfo } from '../types/api';
 
 export interface AppConfig {
   baseUrl: string;
@@ -34,6 +35,11 @@ interface AppContextValue {
   isTenantLoading: boolean;
   tenantError: Error | null;
   retryTenant: () => void;
+  // App info with settings schema
+  appInfo: PublicAppInfo | null;
+  isAppLoading: boolean;
+  appError: Error | null;
+  retryApp: () => void;
 }
 
 const AppContext = createContext<AppContextValue | null>(null);
@@ -97,6 +103,11 @@ export function AppProvider({ config, children }: AppProviderProps) {
   const [isTenantLoading, setIsTenantLoading] = useState(!config.initialTenant);
   const [tenantError, setTenantError] = useState<Error | null>(null);
 
+  // App info state
+  const [appInfo, setAppInfo] = useState<PublicAppInfo | null>(null);
+  const [isAppLoading, setIsAppLoading] = useState(true);
+  const [appError, setAppError] = useState<Error | null>(null);
+
   // Detect tenant slug from URL or config with localStorage fallback
   const detectTenantSlug = useCallback((): string | null => {
     const tenantMode = config.tenantMode || 'fixed';
@@ -119,20 +130,20 @@ export function AppProvider({ config, children }: AppProviderProps) {
         localStorage.setItem(storageKey, subdomain);
         return subdomain;
       }
-      
+
       // Fallback to localStorage if no subdomain found
       return localStorage.getItem(storageKey);
     } else {
       // tenantMode === 'selector'
       const urlParams = new URLSearchParams(window.location.search);
       const urlTenant = urlParams.get(config.selectorParam || 'tenant');
-      
+
       if (urlTenant) {
         // Save to localStorage when found in URL
         localStorage.setItem(storageKey, urlTenant);
         return urlTenant;
       }
-      
+
       // Fallback to localStorage if not in URL
       return localStorage.getItem(storageKey);
     }
@@ -148,6 +159,11 @@ export function AppProvider({ config, children }: AppProviderProps) {
       }
     };
 
+    // Retry function for app loading
+    const retryApp = () => {
+      loadApp();
+    };
+
     return {
       appId: config.appId,
       baseUrl: config.baseUrl,
@@ -157,8 +173,32 @@ export function AppProvider({ config, children }: AppProviderProps) {
       isTenantLoading,
       tenantError,
       retryTenant,
+      // App info
+      appInfo,
+      isAppLoading,
+      appError,
+      retryApp,
     };
-  }, [config, tenant, tenantSlug, isTenantLoading, tenantError]);
+  }, [config, tenant, tenantSlug, isTenantLoading, tenantError, appInfo, isAppLoading, appError]);
+
+  // Load app info
+  const loadApp = useCallback(async () => {
+    try {
+      setIsAppLoading(true);
+      setAppError(null);
+
+      const httpService = new HttpService(config.baseUrl);
+      const appApi = new AppApiService(httpService, {} as any); // SessionManager not needed for public endpoint
+      const appData = await appApi.getPublicAppInfo(config.appId);
+      setAppInfo(appData);
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Failed to load app information');
+      setAppError(error);
+      setAppInfo(null);
+    } finally {
+      setIsAppLoading(false);
+    }
+  }, [config.baseUrl, config.appId]);
 
   // Load tenant info
   const loadTenant = useCallback(
@@ -181,6 +221,11 @@ export function AppProvider({ config, children }: AppProviderProps) {
     },
     [config.baseUrl, config.appId]
   );
+
+  // Load app info on mount
+  useEffect(() => {
+    loadApp();
+  }, [loadApp]);
 
   // Load tenant on mount (if not SSR)
   useEffect(() => {

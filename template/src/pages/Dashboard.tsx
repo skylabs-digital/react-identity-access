@@ -57,7 +57,7 @@ const Dashboard: React.FC = () => {
       
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         <Protected 
-          requiredPermissions={['products:read']}
+          requiredPermissions={['products.read']}
           fallback={
             <div className="bg-gray-100 border border-gray-300 rounded-lg p-6 opacity-60">
               <div className="flex items-center mb-2">
@@ -66,7 +66,7 @@ const Dashboard: React.FC = () => {
                 </div>
                 <h3 className="text-lg font-semibold text-gray-500">Products</h3>
               </div>
-              <p className="text-gray-400 mb-4">Access denied - requires products:read permission</p>
+              <p className="text-gray-400 mb-4">Access denied - requires products.read permission</p>
               <button className="bg-gray-300 text-gray-500 px-4 py-2 rounded cursor-not-allowed">
                 View Products
               </button>
@@ -88,7 +88,7 @@ const Dashboard: React.FC = () => {
         </Protected>
 
         <Protected 
-          requiredPermissions={['orders:read']}
+          requiredPermissions={['orders.read']}
           fallback={
             <div className="bg-gray-100 border border-gray-300 rounded-lg p-6 opacity-60">
               <div className="flex items-center mb-2">
@@ -97,7 +97,7 @@ const Dashboard: React.FC = () => {
                 </div>
                 <h3 className="text-lg font-semibold text-gray-500">Orders</h3>
               </div>
-              <p className="text-gray-400 mb-4">Access denied - requires orders:read permission</p>
+              <p className="text-gray-400 mb-4">Access denied - requires orders.read permission</p>
               <button className="bg-gray-300 text-gray-500 px-4 py-2 rounded cursor-not-allowed">
                 View Orders
               </button>
@@ -119,7 +119,7 @@ const Dashboard: React.FC = () => {
         </Protected>
 
         <Protected 
-          requiredPermissions={['settings:read']}
+          requiredPermissions={['settings.read']}
           fallback={
             <div className="bg-gray-100 border border-gray-300 rounded-lg p-6 opacity-60">
               <div className="flex items-center mb-2">
@@ -128,7 +128,7 @@ const Dashboard: React.FC = () => {
                 </div>
                 <h3 className="text-lg font-semibold text-gray-500">Settings</h3>
               </div>
-              <p className="text-gray-400 mb-4">Access denied - requires settings:read permission</p>
+              <p className="text-gray-400 mb-4">Access denied - requires settings.read permission</p>
               <button className="bg-gray-300 text-gray-500 px-4 py-2 rounded cursor-not-allowed">
                 View Settings
               </button>
@@ -150,7 +150,7 @@ const Dashboard: React.FC = () => {
         </Protected>
 
         <Protected 
-          requiredPermissions={['users:read']}
+          requiredPermissions={['users.read']}
           fallback={
             <div className="bg-gray-100 border border-gray-300 rounded-lg p-6 opacity-60">
               <div className="flex items-center mb-2">
@@ -159,7 +159,7 @@ const Dashboard: React.FC = () => {
                 </div>
                 <h3 className="text-lg font-semibold text-gray-500">Users</h3>
               </div>
-              <p className="text-gray-400 mb-4">Access denied - requires users:read permission</p>
+              <p className="text-gray-400 mb-4">Access denied - requires users.read permission</p>
               <button className="bg-gray-300 text-gray-500 px-4 py-2 rounded cursor-not-allowed">
                 Manage Users
               </button>
@@ -181,7 +181,7 @@ const Dashboard: React.FC = () => {
         </Protected>
 
         <Protected 
-          requiredPermissions={['reports:read']}
+          requiredPermissions={['reports.read']}
           fallback={
             <div className="bg-gray-100 border border-gray-300 rounded-lg p-6 opacity-60">
               <div className="flex items-center mb-2">
@@ -190,7 +190,7 @@ const Dashboard: React.FC = () => {
                 </div>
                 <h3 className="text-lg font-semibold text-gray-500">Reports</h3>
               </div>
-              <p className="text-gray-400 mb-4">Access denied - requires reports:read permission</p>
+              <p className="text-gray-400 mb-4">Access denied - requires reports.read permission</p>
               <button className="bg-gray-300 text-gray-500 px-4 py-2 rounded cursor-not-allowed">
                 View Reports
               </button>
@@ -212,7 +212,7 @@ const Dashboard: React.FC = () => {
         </Protected>
 
         <Protected 
-          requiredPermissions={['billing:read']}
+          requiredPermissions={['billing.read']}
           fallback={
             <div className="bg-gray-100 border border-gray-300 rounded-lg p-6 opacity-60">
               <div className="flex items-center mb-2">
@@ -221,7 +221,7 @@ const Dashboard: React.FC = () => {
                 </div>
                 <h3 className="text-lg font-semibold text-gray-500">Billing</h3>
               </div>
-              <p className="text-gray-400 mb-4">Access denied - requires billing:read permission</p>
+              <p className="text-gray-400 mb-4">Access denied - requires billing.read permission</p>
               <button className="bg-gray-300 text-gray-500 px-4 py-2 rounded cursor-not-allowed">
                 View Billing
               </button>

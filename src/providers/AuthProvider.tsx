@@ -2,9 +2,10 @@ import { createContext, useContext, ReactNode, useMemo, useState, useEffect } fr
 import { SessionManager } from '../services/SessionManager';
 import { AuthApiService } from '../services/AuthApiService';
 import { RoleApiService } from '../services/RoleApiService';
+import { UserApiService } from '../services/UserApiService';
 import { HttpService } from '../services/HttpService';
 import { useApp } from './AppProvider';
-import type { Role, Permission } from '../types/api';
+import type { Role, Permission, User } from '../types/api';
 
 export interface AuthConfig {
   onRefreshFailed?: () => void;
@@ -17,7 +18,12 @@ export interface AuthContextValue {
   // Auth methods
   login: (email: string, password: string, tenantId: string) => Promise<any>;
   signup: (email: string, name: string, password: string, tenantId: string) => Promise<any>;
-  signupTenantAdmin: (email: string, name: string, password: string, tenantName: string) => Promise<any>;
+  signupTenantAdmin: (
+    email: string,
+    name: string,
+    password: string,
+    tenantName: string
+  ) => Promise<any>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   requestPasswordReset: (email: string, tenantId: string) => Promise<void>;
   confirmPasswordReset: (token: string, newPassword: string) => Promise<void>;
@@ -27,9 +33,14 @@ export interface AuthContextValue {
   setTokens: (tokens: { accessToken: string; refreshToken: string; expiresIn: number }) => void;
   hasValidSession: () => boolean;
   clearSession: () => void;
+  // User data
+  currentUser: User | null;
+  isUserLoading: boolean;
+  userError: Error | null;
+  refreshUser: () => Promise<void>;
   // Role and Permission methods
   userRole: Role | null;
-  userPermissions: Permission[];
+  userPermissions: string[];
   availableRoles: Role[];
   rolesLoading: boolean;
   hasPermission: (permission: string | Permission) => boolean;
@@ -50,9 +61,12 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
   const { appId, tenantSlug, baseUrl } = useApp();
   const [availableRoles, setAvailableRoles] = useState<Role[]>(config.initialRoles || []);
   const [rolesLoading, setRolesLoading] = useState(!config.initialRoles);
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
+  const [isUserLoading, setIsUserLoading] = useState(false);
+  const [userError, setUserError] = useState<Error | null>(null);
 
-  const contextValue = useMemo(() => {
-    // Create internal localStorage storage using tenantSlug as key prefix
+  // Create services with stable references
+  const sessionManager = useMemo(() => {
     const storageKey = tenantSlug ? `auth_tokens_${tenantSlug}` : 'auth_tokens';
     const tokenStorage = {
       get: () => {
@@ -79,21 +93,78 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       },
     };
 
-    // Create internal HttpService for AuthApiService (no auth needed)
-    const internalHttpService = new HttpService(baseUrl);
-    const authApiService = new AuthApiService(internalHttpService);
-    const roleApiService = new RoleApiService(internalHttpService);
-
-    // Create SessionManager with internal storage and base URL
-    const sessionManager = new SessionManager({
+    return new SessionManager({
       onRefreshFailed: config.onRefreshFailed,
       tokenStorage,
       baseUrl: baseUrl,
     });
+  }, [tenantSlug, baseUrl, config.onRefreshFailed]);
 
-    // Create authenticated HttpService for protected endpoints
-    const authenticatedHttpService = new HttpService(baseUrl);
-    authenticatedHttpService.setSessionManager(sessionManager);
+  const authenticatedHttpService = useMemo(() => {
+    const service = new HttpService(baseUrl);
+    service.setSessionManager(sessionManager);
+    return service;
+  }, [baseUrl, sessionManager]);
+
+  const authApiService = useMemo(() => {
+    return new AuthApiService(new HttpService(baseUrl));
+  }, [baseUrl]);
+
+  const userApiService = useMemo(() => {
+    return new UserApiService(authenticatedHttpService, sessionManager);
+  }, [authenticatedHttpService, sessionManager]);
+
+  const roleApiService = useMemo(() => {
+    return new RoleApiService(new HttpService(baseUrl));
+  }, [baseUrl]);
+
+  // Calculate derived values with useMemo to prevent recalculation
+  const user = useMemo(() => {
+    return currentUser || sessionManager.getUser();
+  }, [currentUser, sessionManager]);
+
+  const userRole = useMemo(() => {
+    return user?.roleId ? availableRoles.find(role => role.id === user.roleId) || null : null;
+  }, [user, availableRoles]);
+
+  const userPermissions = useMemo(() => {
+    const permissions = userRole?.permissions || [];
+    // Permissions from API are already strings in 'resource.action' format
+    return permissions;
+  }, [userRole]);
+
+  // Debug log only when userPermissions actually changes
+  useEffect(() => {
+    console.log('AuthProvider - userPermissions changed:', userPermissions);
+  }, [userPermissions]);
+
+  const contextValue = useMemo(() => {
+    // Load user data from API
+    const loadUserData = async () => {
+      try {
+        setIsUserLoading(true);
+        setUserError(null);
+
+        const user = sessionManager.getUser();
+        if (!user?.id) {
+          throw new Error('No user ID available in session');
+        }
+
+        const userData = await userApiService.getUserById(user.id);
+        setCurrentUser(userData);
+        sessionManager.setUser(userData); // Update session with fresh data
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error('Failed to load user data');
+        setUserError(error);
+        console.error('Failed to load user data:', error);
+      } finally {
+        setIsUserLoading(false);
+      }
+    };
+
+    const refreshUser = async () => {
+      await loadUserData();
+    };
 
     // Auth methods
     const login = async (email: string, password: string, tenantId: string) => {
@@ -112,6 +183,14 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       // Store user data if available in the response
       if (loginResponse.user) {
         sessionManager.setUser(loginResponse.user);
+        setCurrentUser(loginResponse.user);
+
+        // Load complete user data from API after login
+        try {
+          await loadUserData();
+        } catch (error) {
+          console.warn('Failed to load complete user data after login:', error);
+        }
       }
 
       return loginResponse;
@@ -122,7 +201,12 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       return signupResponse;
     };
 
-    const signupTenantAdmin = async (email: string, name: string, password: string, tenantName: string) => {
+    const signupTenantAdmin = async (
+      email: string,
+      name: string,
+      password: string,
+      tenantName: string
+    ) => {
       const signupResponse = await authApiService.signupTenantAdmin({
         email,
         name,
@@ -135,10 +219,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
     const changePassword = async (currentPassword: string, newPassword: string) => {
       const authHeaders = await sessionManager.getAuthHeaders();
-      await authApiService.changePassword(
-        { currentPassword, newPassword },
-        authHeaders
-      );
+      await authApiService.changePassword({ currentPassword, newPassword }, authHeaders);
     };
 
     const requestPasswordReset = async (email: string, tenantId: string) => {
@@ -168,6 +249,8 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
     const logout = () => {
       sessionManager.clearSession();
+      setCurrentUser(null);
+      setUserError(null);
     };
 
     const setTokens = (tokens: {
@@ -184,12 +267,14 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
     const clearSession = () => {
       sessionManager.clearSession();
+      setCurrentUser(null);
+      setUserError(null);
     };
 
     // Role and Permission methods
     const fetchRoles = async () => {
       if (!appId) return;
-      
+
       try {
         setRolesLoading(true);
         const { roles } = await roleApiService.getRolesByApp(appId);
@@ -205,35 +290,20 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       await fetchRoles();
     };
 
-    // Get current user's role
-    const user = sessionManager.getUser();
-    const userRole = user?.roleId 
-      ? availableRoles.find(role => role.id === user.roleId) || null
-      : null;
-
-    // Get current user's permissions
-    const userPermissions = userRole?.permissions || [];
-
-    // Utility function to convert Permission to resource.action format (dot notation)
-    const permissionToString = (permission: Permission): string => {
-      return `${permission.resource}.${permission.action}`;
-    };
-
-    // Utility function to check if a permission string matches a Permission object
-    const matchesPermission = (permissionString: string, permission: Permission): boolean => {
-      return permissionString === permissionToString(permission) || permissionString === permission.name;
-    };
-
     // Helper functions for permission checks
     const hasPermission = (permission: string | Permission): boolean => {
-      if (!userPermissions) return false;
-      
-      if (typeof permission === 'string') {
-        // Support both 'resource.action' format and legacy name format
-        return userPermissions.some(p => matchesPermission(permission, p));
+      if (!userPermissions || userPermissions.length === 0) {
+        return false;
       }
-      
-      return userPermissions.some(p => p.id === permission.id);
+
+      if (typeof permission === 'string') {
+        // userPermissions is now an array of strings in 'resource.action' format
+        return userPermissions.includes(permission);
+      }
+
+      // For Permission objects, convert to string and check
+      const permissionString = `${permission.resource}.${permission.action}`;
+      return userPermissions.includes(permissionString);
     };
 
     const hasAnyPermission = (permissions: (string | Permission)[]): boolean => {
@@ -247,7 +317,8 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     // Utility function to get all user permissions in resource.action format
     const getUserPermissionStrings = (): string[] => {
       if (!userPermissions) return [];
-      return userPermissions.map(permissionToString);
+      // userPermissions is already an array of strings
+      return userPermissions;
     };
 
     return {
@@ -264,6 +335,10 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       setTokens,
       hasValidSession,
       clearSession,
+      currentUser,
+      isUserLoading,
+      userError,
+      refreshUser,
       userRole,
       userPermissions,
       availableRoles,
@@ -274,7 +349,20 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       getUserPermissionStrings,
       refreshRoles,
     };
-  }, [appId, tenantSlug, config, baseUrl, availableRoles]);
+  }, [
+    sessionManager,
+    authenticatedHttpService,
+    authApiService,
+    userApiService,
+    roleApiService,
+    appId,
+    availableRoles,
+    currentUser,
+    isUserLoading,
+    userError,
+    userRole,
+    userPermissions,
+  ]);
 
   // Fetch roles on mount if not provided via SSR
   useEffect(() => {
@@ -292,10 +380,18 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
           setRolesLoading(false);
         }
       };
-      
+
       fetchRoles();
     }
   }, [appId, baseUrl, config.initialRoles]);
+
+  // Initialize user data from session on mount
+  useEffect(() => {
+    const user = sessionManager.getUser();
+    if (user && sessionManager.hasValidSession()) {
+      setCurrentUser(user);
+    }
+  }, [sessionManager]);
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 }

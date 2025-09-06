@@ -82,12 +82,12 @@ export function SubscriptionProvider({ config = {}, children }: SubscriptionProv
     const isFeatureEnabled = (featureKey: string): boolean => {
       const feature = features.find(f => f.key === featureKey);
       if (!feature) return false;
-      
+
       // Handle different feature types
       if (feature.type === 'BOOLEAN' || feature.type === 'boolean') {
         return feature.value === true;
       }
-      
+
       // For non-boolean features, consider them enabled if they have a truthy value
       return Boolean(feature.value);
     };
@@ -96,14 +96,14 @@ export function SubscriptionProvider({ config = {}, children }: SubscriptionProv
       return features.find(f => f.key === featureKey);
     };
 
-    const getFeatureValue = <T = any>(featureKey: string, defaultValue?: T): T => {
+    const getFeatureValue = <T = any,>(featureKey: string, defaultValue?: T): T => {
       const feature = features.find(f => f.key === featureKey);
       return feature ? feature.value : (defaultValue as T);
     };
 
     const hasAllowedPlan = (allowedPlans: string[]): boolean => {
       if (!subscription || !subscription.isActive) return false;
-      
+
       // Check if current plan is in the allowed plans array
       return allowedPlans.includes(subscription.planId);
     };
@@ -126,9 +126,7 @@ export function SubscriptionProvider({ config = {}, children }: SubscriptionProv
   }, [subscription, loading, error]);
 
   return (
-    <SubscriptionContext.Provider value={contextValue}>
-      {children}
-    </SubscriptionContext.Provider>
+    <SubscriptionContext.Provider value={contextValue}>{children}</SubscriptionContext.Provider>
   );
 }
 

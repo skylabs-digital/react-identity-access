@@ -59,7 +59,7 @@ export interface PasswordRecoveryFormProps {
 
 const defaultCopy: Required<PasswordRecoveryFormCopy> = {
   title: 'Reset Password',
-  subtitle: 'Enter your email address and we\'ll send you a link to reset your password.',
+  subtitle: "Enter your email address and we'll send you a link to reset your password.",
   emailLabel: 'Email',
   emailPlaceholder: 'Enter your email',
   submitButton: 'Send Reset Link',
@@ -239,7 +239,7 @@ export function PasswordRecoveryForm({
 
   const handleRequestSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateRequestForm()) return;
     if (!tenant?.id) {
       setError('Tenant not found');
@@ -265,9 +265,9 @@ export function PasswordRecoveryForm({
 
   const handleResetSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateResetForm()) return;
-    
+
     if (newPassword !== confirmPassword) {
       setError(mergedCopy.passwordMismatchError);
       setFieldErrors({ confirmPassword: true });
@@ -303,19 +303,19 @@ export function PasswordRecoveryForm({
 
   if (mode === 'reset') {
     const isFormValid = token && newPassword && confirmPassword;
-    
+
     return (
       <div className={className} style={mergedStyles.container}>
         <h2 style={mergedStyles.title}>{mergedCopy.resetTitle}</h2>
         <p style={mergedStyles.subtitle}>{mergedCopy.resetSubtitle}</p>
-        
+
         <form onSubmit={handleResetSubmit} style={mergedStyles.form}>
           <div style={mergedStyles.fieldGroup}>
             <label style={mergedStyles.label}>{mergedCopy.tokenLabel}</label>
             <input
               type="text"
               value={token}
-              onChange={(e) => {
+              onChange={e => {
                 setToken(e.target.value);
                 if (fieldErrors.token) {
                   setFieldErrors(prev => ({ ...prev, token: false }));
@@ -332,7 +332,7 @@ export function PasswordRecoveryForm({
             <input
               type="password"
               value={newPassword}
-              onChange={(e) => {
+              onChange={e => {
                 setNewPassword(e.target.value);
                 if (fieldErrors.newPassword) {
                   setFieldErrors(prev => ({ ...prev, newPassword: false }));
@@ -349,7 +349,7 @@ export function PasswordRecoveryForm({
             <input
               type="password"
               value={confirmPassword}
-              onChange={(e) => {
+              onChange={e => {
                 setConfirmPassword(e.target.value);
                 if (fieldErrors.confirmPassword) {
                   setFieldErrors(prev => ({ ...prev, confirmPassword: false }));
@@ -398,19 +398,19 @@ export function PasswordRecoveryForm({
 
   // Request mode
   const isFormValid = email;
-  
+
   return (
     <div className={className} style={mergedStyles.container}>
       <h2 style={mergedStyles.title}>{mergedCopy.title}</h2>
       <p style={mergedStyles.subtitle}>{mergedCopy.subtitle}</p>
-      
+
       <form onSubmit={handleRequestSubmit} style={mergedStyles.form}>
         <div style={mergedStyles.fieldGroup}>
           <label style={mergedStyles.label}>{mergedCopy.emailLabel}</label>
           <input
             type="email"
             value={email}
-            onChange={(e) => {
+            onChange={e => {
               setEmail(e.target.value);
               if (fieldErrors.email) {
                 setFieldErrors(prev => ({ ...prev, email: false }));
