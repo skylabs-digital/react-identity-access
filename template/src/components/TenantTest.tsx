@@ -4,7 +4,7 @@ import { useState } from 'react';
 export default function TenantTest() {
   const { appId, baseUrl, tenantSlug } = useApp();
   const { tenant, isLoading, error, retry } = useTenant();
-  const [newTenantSlug, setNewTenantSlug] = useState('');
+  const [newTenantSlug, setNewTenantSlug] = useState('acme-wedding-co');
 
   const handleTenantChange = () => {
     if (newTenantSlug.trim()) {
@@ -85,10 +85,41 @@ export default function TenantTest() {
 
       <div>
         <h3>Switch Tenant</h3>
+        <div style={{ marginBottom: '15px' }}>
+          <h4>Available Tenants:</h4>
+          <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
+            <button
+              onClick={() => setNewTenantSlug('acme-wedding-co')}
+              style={{
+                padding: '8px 15px',
+                backgroundColor: newTenantSlug === 'acme-wedding-co' ? '#28a745' : '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+              }}
+            >
+              Acme Wedding Co. (Default)
+            </button>
+            <button
+              onClick={() => setNewTenantSlug('dream-weddings-llc')}
+              style={{
+                padding: '8px 15px',
+                backgroundColor: newTenantSlug === 'dream-weddings-llc' ? '#28a745' : '#007bff',
+                color: 'white',
+                border: 'none',
+                borderRadius: '4px',
+                cursor: 'pointer',
+              }}
+            >
+              Dream Weddings LLC
+            </button>
+          </div>
+        </div>
         <div style={{ display: 'flex', gap: '10px', marginBottom: '10px' }}>
           <input
             type="text"
-            placeholder="Enter tenant slug"
+            placeholder="Or enter custom tenant slug"
             value={newTenantSlug}
             onChange={e => setNewTenantSlug(e.target.value)}
             style={{

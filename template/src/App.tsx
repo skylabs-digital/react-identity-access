@@ -8,6 +8,8 @@ import {
 } from 'react-identity-access';
 import Home from './pages/Home';
 import Login from './pages/Login';
+import Signup from './pages/Signup';
+import ForgotPassword from './pages/ForgotPassword';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
@@ -19,7 +21,7 @@ function App() {
     <AppProvider
       config={{
         baseUrl: process.env.REACT_APP_BASE_URL || 'http://localhost:3000',
-        appId: process.env.REACT_APP_ID || '42834f81-f8bd-46c7-9003-8a8ccebc025f',
+        appId: process.env.REACT_APP_ID || '093009e3-24d4-410e-8d49-8453b961e28f',
         tenantMode: 'selector',
         selectorParam: 'tenant',
       }}
@@ -76,7 +78,13 @@ function App() {
                             </Link>
                           </div>
                         </div>
-                        <div className="flex items-center">
+                        <div className="flex items-center space-x-3">
+                          <Link
+                            to="/signup"
+                            className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                          >
+                            Sign Up
+                          </Link>
                           <Link
                             to="/login"
                             className="bg-blue-600 text-white px-4 py-2 rounded-md text-sm font-medium hover:bg-blue-700"
@@ -92,6 +100,8 @@ function App() {
                     <Routes>
                       <Route path="/" element={<Home />} />
                       <Route path="/login" element={<Login />} />
+                      <Route path="/signup" element={<Signup />} />
+                      <Route path="/password-recovery" element={<ForgotPassword />} />
                       <Route path="/dashboard" element={<Dashboard />} />
                       <Route path="/profile" element={<Profile />} />
                       <Route path="/settings" element={<Settings />} />

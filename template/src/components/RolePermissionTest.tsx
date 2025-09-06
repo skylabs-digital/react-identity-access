@@ -85,27 +85,39 @@ const RolePermissionTest: React.FC = () => {
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <span
-                  className={`w-3 h-3 rounded-full ${hasPermission('products.read') ? 'bg-green-500' : 'bg-red-500'}`}
+                  className={`w-3 h-3 rounded-full ${hasPermission('events.read') ? 'bg-green-500' : 'bg-red-500'}`}
                 ></span>
-                <span>products.read: {hasPermission('products.read') ? 'Yes' : 'No'}</span>
+                <span>events.read: {hasPermission('events.read') ? 'Yes' : 'No'}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <span
-                  className={`w-3 h-3 rounded-full ${hasPermission('products.write') ? 'bg-green-500' : 'bg-red-500'}`}
+                  className={`w-3 h-3 rounded-full ${hasPermission('events.create') ? 'bg-green-500' : 'bg-red-500'}`}
                 ></span>
-                <span>products.write: {hasPermission('products.write') ? 'Yes' : 'No'}</span>
+                <span>events.create: {hasPermission('events.create') ? 'Yes' : 'No'}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <span
-                  className={`w-3 h-3 rounded-full ${hasPermission('orders.read') ? 'bg-green-500' : 'bg-red-500'}`}
+                  className={`w-3 h-3 rounded-full ${hasPermission('guests.read') ? 'bg-green-500' : 'bg-red-500'}`}
                 ></span>
-                <span>orders.read: {hasPermission('orders.read') ? 'Yes' : 'No'}</span>
+                <span>guests.read: {hasPermission('guests.read') ? 'Yes' : 'No'}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <span
-                  className={`w-3 h-3 rounded-full ${hasPermission('orders.write') ? 'bg-green-500' : 'bg-red-500'}`}
+                  className={`w-3 h-3 rounded-full ${hasPermission('vendors.write') ? 'bg-green-500' : 'bg-red-500'}`}
                 ></span>
-                <span>orders.write: {hasPermission('orders.write') ? 'Yes' : 'No'}</span>
+                <span>vendors.write: {hasPermission('vendors.write') ? 'Yes' : 'No'}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span
+                  className={`w-3 h-3 rounded-full ${hasPermission('budget.read') ? 'bg-green-500' : 'bg-red-500'}`}
+                ></span>
+                <span>budget.read: {hasPermission('budget.read') ? 'Yes' : 'No'}</span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span
+                  className={`w-3 h-3 rounded-full ${hasPermission('timeline.write') ? 'bg-green-500' : 'bg-red-500'}`}
+                ></span>
+                <span>timeline.write: {hasPermission('timeline.write') ? 'Yes' : 'No'}</span>
               </div>
               <div className="flex items-center space-x-2">
                 <span
@@ -122,38 +134,51 @@ const RolePermissionTest: React.FC = () => {
             <div className="space-y-2">
               <div className="flex items-center space-x-2">
                 <span
-                  className={`w-3 h-3 rounded-full ${hasAnyPermission(['products.read', 'products.write']) ? 'bg-green-500' : 'bg-red-500'}`}
+                  className={`w-3 h-3 rounded-full ${hasAnyPermission(['events.read', 'events.write']) ? 'bg-green-500' : 'bg-red-500'}`}
                 ></span>
                 <span>
-                  Any Product Access:{' '}
-                  {hasAnyPermission(['products.read', 'products.write']) ? 'Yes' : 'No'}
+                  Any Event Access:{' '}
+                  {hasAnyPermission(['events.read', 'events.write']) ? 'Yes' : 'No'}
                 </span>
               </div>
               <div className="flex items-center space-x-2">
                 <span
-                  className={`w-3 h-3 rounded-full ${hasAllPermissions(['products.read', 'products.write']) ? 'bg-green-500' : 'bg-red-500'}`}
+                  className={`w-3 h-3 rounded-full ${hasAllPermissions(['events.read', 'events.create', 'events.write']) ? 'bg-green-500' : 'bg-red-500'}`}
                 ></span>
                 <span>
-                  Full Product Access:{' '}
-                  {hasAllPermissions(['products.read', 'products.write']) ? 'Yes' : 'No'}
+                  Full Event Management:{' '}
+                  {hasAllPermissions(['events.read', 'events.create', 'events.write'])
+                    ? 'Yes'
+                    : 'No'}
                 </span>
               </div>
               <div className="flex items-center space-x-2">
                 <span
-                  className={`w-3 h-3 rounded-full ${hasAnyPermission(['orders.read', 'orders.write']) ? 'bg-green-500' : 'bg-red-500'}`}
+                  className={`w-3 h-3 rounded-full ${hasAnyPermission(['guests.read', 'guests.write']) ? 'bg-green-500' : 'bg-red-500'}`}
                 ></span>
                 <span>
-                  Any Order Access:{' '}
-                  {hasAnyPermission(['orders.read', 'orders.write']) ? 'Yes' : 'No'}
+                  Any Guest Access:{' '}
+                  {hasAnyPermission(['guests.read', 'guests.write']) ? 'Yes' : 'No'}
                 </span>
               </div>
               <div className="flex items-center space-x-2">
                 <span
-                  className={`w-3 h-3 rounded-full ${hasAllPermissions(['orders.read', 'orders.write']) ? 'bg-green-500' : 'bg-red-500'}`}
+                  className={`w-3 h-3 rounded-full ${hasAllPermissions(['vendors.read', 'vendors.create', 'vendors.write']) ? 'bg-green-500' : 'bg-red-500'}`}
                 ></span>
                 <span>
-                  Full Order Access:{' '}
-                  {hasAllPermissions(['orders.read', 'orders.write']) ? 'Yes' : 'No'}
+                  Full Vendor Management:{' '}
+                  {hasAllPermissions(['vendors.read', 'vendors.create', 'vendors.write'])
+                    ? 'Yes'
+                    : 'No'}
+                </span>
+              </div>
+              <div className="flex items-center space-x-2">
+                <span
+                  className={`w-3 h-3 rounded-full ${hasAnyPermission(['budget.read', 'budget.write']) ? 'bg-green-500' : 'bg-red-500'}`}
+                ></span>
+                <span>
+                  Any Budget Access:{' '}
+                  {hasAnyPermission(['budget.read', 'budget.write']) ? 'Yes' : 'No'}
                 </span>
               </div>
             </div>
@@ -170,41 +195,41 @@ const RolePermissionTest: React.FC = () => {
             <h3 className="text-lg font-medium mb-3">Single Permission Protection</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <Protected
-                requiredPermissions={['products.read']}
+                requiredPermissions={['events.read']}
                 fallback={
                   <div className="bg-red-100 text-red-700 p-3 rounded border">
-                    ❌ No products.read permission
+                    ❌ No events.read permission
                   </div>
                 }
               >
                 <div className="bg-green-100 text-green-700 p-3 rounded border">
-                  ✅ Can view products
+                  ✅ Can view events
                 </div>
               </Protected>
 
               <Protected
-                requiredPermissions={['products.create']}
+                requiredPermissions={['events.create']}
                 fallback={
                   <div className="bg-red-100 text-red-700 p-3 rounded border">
-                    ❌ No products.create permission
+                    ❌ No events.create permission
                   </div>
                 }
               >
                 <div className="bg-green-100 text-green-700 p-3 rounded border">
-                  ✅ Can create products
+                  ✅ Can create events
                 </div>
               </Protected>
 
               <Protected
-                requiredPermissions={['orders.delete']}
+                requiredPermissions={['guests.delete']}
                 fallback={
                   <div className="bg-red-100 text-red-700 p-3 rounded border">
-                    ❌ No orders.delete permission
+                    ❌ No guests.delete permission
                   </div>
                 }
               >
                 <div className="bg-green-100 text-green-700 p-3 rounded border">
-                  ✅ Can delete orders
+                  ✅ Can delete guests
                 </div>
               </Protected>
             </div>
@@ -215,30 +240,30 @@ const RolePermissionTest: React.FC = () => {
             <h3 className="text-lg font-medium mb-3">Multiple Permission Protection</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <Protected
-                requiredPermissions={['products.read', 'products.write']}
+                requiredPermissions={['events.read', 'events.write']}
                 requireAllPermissions={false}
                 fallback={
                   <div className="bg-red-100 text-red-700 p-3 rounded border">
-                    ❌ No product access
+                    ❌ No event access
                   </div>
                 }
               >
                 <div className="bg-green-100 text-green-700 p-3 rounded border">
-                  ✅ Has some product access (ANY)
+                  ✅ Has some event access (ANY)
                 </div>
               </Protected>
 
               <Protected
-                requiredPermissions={['products.read', 'products.write']}
+                requiredPermissions={['vendors.read', 'vendors.create', 'vendors.write']}
                 requireAllPermissions={true}
                 fallback={
                   <div className="bg-red-100 text-red-700 p-3 rounded border">
-                    ❌ Missing some product permissions
+                    ❌ Missing some vendor permissions
                   </div>
                 }
               >
                 <div className="bg-green-100 text-green-700 p-3 rounded border">
-                  ✅ Has full product access (ALL)
+                  ✅ Has full vendor management (ALL)
                 </div>
               </Protected>
             </div>
@@ -249,50 +274,82 @@ const RolePermissionTest: React.FC = () => {
             <h3 className="text-lg font-medium mb-3">Action Button Examples</h3>
             <div className="flex flex-wrap gap-3">
               <Protected
-                requiredPermissions={['products.create']}
+                requiredPermissions={['events.create']}
                 fallback={
                   <button
                     disabled
                     className="bg-gray-300 text-gray-500 px-4 py-2 rounded cursor-not-allowed"
                   >
-                    Create Product (No Permission)
+                    Create Event (No Permission)
                   </button>
                 }
               >
                 <button className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
-                  Create Product
+                  Create Event
                 </button>
               </Protected>
 
               <Protected
-                requiredPermissions={['orders.write']}
+                requiredPermissions={['vendors.write']}
                 fallback={
                   <button
                     disabled
                     className="bg-gray-300 text-gray-500 px-4 py-2 rounded cursor-not-allowed"
                   >
-                    Edit Order (No Permission)
+                    Edit Vendor (No Permission)
                   </button>
                 }
               >
                 <button className="bg-yellow-500 text-white px-4 py-2 rounded hover:bg-yellow-600">
-                  Edit Order
+                  Edit Vendor
                 </button>
               </Protected>
 
               <Protected
-                requiredPermissions={['orders.delete']}
+                requiredPermissions={['guests.delete']}
                 fallback={
                   <button
                     disabled
                     className="bg-gray-300 text-gray-500 px-4 py-2 rounded cursor-not-allowed"
                   >
-                    Delete Order (No Permission)
+                    Delete Guest (No Permission)
                   </button>
                 }
               >
                 <button className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600">
-                  Delete Order
+                  Delete Guest
+                </button>
+              </Protected>
+
+              <Protected
+                requiredPermissions={['budget.write']}
+                fallback={
+                  <button
+                    disabled
+                    className="bg-gray-300 text-gray-500 px-4 py-2 rounded cursor-not-allowed"
+                  >
+                    Manage Budget (No Permission)
+                  </button>
+                }
+              >
+                <button className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                  Manage Budget
+                </button>
+              </Protected>
+
+              <Protected
+                requiredPermissions={['timeline.write']}
+                fallback={
+                  <button
+                    disabled
+                    className="bg-gray-300 text-gray-500 px-4 py-2 rounded cursor-not-allowed"
+                  >
+                    Edit Timeline (No Permission)
+                  </button>
+                }
+              >
+                <button className="bg-purple-500 text-white px-4 py-2 rounded hover:bg-purple-600">
+                  Edit Timeline
                 </button>
               </Protected>
 

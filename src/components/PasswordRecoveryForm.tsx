@@ -203,23 +203,7 @@ export function PasswordRecoveryForm({
   const { tenant } = useApp();
 
   const mergedCopy = { ...defaultCopy, ...copy };
-  const mergedStyles = {
-    container: { ...defaultStyles.container, ...styles.container },
-    title: { ...defaultStyles.title, ...styles.title },
-    subtitle: { ...defaultStyles.subtitle, ...styles.subtitle },
-    form: { ...defaultStyles.form, ...styles.form },
-    fieldGroup: { ...defaultStyles.fieldGroup, ...styles.fieldGroup },
-    label: { ...defaultStyles.label, ...styles.label },
-    input: { ...defaultStyles.input, ...styles.input },
-    inputError: { ...defaultStyles.inputError, ...styles.inputError },
-    button: { ...defaultStyles.button, ...styles.button },
-    buttonDisabled: { ...defaultStyles.buttonDisabled, ...styles.buttonDisabled },
-    buttonLoading: { ...defaultStyles.buttonLoading, ...styles.buttonLoading },
-    errorText: { ...defaultStyles.errorText, ...styles.errorText },
-    successText: { ...defaultStyles.successText, ...styles.successText },
-    linkContainer: { ...defaultStyles.linkContainer, ...styles.linkContainer },
-    link: { ...defaultStyles.link, ...styles.link },
-  };
+  const mergedStyles = { ...defaultStyles, ...styles };
 
   const validateRequestForm = () => {
     const errors: { email?: boolean } = {};

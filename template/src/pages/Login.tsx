@@ -16,23 +16,6 @@ function Login() {
     navigate('/signup');
   };
 
-  // Custom styling for the login form
-  const customStyles = {
-    container: {
-      marginTop: '2rem',
-      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
-    },
-    title: {
-      color: '#1f2937',
-      fontSize: '1.75rem',
-    },
-    button: {
-      backgroundColor: '#3b82f6',
-      fontSize: '1rem',
-      padding: '0.875rem 1rem',
-    },
-  };
-
   // Custom copy for branding
   const customCopy = {
     title: 'Welcome Back',
@@ -64,7 +47,6 @@ function Login() {
 
       <LoginForm
         copy={customCopy}
-        styles={customStyles}
         onSuccess={handleSuccess}
         onForgotPassword={handleForgotPassword}
         onSignupClick={handleSignupClick}

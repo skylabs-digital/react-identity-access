@@ -121,54 +121,56 @@ const SubscriptionDemo: React.FC = () => {
           </h2>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
-            {/* Basic Plan Guard */}
-            <SubscriptionGuard allowedPlans={['basic']}>
+            {/* Starter Plan Guard */}
+            <SubscriptionGuard allowedPlans={['Starter']}>
               <div className="bg-green-50 border border-green-200 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-green-800 mb-2 flex items-center">
                   <span className="mr-2">✅</span>
-                  Basic Plan Feature
+                  Starter Plan Feature
                 </h3>
                 <p className="text-sm text-green-700">
-                  This content is only visible to users with the "basic" plan.
+                  This content is only visible to users with the "Starter" plan. Perfect for small
+                  weddings and new planners.
                 </p>
               </div>
             </SubscriptionGuard>
 
-            {/* Premium/Enterprise Plans Guard */}
-            <SubscriptionGuard allowedPlans={['premium', 'enterprise']}>
+            {/* Professional Plan Guard */}
+            <SubscriptionGuard allowedPlans={['Professional']}>
               <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-yellow-800 mb-2 flex items-center">
                   <span className="mr-2">⭐</span>
-                  Premium/Enterprise Feature
+                  Professional Plan Feature
                 </h3>
                 <p className="text-sm text-yellow-700">
-                  This content is visible to users with "premium" OR "enterprise" plans.
+                  This content is visible to users with the "Professional" plan. For professional
+                  wedding planners managing multiple events.
                 </p>
               </div>
             </SubscriptionGuard>
 
-            {/* Feature-based Guard */}
-            <SubscriptionGuard requiredFeature="advanced_analytics">
+            {/* Feature-based Guard - Max Events */}
+            <SubscriptionGuard requiredFeature="max_events">
               <div className="bg-purple-50 border border-purple-200 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-purple-800 mb-2 flex items-center">
-                  <span className="mr-2">📊</span>
-                  Advanced Analytics
+                  <span className="mr-2">🎉</span>
+                  Event Management
                 </h3>
                 <p className="text-sm text-purple-700">
-                  This content requires the "advanced_analytics" feature to be enabled.
+                  This content requires event management capabilities to be enabled.
                 </p>
               </div>
             </SubscriptionGuard>
 
-            {/* Multiple Plans Guard */}
-            <SubscriptionGuard allowedPlans={['starter', 'business', 'enterprise']}>
+            {/* Feature-based Guard - Advanced Vendor Management */}
+            <SubscriptionGuard requiredFeature="advanced_vendor_management">
               <div className="bg-pink-50 border border-pink-200 rounded-lg p-6">
                 <h3 className="text-lg font-semibold text-pink-800 mb-2 flex items-center">
-                  <span className="mr-2">🚀</span>
-                  Multi-Plan Feature
+                  <span className="mr-2">🤝</span>
+                  Advanced Vendor Management
                 </h3>
                 <p className="text-sm text-pink-700">
-                  Available to starter, business, or enterprise plans.
+                  Available only with advanced vendor management feature.
                 </p>
               </div>
             </SubscriptionGuard>
@@ -182,35 +184,45 @@ const SubscriptionDemo: React.FC = () => {
             </h3>
             <div className="grid gap-2 text-sm font-mono">
               <div className="flex items-center justify-between">
-                <span className="text-slate-700">hasAllowedPlan(['premium', 'enterprise']):</span>
+                <span className="text-slate-700">hasAllowedPlan(['Professional']):</span>
                 <span
                   className={`font-semibold ${
-                    hasAllowedPlan(['premium', 'enterprise']) ? 'text-green-600' : 'text-red-600'
+                    hasAllowedPlan(['Professional']) ? 'text-green-600' : 'text-red-600'
                   }`}
                 >
-                  {String(hasAllowedPlan(['premium', 'enterprise']))}
+                  {String(hasAllowedPlan(['Professional']))}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-700">isFeatureEnabled('advanced_analytics'):</span>
+                <span className="text-slate-700">
+                  isFeatureEnabled('advanced_vendor_management'):
+                </span>
                 <span
                   className={`font-semibold ${
-                    isFeatureEnabled('advanced_analytics') ? 'text-green-600' : 'text-red-600'
+                    isFeatureEnabled('advanced_vendor_management')
+                      ? 'text-green-600'
+                      : 'text-red-600'
                   }`}
                 >
-                  {String(isFeatureEnabled('advanced_analytics'))}
+                  {String(isFeatureEnabled('advanced_vendor_management'))}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-700">getFeatureValue('max_users', 10):</span>
+                <span className="text-slate-700">getFeatureValue('max_events', 3):</span>
                 <span className="text-blue-600 font-semibold">
-                  {String(getFeatureValue('max_users', 10))}
+                  {String(getFeatureValue('max_events', 3))}
                 </span>
               </div>
               <div className="flex items-center justify-between">
-                <span className="text-slate-700">getFeatureValue('api_calls_limit', 1000):</span>
+                <span className="text-slate-700">getFeatureValue('max_guests', 150):</span>
                 <span className="text-blue-600 font-semibold">
-                  {String(getFeatureValue('api_calls_limit', 1000))}
+                  {String(getFeatureValue('max_guests', 150))}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-700">getFeatureValue('storage_gb', 2):</span>
+                <span className="text-blue-600 font-semibold">
+                  {String(getFeatureValue('storage_gb', 2))}
                 </span>
               </div>
             </div>

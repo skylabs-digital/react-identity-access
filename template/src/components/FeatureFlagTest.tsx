@@ -88,10 +88,10 @@ export default function FeatureFlagTest() {
 
       {/* Feature Flag Examples */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        {/* Example 1: Default fallback */}
+        {/* Example 1: Advanced Analytics */}
         <div>
-          <h3>Example 1: Default Fallback</h3>
-          <FeatureFlag name="new-dashboard">
+          <h3>Example 1: Advanced Analytics</h3>
+          <FeatureFlag name="Advanced Analytics">
             <div
               style={{
                 backgroundColor: '#d1ecf1',
@@ -100,18 +100,18 @@ export default function FeatureFlagTest() {
                 border: '1px solid #bee5eb',
               }}
             >
-              🎉 New Dashboard Feature is enabled!
+              📊 Advanced Analytics Dashboard is enabled!
               <br />
-              <small>This content shows when "new-dashboard" feature flag is ON.</small>
+              <small>This content shows when "Advanced Analytics" feature flag is ON.</small>
             </div>
           </FeatureFlag>
         </div>
 
-        {/* Example 2: Custom fallback */}
+        {/* Example 2: Mobile App Features */}
         <div>
-          <h3>Example 2: Custom Fallback</h3>
+          <h3>Example 2: Mobile App Features</h3>
           <FeatureFlag
-            name="premium-features"
+            name="Mobile App Features"
             fallback={
               <div
                 style={{
@@ -122,9 +122,9 @@ export default function FeatureFlagTest() {
                   textAlign: 'center',
                 }}
               >
-                🔒 <strong>Premium Features Coming Soon!</strong>
+                📱 <strong>Mobile App Features Coming Soon!</strong>
                 <br />
-                <small>This feature is currently in development.</small>
+                <small>Mobile features are currently being developed for your tenant.</small>
               </div>
             }
           >
@@ -136,17 +136,34 @@ export default function FeatureFlagTest() {
                 border: '1px solid #c3e6cb',
               }}
             >
-              ⭐ Premium features are now available!
+              📱 Mobile App Features are now available!
               <br />
-              <small>Advanced analytics, custom reports, and more.</small>
+              <small>Enhanced mobile experience with offline capabilities.</small>
             </div>
           </FeatureFlag>
         </div>
 
-        {/* Example 3: Nested feature flags */}
+        {/* Example 3: AI-Powered Recommendations */}
         <div>
-          <h3>Example 3: Nested Feature Flags</h3>
-          <FeatureFlag name="beta-ui">
+          <h3>Example 3: AI-Powered Recommendations</h3>
+          <FeatureFlag
+            name="AI-Powered Recommendations"
+            fallback={
+              <div
+                style={{
+                  backgroundColor: '#f8d7da',
+                  padding: '15px',
+                  borderRadius: '4px',
+                  border: '1px solid #f5c6cb',
+                  textAlign: 'center',
+                }}
+              >
+                🤖 <strong>AI Recommendations Disabled</strong>
+                <br />
+                <small>This feature has been disabled for your tenant.</small>
+              </div>
+            }
+          >
             <div
               style={{
                 backgroundColor: '#e2e3e5',
@@ -155,27 +172,9 @@ export default function FeatureFlagTest() {
                 border: '1px solid #d6d8db',
               }}
             >
-              🚀 Beta UI is enabled
-              <FeatureFlag
-                name="experimental-charts"
-                fallback={
-                  <div style={{ marginTop: '10px', fontStyle: 'italic', color: '#6c757d' }}>
-                    Advanced charts are not available yet
-                  </div>
-                }
-              >
-                <div
-                  style={{
-                    backgroundColor: '#fff2cc',
-                    padding: '10px',
-                    marginTop: '10px',
-                    borderRadius: '4px',
-                    border: '1px solid #ffeaa7',
-                  }}
-                >
-                  📊 Experimental charts feature (nested)
-                </div>
-              </FeatureFlag>
+              🤖 AI-Powered Recommendations are active!
+              <br />
+              <small>Get intelligent vendor and venue suggestions powered by AI.</small>
             </div>
           </FeatureFlag>
         </div>
@@ -195,22 +194,24 @@ export default function FeatureFlagTest() {
               <strong>Manual checks:</strong>
             </div>
             <ul style={{ marginTop: '10px', paddingLeft: '20px' }}>
-              <li>new-dashboard: {isEnabled('new-dashboard') ? '✅ Enabled' : '❌ Disabled'}</li>
               <li>
-                premium-features: {isEnabled('premium-features') ? '✅ Enabled' : '❌ Disabled'}
+                Advanced Analytics: {isEnabled('Advanced Analytics') ? '✅ Enabled' : '❌ Disabled'}
               </li>
-              <li>beta-ui: {isEnabled('beta-ui') ? '✅ Enabled' : '❌ Disabled'}</li>
               <li>
-                experimental-charts:{' '}
-                {isEnabled('experimental-charts') ? '✅ Enabled' : '❌ Disabled'}
+                Mobile App Features:{' '}
+                {isEnabled('Mobile App Features') ? '✅ Enabled' : '❌ Disabled'}
+              </li>
+              <li>
+                AI-Powered Recommendations:{' '}
+                {isEnabled('AI-Powered Recommendations') ? '✅ Enabled' : '❌ Disabled'}
               </li>
             </ul>
 
             {/* Show flag details */}
-            {getFlag('new-dashboard') && (
+            {getFlag('Advanced Analytics') && (
               <div style={{ marginTop: '10px', fontSize: '12px', color: '#6c757d' }}>
-                <strong>new-dashboard details:</strong>{' '}
-                {JSON.stringify(getFlag('new-dashboard'), null, 2)}
+                <strong>Advanced Analytics details:</strong>{' '}
+                {JSON.stringify(getFlag('Advanced Analytics'), null, 2)}
               </div>
             )}
           </div>

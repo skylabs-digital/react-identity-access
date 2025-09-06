@@ -44,14 +44,16 @@ export interface SignupFormStyles {
   divider?: React.CSSProperties;
 }
 
+export type SignupType = 'user' | 'tenant';
+
 export interface SignupFormProps {
   copy?: SignupFormCopy;
   styles?: SignupFormStyles;
+  signupType?: SignupType;
   onSuccess?: (data: any) => void;
   onError?: (error: string) => void;
   onLoginClick?: () => void;
   showLoginLink?: boolean;
-  allowTenantCreation?: boolean;
   className?: string;
 }
 
@@ -80,6 +82,7 @@ const defaultCopy: Required<SignupFormCopy> = {
 const defaultStyles: Required<SignupFormStyles> = {
   container: {
     maxWidth: '400px',
+    width: '100%',
     margin: '0 auto',
     padding: '2rem',
     backgroundColor: '#ffffff',
@@ -179,11 +182,11 @@ const defaultStyles: Required<SignupFormStyles> = {
 export function SignupForm({
   copy = {},
   styles = {},
+  signupType = 'user',
   onSuccess,
   onError,
   onLoginClick,
   showLoginLink = true,
-  allowTenantCreation = true,
   className,
 }: SignupFormProps) {
   const [name, setName] = useState('');
@@ -191,7 +194,6 @@ export function SignupForm({
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [tenantName, setTenantName] = useState('');
-  const [isAdmin, setIsAdmin] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [fieldErrors, setFieldErrors] = useState<{
@@ -206,25 +208,7 @@ export function SignupForm({
   const { tenant } = useApp();
 
   const mergedCopy = { ...defaultCopy, ...copy };
-  const mergedStyles = {
-    container: { ...defaultStyles.container, ...styles.container },
-    title: { ...defaultStyles.title, ...styles.title },
-    form: { ...defaultStyles.form, ...styles.form },
-    fieldGroup: { ...defaultStyles.fieldGroup, ...styles.fieldGroup },
-    label: { ...defaultStyles.label, ...styles.label },
-    input: { ...defaultStyles.input, ...styles.input },
-    inputError: { ...defaultStyles.inputError, ...styles.inputError },
-    checkbox: { ...defaultStyles.checkbox, ...styles.checkbox },
-    checkboxContainer: { ...defaultStyles.checkboxContainer, ...styles.checkboxContainer },
-    checkboxLabel: { ...defaultStyles.checkboxLabel, ...styles.checkboxLabel },
-    button: { ...defaultStyles.button, ...styles.button },
-    buttonDisabled: { ...defaultStyles.buttonDisabled, ...styles.buttonDisabled },
-    buttonLoading: { ...defaultStyles.buttonLoading, ...styles.buttonLoading },
-    errorText: { ...defaultStyles.errorText, ...styles.errorText },
-    linkContainer: { ...defaultStyles.linkContainer, ...styles.linkContainer },
-    link: { ...defaultStyles.link, ...styles.link },
-    divider: { ...defaultStyles.divider, ...styles.divider },
-  };
+  const mergedStyles = { ...defaultStyles, ...styles };
 
   const validateForm = () => {
     const errors: {
@@ -239,7 +223,7 @@ export function SignupForm({
     if (!email.trim()) errors.email = true;
     if (!password.trim()) errors.password = true;
     if (!confirmPassword.trim()) errors.confirmPassword = true;
-    if (isAdmin && !tenantName.trim()) errors.tenantName = true;
+    if (signupType === 'tenant' && !tenantName.trim()) errors.tenantName = true;
 
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
@@ -256,7 +240,7 @@ export function SignupForm({
       return;
     }
 
-    if (!isAdmin && !tenant?.id) {
+    if (signupType === 'user' && !tenant?.id) {
       setError('Tenant not found');
       return;
     }
@@ -266,7 +250,7 @@ export function SignupForm({
 
     try {
       let result;
-      if (isAdmin) {
+      if (signupType === 'tenant') {
         result = await signupTenantAdmin(email, name, password, tenantName);
       } else {
         result = await signup(email, name, password, tenant!.id);
@@ -289,12 +273,18 @@ export function SignupForm({
   const getButtonStyle = () => ({
     ...mergedStyles.button,
     ...(loading ? mergedStyles.buttonLoading : {}),
-    ...(!name || !email || !password || !confirmPassword || loading || (isAdmin && !tenantName)
+    ...(!name ||
+    !email ||
+    !password ||
+    !confirmPassword ||
+    loading ||
+    (signupType === 'tenant' && !tenantName)
       ? mergedStyles.buttonDisabled
       : {}),
   });
 
-  const isFormValid = name && email && password && confirmPassword && (!isAdmin || tenantName);
+  const isFormValid =
+    name && email && password && confirmPassword && (signupType === 'user' || tenantName);
 
   return (
     <div className={className} style={mergedStyles.container}>
@@ -304,6 +294,8 @@ export function SignupForm({
         <div style={mergedStyles.fieldGroup}>
           <label style={mergedStyles.label}>{mergedCopy.nameLabel}</label>
           <input
+            id="name"
+            name="name"
             type="text"
             value={name}
             onChange={e => {
@@ -321,6 +313,8 @@ export function SignupForm({
         <div style={mergedStyles.fieldGroup}>
           <label style={mergedStyles.label}>{mergedCopy.emailLabel}</label>
           <input
+            id="email"
+            name="email"
             type="email"
             value={email}
             onChange={e => {
@@ -338,6 +332,8 @@ export function SignupForm({
         <div style={mergedStyles.fieldGroup}>
           <label style={mergedStyles.label}>{mergedCopy.passwordLabel}</label>
           <input
+            id="password"
+            name="password"
             type="password"
             value={password}
             onChange={e => {
@@ -355,6 +351,8 @@ export function SignupForm({
         <div style={mergedStyles.fieldGroup}>
           <label style={mergedStyles.label}>{mergedCopy.confirmPasswordLabel}</label>
           <input
+            id="confirmPassword"
+            name="confirmPassword"
             type="password"
             value={confirmPassword}
             onChange={e => {
@@ -372,30 +370,12 @@ export function SignupForm({
           />
         </div>
 
-        {allowTenantCreation && (
-          <div style={mergedStyles.checkboxContainer}>
-            <input
-              type="checkbox"
-              checked={isAdmin}
-              onChange={e => setIsAdmin(e.target.checked)}
-              style={mergedStyles.checkbox}
-              disabled={loading}
-            />
-            <div>
-              <label style={mergedStyles.checkboxLabel}>
-                <strong>{mergedCopy.isAdminLabel}</strong>
-              </label>
-              <div style={{ ...mergedStyles.checkboxLabel, fontSize: '0.75rem', color: '#6b7280' }}>
-                {mergedCopy.isAdminDescription}
-              </div>
-            </div>
-          </div>
-        )}
-
-        {isAdmin && (
+        {signupType === 'tenant' && (
           <div style={mergedStyles.fieldGroup}>
             <label style={mergedStyles.label}>{mergedCopy.tenantNameLabel}</label>
             <input
+              id="tenantName"
+              name="tenantName"
               type="text"
               value={tenantName}
               onChange={e => {

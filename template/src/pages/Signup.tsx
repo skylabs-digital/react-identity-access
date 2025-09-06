@@ -12,23 +12,6 @@ function Signup() {
     navigate('/login');
   };
 
-  // Custom styling for the signup form
-  const customStyles = {
-    container: {
-      marginTop: '2rem',
-      boxShadow: '0 4px 20px rgba(0, 0, 0, 0.15)',
-    },
-    title: {
-      color: '#1f2937',
-      fontSize: '1.75rem',
-    },
-    button: {
-      backgroundColor: '#10b981',
-      fontSize: '1rem',
-      padding: '0.875rem 1rem',
-    },
-  };
-
   // Custom copy for branding
   const customCopy = {
     title: 'Join Our Platform',
@@ -62,11 +45,10 @@ function Signup() {
 
       <SignupForm
         copy={customCopy}
-        styles={customStyles}
         onSuccess={handleSuccess}
         onLoginClick={handleLoginClick}
         showLoginLink={true}
-        allowTenantCreation={true}
+        signupType={'user'}
       />
 
       {/* Feature flag controlled terms reminder */}
