@@ -6,7 +6,7 @@ export default function FeatureFlagTest() {
   return (
     <div style={{ padding: '20px' }}>
       <h2>Feature Flag Test</h2>
-      
+
       {/* Status Display */}
       <div
         style={{
@@ -17,11 +17,12 @@ export default function FeatureFlagTest() {
           marginBottom: '20px',
         }}
       >
-        <strong>Status:</strong> {
-          error ? `❌ Error: ${error}` :
-          loading ? '⏳ Loading feature flags...' :
-          `✅ Loaded ${featureFlags.length} feature flags`
-        }
+        <strong>Status:</strong>{' '}
+        {error
+          ? `❌ Error: ${error}`
+          : loading
+            ? '⏳ Loading feature flags...'
+            : `✅ Loaded ${featureFlags.length} feature flags`}
       </div>
 
       {/* Refresh Button */}
@@ -48,7 +49,7 @@ export default function FeatureFlagTest() {
         <div style={{ marginBottom: '30px' }}>
           <h3>Available Feature Flags</h3>
           <div style={{ display: 'grid', gap: '10px' }}>
-            {featureFlags.map((flag) => (
+            {featureFlags.map(flag => (
               <div
                 key={flag.featureFlagId}
                 style={{
@@ -87,7 +88,6 @@ export default function FeatureFlagTest() {
 
       {/* Feature Flag Examples */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        
         {/* Example 1: Default fallback */}
         <div>
           <h3>Example 1: Default Fallback</h3>
@@ -196,15 +196,21 @@ export default function FeatureFlagTest() {
             </div>
             <ul style={{ marginTop: '10px', paddingLeft: '20px' }}>
               <li>new-dashboard: {isEnabled('new-dashboard') ? '✅ Enabled' : '❌ Disabled'}</li>
-              <li>premium-features: {isEnabled('premium-features') ? '✅ Enabled' : '❌ Disabled'}</li>
+              <li>
+                premium-features: {isEnabled('premium-features') ? '✅ Enabled' : '❌ Disabled'}
+              </li>
               <li>beta-ui: {isEnabled('beta-ui') ? '✅ Enabled' : '❌ Disabled'}</li>
-              <li>experimental-charts: {isEnabled('experimental-charts') ? '✅ Enabled' : '❌ Disabled'}</li>
+              <li>
+                experimental-charts:{' '}
+                {isEnabled('experimental-charts') ? '✅ Enabled' : '❌ Disabled'}
+              </li>
             </ul>
-            
+
             {/* Show flag details */}
             {getFlag('new-dashboard') && (
               <div style={{ marginTop: '10px', fontSize: '12px', color: '#6c757d' }}>
-                <strong>new-dashboard details:</strong> {JSON.stringify(getFlag('new-dashboard'), null, 2)}
+                <strong>new-dashboard details:</strong>{' '}
+                {JSON.stringify(getFlag('new-dashboard'), null, 2)}
               </div>
             )}
           </div>

@@ -17,21 +17,24 @@ const Home: React.FC = () => {
             <h1 className="text-5xl md:text-6xl font-bold text-gray-900 mb-6">
               React Identity
               <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                {" "}Access
+                {' '}
+                Access
               </span>
             </h1>
             <p className="text-xl text-gray-600 mb-8 max-w-3xl mx-auto">
               A powerful, modern authentication and authorization library for React applications.
               Secure, scalable, and developer-friendly.
             </p>
-            
+
             {isAuthenticated ? (
               <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-8 max-w-md mx-auto">
                 <div className="flex items-center justify-center mb-2">
                   <div className="w-8 h-8 bg-green-500 rounded-full flex items-center justify-center mr-3">
                     <span className="text-white text-sm">✓</span>
                   </div>
-                  <span className="text-green-800 font-semibold">Welcome back, {user?.name || user?.email}!</span>
+                  <span className="text-green-800 font-semibold">
+                    Welcome back, {user?.name || user?.email}!
+                  </span>
                 </div>
                 <p className="text-green-600 text-sm">You are successfully authenticated</p>
               </div>
@@ -154,9 +157,7 @@ const Home: React.FC = () => {
       {/* Quick Start Section */}
       <div className="py-20 bg-gray-50">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-3xl font-bold text-gray-900 mb-8">
-            Ready to get started?
-          </h2>
+          <h2 className="text-3xl font-bold text-gray-900 mb-8">Ready to get started?</h2>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div className="bg-white rounded-lg p-6 shadow-md">
               <h3 className="text-lg font-semibold text-gray-900 mb-3">For Developers</h3>
@@ -173,10 +174,10 @@ const Home: React.FC = () => {
                 Explore all features with our interactive demo application.
               </p>
               <Link
-                to={isAuthenticated ? "/dashboard" : "/login"}
+                to={isAuthenticated ? '/dashboard' : '/login'}
                 className="bg-blue-600 text-white px-6 py-2 rounded hover:bg-blue-700 transition-colors inline-block"
               >
-                {isAuthenticated ? "Go to Dashboard" : "Start Demo"}
+                {isAuthenticated ? 'Go to Dashboard' : 'Start Demo'}
               </Link>
             </div>
           </div>

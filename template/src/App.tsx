@@ -11,6 +11,7 @@ import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import Profile from './pages/Profile';
 import Settings from './pages/Settings';
+import SubscriptionDemo from './pages/SubscriptionDemo';
 import RolePermissionTest from './components/RolePermissionTest';
 
 function App() {
@@ -67,6 +68,12 @@ function App() {
                             >
                               Settings
                             </Link>
+                            <Link
+                              to="/subscription"
+                              className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                            >
+                              Subscription
+                            </Link>
                           </div>
                         </div>
                         <div className="flex items-center">
@@ -88,6 +95,7 @@ function App() {
                       <Route path="/dashboard" element={<Dashboard />} />
                       <Route path="/profile" element={<Profile />} />
                       <Route path="/settings" element={<Settings />} />
+                      <Route path="/subscription" element={<SubscriptionDemo />} />
                       <Route path="/roles" element={<RolePermissionTest />} />
                     </Routes>
                   </main>

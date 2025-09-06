@@ -2,13 +2,13 @@ import React from 'react';
 import { useAuth, Protected } from 'react-identity-access';
 
 const RolePermissionTest: React.FC = () => {
-  const { 
+  const {
     sessionManager,
     userRole,
     userPermissions,
-    hasPermission, 
-    hasAnyPermission, 
-    hasAllPermissions
+    hasPermission,
+    hasAnyPermission,
+    hasAllPermissions,
   } = useAuth();
 
   const user = sessionManager.getUser();
@@ -24,7 +24,6 @@ const RolePermissionTest: React.FC = () => {
       </div>
     );
   }
-
 
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-8">
@@ -67,7 +66,7 @@ const RolePermissionTest: React.FC = () => {
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2">
           {userPermissions.map((permission, index) => (
             <span key={index} className="bg-blue-100 text-blue-800 px-2 py-1 rounded text-sm">
-              {typeof permission === 'string' ? permission : `${permission.resource}.${permission.action}`}
+              {String(permission)}
             </span>
           ))}
         </div>

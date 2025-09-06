@@ -80,7 +80,7 @@ export default function ApiTest() {
         refreshToken: 'mock_refresh_token_' + Date.now(),
         expiresIn: 3600,
       };
-      
+
       sessionManager.setTokens(mockTokens);
       setApiResponse({
         endpoint: 'Mock Login Test',
@@ -142,14 +142,14 @@ export default function ApiTest() {
   const testTenantPersistence = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       // Get current tenant from context
       const currentTenant = tenantSlug;
-      
+
       // Check localStorage
       const storedTenant = localStorage.getItem('tenant');
-      
+
       if (currentTenant && storedTenant === currentTenant) {
         setApiResponse({
           endpoint: 'Tenant Persistence Test',
@@ -157,8 +157,8 @@ export default function ApiTest() {
             message: `✅ Tenant persistence working! Current: ${currentTenant}, Stored: ${storedTenant}`,
             currentTenant,
             storedTenant,
-            status: 'success'
-          }
+            status: 'success',
+          },
         });
       } else {
         setApiResponse({
@@ -167,8 +167,8 @@ export default function ApiTest() {
             message: `❌ Tenant persistence issue. Current: ${currentTenant}, Stored: ${storedTenant}`,
             currentTenant,
             storedTenant,
-            status: 'error'
-          }
+            status: 'error',
+          },
         });
       }
     } catch (err) {
@@ -181,7 +181,7 @@ export default function ApiTest() {
   const testRefreshQueue = async () => {
     setLoading(true);
     setError(null);
-    
+
     try {
       // First, set up mock tokens that will be "expired"
       const mockTokens = {
@@ -189,9 +189,9 @@ export default function ApiTest() {
         refreshToken: 'mock_refresh_token_' + Date.now(),
         expiresIn: -1, // Already expired
       };
-      
+
       sessionManager.setTokens(mockTokens);
-      
+
       // Test automatic retry with authenticated HttpService
       const startTime = Date.now();
       const promises = Array.from({ length: 3 }, async (_, i) => {
@@ -202,20 +202,20 @@ export default function ApiTest() {
             requestId: i,
             success: true,
             hasResponse: !!response,
-            timestamp: Date.now() - startTime
+            timestamp: Date.now() - startTime,
           };
         } catch (error) {
           return {
             requestId: i,
             success: false,
             error: error instanceof Error ? error.message : 'Unknown error',
-            timestamp: Date.now() - startTime
+            timestamp: Date.now() - startTime,
           };
         }
       });
-      
+
       const results = await Promise.all(promises);
-      
+
       setApiResponse({
         endpoint: 'Authenticated HttpService Test',
         data: {
@@ -224,8 +224,8 @@ export default function ApiTest() {
           totalTime: Date.now() - startTime,
           successCount: results.filter(r => r.success).length,
           errorCount: results.filter(r => !r.success).length,
-          note: 'This tests automatic token refresh and retry functionality'
-        }
+          note: 'This tests automatic token refresh and retry functionality',
+        },
       });
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Unknown error');

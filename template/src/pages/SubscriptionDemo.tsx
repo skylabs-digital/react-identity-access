@@ -1,13 +1,22 @@
+import React from 'react';
 import { SubscriptionGuard, useSubscription } from 'react-identity-access';
 
-function SubscriptionDemo() {
-  const { subscription, features, isFeatureEnabled, getFeatureValue, hasAllowedPlan, loading, error } = useSubscription();
+const SubscriptionDemo: React.FC = () => {
+  const {
+    subscription,
+    features,
+    isFeatureEnabled,
+    getFeatureValue,
+    hasAllowedPlan,
+    loading,
+    error,
+  } = useSubscription();
 
   if (loading) {
     return (
-      <div style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
-        <div style={{ textAlign: 'center', color: '#6b7280' }}>
-          Loading subscription data...
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center text-gray-500">Loading subscription data...</div>
         </div>
       </div>
     );
@@ -15,215 +24,201 @@ function SubscriptionDemo() {
 
   if (error) {
     return (
-      <div style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
-        <div style={{
-          padding: '1rem',
-          backgroundColor: '#fef2f2',
-          border: '1px solid #fca5a5',
-          borderRadius: '6px',
-          color: '#dc2626'
-        }}>
-          Error loading subscription: {error}
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="bg-red-50 border border-red-200 rounded-lg p-4 text-red-700">
+            Error loading subscription: {error}
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '1000px', margin: '0 auto' }}>
-      <div style={{
-        backgroundColor: '#ffffff',
-        borderRadius: '8px',
-        boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
-        padding: '2rem'
-      }}>
-        <h1 style={{ color: '#1f2937', marginBottom: '2rem' }}>💳 Subscription Demo</h1>
+    <div className="min-h-screen bg-gray-50 py-8">
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="bg-white rounded-xl shadow-lg p-8">
+          <h1 className="text-4xl font-bold text-gray-900 mb-8 flex items-center">
+            <span className="mr-3">💳</span>
+            Subscription Demo
+          </h1>
 
-        {/* Current Subscription Info */}
-        <div style={{
-          marginBottom: '2rem',
-          padding: '1.5rem',
-          backgroundColor: '#f9fafb',
-          borderRadius: '6px',
-          border: '1px solid #e5e7eb'
-        }}>
-          <h2 style={{ margin: '0 0 1rem 0', color: '#374151' }}>Current Subscription</h2>
-          {subscription ? (
-            <div style={{ display: 'grid', gap: '0.5rem', fontSize: '0.875rem' }}>
-              <div><strong>Plan:</strong> {subscription.planName} ({subscription.planId})</div>
-              <div><strong>Status:</strong> 
-                <span style={{ 
-                  color: subscription.isActive ? '#10b981' : '#dc2626',
-                  fontWeight: 'bold',
-                  marginLeft: '0.5rem'
-                }}>
-                  {subscription.subscriptionStatus}
-                </span>
+          {/* Current Subscription Info */}
+          <div className="mb-8 p-6 bg-gray-50 rounded-lg border border-gray-200">
+            <h2 className="text-xl font-semibold text-gray-800 mb-4">Current Subscription</h2>
+            {subscription ? (
+              <div className="grid gap-3 text-sm">
+                <div className="flex items-center">
+                  <span className="font-medium text-gray-700 w-20">Plan:</span>
+                  <span className="text-gray-900">
+                    {subscription.planName} ({subscription.planId})
+                  </span>
+                </div>
+                <div className="flex items-center">
+                  <span className="font-medium text-gray-700 w-20">Status:</span>
+                  <span
+                    className={`font-semibold ml-2 ${
+                      subscription.isActive ? 'text-green-600' : 'text-red-600'
+                    }`}
+                  >
+                    {subscription.subscriptionStatus}
+                  </span>
+                </div>
+                <div className="flex items-center">
+                  <span className="font-medium text-gray-700 w-20">Tenant:</span>
+                  <span className="text-gray-900">{subscription.tenantId}</span>
+                </div>
+                <div className="flex items-center">
+                  <span className="font-medium text-gray-700 w-20">Features:</span>
+                  <span className="text-gray-900">{features.length} available</span>
+                </div>
               </div>
-              <div><strong>Tenant:</strong> {subscription.tenantId}</div>
-              <div><strong>Features:</strong> {features.length} available</div>
-            </div>
-          ) : (
-            <p style={{ color: '#6b7280', margin: 0 }}>No subscription data available</p>
-          )}
-        </div>
+            ) : (
+              <p className="text-gray-500">No subscription data available</p>
+            )}
+          </div>
 
-        {/* Plan Features */}
-        <div style={{
-          marginBottom: '2rem',
-          padding: '1.5rem',
-          backgroundColor: '#f0f9ff',
-          borderRadius: '6px',
-          border: '1px solid #0ea5e9'
-        }}>
-          <h3 style={{ margin: '0 0 1rem 0', color: '#0c4a6e' }}>Available Features</h3>
-          {features.length > 0 ? (
-            <div style={{ display: 'grid', gap: '0.75rem' }}>
-              {features.map((feature) => (
-                <div key={feature.key} style={{
-                  padding: '0.75rem',
-                  backgroundColor: '#ffffff',
-                  borderRadius: '4px',
-                  border: '1px solid #bae6fd'
-                }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                    <div>
-                      <strong>{feature.name}</strong> ({feature.key})
-                      {feature.description && (
-                        <div style={{ fontSize: '0.75rem', color: '#6b7280', marginTop: '0.25rem' }}>
-                          {feature.description}
+          {/* Plan Features */}
+          <div className="mb-8 p-6 bg-blue-50 rounded-lg border border-blue-200">
+            <h3 className="text-lg font-semibold text-blue-900 mb-4">Available Features</h3>
+            {features.length > 0 ? (
+              <div className="grid gap-3">
+                {features.map(feature => (
+                  <div key={feature.key} className="bg-white p-4 rounded-lg border border-blue-100">
+                    <div className="flex justify-between items-center">
+                      <div>
+                        <div className="font-medium text-gray-900">
+                          {feature.name} ({feature.key})
                         </div>
-                      )}
-                    </div>
-                    <div style={{
-                      padding: '0.25rem 0.5rem',
-                      borderRadius: '4px',
-                      fontSize: '0.75rem',
-                      backgroundColor: feature.type === 'BOOLEAN' || feature.type === 'boolean' 
-                        ? (feature.value ? '#dcfce7' : '#fef2f2')
-                        : '#f3f4f6',
-                      color: feature.type === 'BOOLEAN' || feature.type === 'boolean'
-                        ? (feature.value ? '#166534' : '#dc2626')
-                        : '#374151'
-                    }}>
-                      {feature.type}: {String(feature.value)}
+                        {feature.description && (
+                          <div className="text-xs text-gray-500 mt-1">{feature.description}</div>
+                        )}
+                      </div>
+                      <div
+                        className={`px-2 py-1 rounded text-xs font-medium ${
+                          feature.type === 'BOOLEAN' || feature.type === 'boolean'
+                            ? feature.value
+                              ? 'bg-green-100 text-green-800'
+                              : 'bg-red-100 text-red-800'
+                            : 'bg-gray-100 text-gray-800'
+                        }`}
+                      >
+                        {feature.type}: {String(feature.value)}
+                      </div>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <p style={{ color: '#6b7280', margin: 0 }}>No features available</p>
-          )}
-        </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-gray-500">No features available</p>
+            )}
+          </div>
 
-        {/* Subscription Guards Demo */}
-        <h2 style={{ color: '#1f2937', marginBottom: '1rem' }}>🔒 Subscription Guards Demo</h2>
-        
-        <div style={{ display: 'grid', gap: '1.5rem', gridTemplateColumns: 'repeat(auto-fit, minmax(300px, 1fr))' }}>
-          
-          {/* Basic Plan Guard */}
-          <SubscriptionGuard allowedPlans={['basic']}>
-            <div style={{
-              padding: '1.5rem',
-              backgroundColor: '#f0fdf4',
-              borderRadius: '6px',
-              border: '1px solid #22c55e'
-            }}>
-              <h3 style={{ margin: '0 0 0.5rem 0', color: '#166534' }}>✅ Basic Plan Feature</h3>
-              <p style={{ margin: 0, fontSize: '0.875rem', color: '#166534' }}>
-                This content is only visible to users with the "basic" plan.
-              </p>
-            </div>
-          </SubscriptionGuard>
+          {/* Subscription Guards Demo */}
+          <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center">
+            <span className="mr-2">🔒</span>
+            Subscription Guards Demo
+          </h2>
 
-          {/* Premium/Enterprise Plans Guard */}
-          <SubscriptionGuard allowedPlans={['premium', 'enterprise']}>
-            <div style={{
-              padding: '1.5rem',
-              backgroundColor: '#fef3c7',
-              borderRadius: '6px',
-              border: '1px solid #f59e0b'
-            }}>
-              <h3 style={{ margin: '0 0 0.5rem 0', color: '#92400e' }}>⭐ Premium/Enterprise Feature</h3>
-              <p style={{ margin: 0, fontSize: '0.875rem', color: '#92400e' }}>
-                This content is visible to users with "premium" OR "enterprise" plans.
-              </p>
-            </div>
-          </SubscriptionGuard>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            {/* Basic Plan Guard */}
+            <SubscriptionGuard allowedPlans={['basic']}>
+              <div className="bg-green-50 border border-green-200 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-green-800 mb-2 flex items-center">
+                  <span className="mr-2">✅</span>
+                  Basic Plan Feature
+                </h3>
+                <p className="text-sm text-green-700">
+                  This content is only visible to users with the "basic" plan.
+                </p>
+              </div>
+            </SubscriptionGuard>
 
-          {/* Feature-based Guard */}
-          <SubscriptionGuard requiredFeature="advanced_analytics">
-            <div style={{
-              padding: '1.5rem',
-              backgroundColor: '#ede9fe',
-              borderRadius: '6px',
-              border: '1px solid #8b5cf6'
-            }}>
-              <h3 style={{ margin: '0 0 0.5rem 0', color: '#5b21b6' }}>📊 Advanced Analytics</h3>
-              <p style={{ margin: 0, fontSize: '0.875rem', color: '#5b21b6' }}>
-                This content requires the "advanced_analytics" feature to be enabled.
-              </p>
-            </div>
-          </SubscriptionGuard>
+            {/* Premium/Enterprise Plans Guard */}
+            <SubscriptionGuard allowedPlans={['premium', 'enterprise']}>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-yellow-800 mb-2 flex items-center">
+                  <span className="mr-2">⭐</span>
+                  Premium/Enterprise Feature
+                </h3>
+                <p className="text-sm text-yellow-700">
+                  This content is visible to users with "premium" OR "enterprise" plans.
+                </p>
+              </div>
+            </SubscriptionGuard>
 
-          {/* Multiple Plans Guard */}
-          <SubscriptionGuard allowedPlans={['starter', 'business', 'enterprise']}>
-            <div style={{
-              padding: '1.5rem',
-              backgroundColor: '#fdf2f8',
-              borderRadius: '6px',
-              border: '1px solid #ec4899'
-            }}>
-              <h3 style={{ margin: '0 0 0.5rem 0', color: '#be185d' }}>🚀 Multi-Plan Feature</h3>
-              <p style={{ margin: 0, fontSize: '0.875rem', color: '#be185d' }}>
-                Available to starter, business, or enterprise plans.
-              </p>
-            </div>
-          </SubscriptionGuard>
+            {/* Feature-based Guard */}
+            <SubscriptionGuard requiredFeature="advanced_analytics">
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-purple-800 mb-2 flex items-center">
+                  <span className="mr-2">📊</span>
+                  Advanced Analytics
+                </h3>
+                <p className="text-sm text-purple-700">
+                  This content requires the "advanced_analytics" feature to be enabled.
+                </p>
+              </div>
+            </SubscriptionGuard>
 
-        </div>
+            {/* Multiple Plans Guard */}
+            <SubscriptionGuard allowedPlans={['starter', 'business', 'enterprise']}>
+              <div className="bg-pink-50 border border-pink-200 rounded-lg p-6">
+                <h3 className="text-lg font-semibold text-pink-800 mb-2 flex items-center">
+                  <span className="mr-2">🚀</span>
+                  Multi-Plan Feature
+                </h3>
+                <p className="text-sm text-pink-700">
+                  Available to starter, business, or enterprise plans.
+                </p>
+              </div>
+            </SubscriptionGuard>
+          </div>
 
-        {/* Programmatic Usage Examples */}
-        <div style={{
-          marginTop: '2rem',
-          padding: '1.5rem',
-          backgroundColor: '#f8fafc',
-          borderRadius: '6px',
-          border: '1px solid #cbd5e1'
-        }}>
-          <h3 style={{ margin: '0 0 1rem 0', color: '#334155' }}>🔧 Programmatic Usage</h3>
-          <div style={{ display: 'grid', gap: '0.5rem', fontSize: '0.875rem', fontFamily: 'monospace' }}>
-            <div>
-              <strong>hasAllowedPlan(['premium', 'enterprise']):</strong> {' '}
-              <span style={{ color: hasAllowedPlan(['premium', 'enterprise']) ? '#10b981' : '#dc2626' }}>
-                {String(hasAllowedPlan(['premium', 'enterprise']))}
-              </span>
-            </div>
-            <div>
-              <strong>isFeatureEnabled('advanced_analytics'):</strong> {' '}
-              <span style={{ color: isFeatureEnabled('advanced_analytics') ? '#10b981' : '#dc2626' }}>
-                {String(isFeatureEnabled('advanced_analytics'))}
-              </span>
-            </div>
-            <div>
-              <strong>getFeatureValue('max_users', 10):</strong> {' '}
-              <span style={{ color: '#3b82f6' }}>
-                {String(getFeatureValue('max_users', 10))}
-              </span>
-            </div>
-            <div>
-              <strong>getFeatureValue('api_calls_limit', 1000):</strong> {' '}
-              <span style={{ color: '#3b82f6' }}>
-                {String(getFeatureValue('api_calls_limit', 1000))}
-              </span>
+          {/* Programmatic Usage Examples */}
+          <div className="bg-slate-50 border border-slate-200 rounded-lg p-6">
+            <h3 className="text-lg font-semibold text-slate-800 mb-4 flex items-center">
+              <span className="mr-2">🔧</span>
+              Programmatic Usage
+            </h3>
+            <div className="grid gap-2 text-sm font-mono">
+              <div className="flex items-center justify-between">
+                <span className="text-slate-700">hasAllowedPlan(['premium', 'enterprise']):</span>
+                <span
+                  className={`font-semibold ${
+                    hasAllowedPlan(['premium', 'enterprise']) ? 'text-green-600' : 'text-red-600'
+                  }`}
+                >
+                  {String(hasAllowedPlan(['premium', 'enterprise']))}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-700">isFeatureEnabled('advanced_analytics'):</span>
+                <span
+                  className={`font-semibold ${
+                    isFeatureEnabled('advanced_analytics') ? 'text-green-600' : 'text-red-600'
+                  }`}
+                >
+                  {String(isFeatureEnabled('advanced_analytics'))}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-700">getFeatureValue('max_users', 10):</span>
+                <span className="text-blue-600 font-semibold">
+                  {String(getFeatureValue('max_users', 10))}
+                </span>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-slate-700">getFeatureValue('api_calls_limit', 1000):</span>
+                <span className="text-blue-600 font-semibold">
+                  {String(getFeatureValue('api_calls_limit', 1000))}
+                </span>
+              </div>
             </div>
           </div>
         </div>
-
       </div>
     </div>
   );
-}
+};
 
 export default SubscriptionDemo;

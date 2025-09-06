@@ -3,13 +3,8 @@ import { useAuth, Protected } from 'react-identity-access';
 import { Link } from 'react-router';
 
 const Dashboard: React.FC = () => {
-  const { 
-    sessionManager, 
-    userRole, 
-    userPermissions,
-    hasValidSession
-  } = useAuth();
-  
+  const { sessionManager, userRole, userPermissions, hasValidSession } = useAuth();
+
   const user = sessionManager.getUser();
 
   if (!hasValidSession() || !user) {
@@ -19,8 +14,8 @@ const Dashboard: React.FC = () => {
         <div className="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 rounded">
           <p className="font-bold">Authentication Required</p>
           <p className="mb-4">Please log in to access the dashboard.</p>
-          <Link 
-            to="/login" 
+          <Link
+            to="/login"
             className="bg-yellow-600 text-white px-4 py-2 rounded hover:bg-yellow-700 transition-colors"
           >
             Go to Login
@@ -54,9 +49,9 @@ const Dashboard: React.FC = () => {
           </div>
         </div>
       </div>
-      
+
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <Protected 
+        <Protected
           requiredPermissions={['products.read']}
           fallback={
             <div className="bg-gray-100 border border-gray-300 rounded-lg p-6 opacity-60">
@@ -66,7 +61,9 @@ const Dashboard: React.FC = () => {
                 </div>
                 <h3 className="text-lg font-semibold text-gray-500">Products</h3>
               </div>
-              <p className="text-gray-400 mb-4">Access denied - requires products.read permission</p>
+              <p className="text-gray-400 mb-4">
+                Access denied - requires products.read permission
+              </p>
               <button className="bg-gray-300 text-gray-500 px-4 py-2 rounded cursor-not-allowed">
                 View Products
               </button>
@@ -87,7 +84,7 @@ const Dashboard: React.FC = () => {
           </div>
         </Protected>
 
-        <Protected 
+        <Protected
           requiredPermissions={['orders.read']}
           fallback={
             <div className="bg-gray-100 border border-gray-300 rounded-lg p-6 opacity-60">
@@ -118,7 +115,7 @@ const Dashboard: React.FC = () => {
           </div>
         </Protected>
 
-        <Protected 
+        <Protected
           requiredPermissions={['settings.read']}
           fallback={
             <div className="bg-gray-100 border border-gray-300 rounded-lg p-6 opacity-60">
@@ -128,7 +125,9 @@ const Dashboard: React.FC = () => {
                 </div>
                 <h3 className="text-lg font-semibold text-gray-500">Settings</h3>
               </div>
-              <p className="text-gray-400 mb-4">Access denied - requires settings.read permission</p>
+              <p className="text-gray-400 mb-4">
+                Access denied - requires settings.read permission
+              </p>
               <button className="bg-gray-300 text-gray-500 px-4 py-2 rounded cursor-not-allowed">
                 View Settings
               </button>
@@ -149,7 +148,7 @@ const Dashboard: React.FC = () => {
           </div>
         </Protected>
 
-        <Protected 
+        <Protected
           requiredPermissions={['users.read']}
           fallback={
             <div className="bg-gray-100 border border-gray-300 rounded-lg p-6 opacity-60">
@@ -180,7 +179,7 @@ const Dashboard: React.FC = () => {
           </div>
         </Protected>
 
-        <Protected 
+        <Protected
           requiredPermissions={['reports.read']}
           fallback={
             <div className="bg-gray-100 border border-gray-300 rounded-lg p-6 opacity-60">
@@ -211,7 +210,7 @@ const Dashboard: React.FC = () => {
           </div>
         </Protected>
 
-        <Protected 
+        <Protected
           requiredPermissions={['billing.read']}
           fallback={
             <div className="bg-gray-100 border border-gray-300 rounded-lg p-6 opacity-60">
@@ -246,14 +245,14 @@ const Dashboard: React.FC = () => {
       <div className="mt-8 bg-white rounded-lg shadow p-6">
         <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
         <div className="flex flex-wrap gap-3">
-          <Link 
-            to="/profile" 
+          <Link
+            to="/profile"
             className="bg-gray-600 text-white px-4 py-2 rounded hover:bg-gray-700 transition-colors"
           >
             View Profile
           </Link>
-          <Link 
-            to="/roles" 
+          <Link
+            to="/roles"
             className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700 transition-colors"
           >
             Test Permissions

@@ -6,7 +6,7 @@ export default function ProtectedContent() {
   return (
     <div style={{ padding: '20px' }}>
       <h2>Protected Content Test</h2>
-      
+
       {/* Status Display */}
       <div
         style={{
@@ -42,7 +42,6 @@ export default function ProtectedContent() {
 
       {/* Protected Content Examples */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-        
         {/* Example 1: Default fallback */}
         <div>
           <h3>Example 1: Default Fallback</h3>
@@ -78,7 +77,10 @@ export default function ProtectedContent() {
               >
                 🔒 <strong>Custom Message:</strong> Please log in to see exclusive content!
                 <br />
-                <a href="/login" style={{ color: '#856404', marginTop: '10px', display: 'inline-block' }}>
+                <a
+                  href="/login"
+                  style={{ color: '#856404', marginTop: '10px', display: 'inline-block' }}
+                >
                   Go to Login →
                 </a>
               </div>
