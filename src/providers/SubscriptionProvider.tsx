@@ -2,6 +2,7 @@ import { createContext, useContext, ReactNode, useMemo, useState, useEffect } fr
 import { SubscriptionApiService } from '../services/SubscriptionApiService';
 import { HttpService } from '../services/HttpService';
 import { useApp } from './AppProvider';
+import { useTenantInfo } from './TenantProvider';
 import type { TenantSubscriptionFeatures, PlanFeature } from '../types/api';
 
 export interface SubscriptionConfig {
@@ -29,7 +30,8 @@ export interface SubscriptionProviderProps {
 const SubscriptionContext = createContext<SubscriptionContextValue | undefined>(undefined);
 
 export function SubscriptionProvider({ config = {}, children }: SubscriptionProviderProps) {
-  const { tenant, baseUrl } = useApp();
+  const { baseUrl } = useApp();
+  const { tenant } = useTenantInfo();
   const [subscription, setSubscription] = useState<TenantSubscriptionFeatures | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

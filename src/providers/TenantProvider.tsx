@@ -8,19 +8,35 @@ import {
   useCallback,
 } from 'react';
 import { useApp } from './AppProvider';
-import { useAuth } from './AuthProvider';
 import { HttpService } from '../services/HttpService';
 import { TenantApiService } from '../services/TenantApiService';
-import type { TenantSettings, UpdateTenantSettingsRequest, JSONSchema } from '../types/api';
+import type { TenantSettings, JSONSchema, PublicTenantInfo } from '../types/api';
+
+export interface TenantConfig {
+  // Tenant configuration
+  tenantMode?: 'subdomain' | 'selector' | 'fixed' | 'optional';
+  fixedTenantSlug?: string; // Required when tenantMode is 'fixed'
+  selectorParam?: string; // Default: 'tenant', used when tenantMode is 'selector'
+  // SSR support
+  initialTenant?: PublicTenantInfo;
+  // Fallbacks
+  loadingFallback?: ReactNode;
+  errorFallback?: ReactNode | ((error: Error, retry: () => void) => ReactNode);
+}
 
 interface TenantContextValue {
+  // Tenant info
+  tenant: PublicTenantInfo | null;
+  tenantSlug: string | null;
+  isTenantLoading: boolean;
+  tenantError: Error | null;
+  retryTenant: () => void;
   // Settings
   settings: TenantSettings | null;
   settingsSchema: JSONSchema | null;
   isSettingsLoading: boolean;
   settingsError: Error | null;
   // Actions
-  updateSettings: (settings: TenantSettings) => Promise<void>;
   refreshSettings: () => void;
   // Validation
   validateSettings: (settings: TenantSettings) => { isValid: boolean; errors: string[] };
@@ -29,19 +45,142 @@ interface TenantContextValue {
 const TenantContext = createContext<TenantContextValue | null>(null);
 
 interface TenantProviderProps {
+  config: TenantConfig;
   children: ReactNode;
 }
 
-export function TenantProvider({ children }: TenantProviderProps) {
-  const { baseUrl, tenant, appInfo } = useApp();
-  const { sessionManager } = useAuth();
+// Default loading component
+const DefaultLoadingFallback = () => (
+  <div
+    style={{
+      display: 'flex',
+      justifyContent: 'center',
+      alignItems: 'center',
+      height: '100vh',
+      fontFamily: 'system-ui, sans-serif',
+    }}
+  >
+    <div>Loading tenant...</div>
+  </div>
+);
 
+// Default error component
+const DefaultErrorFallback = ({ error, retry }: { error: Error; retry: () => void }) => (
+  <div
+    style={{
+      display: 'flex',
+      flexDirection: 'column',
+      justifyContent: 'center',
+      alignItems: 'center',
+      height: '100vh',
+      fontFamily: 'system-ui, sans-serif',
+      textAlign: 'center',
+      padding: '20px',
+    }}
+  >
+    <h2 style={{ color: '#dc3545', marginBottom: '16px' }}>Tenant Error</h2>
+    <p style={{ color: '#6c757d', marginBottom: '24px' }}>
+      {error.message || 'Unable to load tenant'}
+    </p>
+    <button
+      onClick={retry}
+      style={{
+        padding: '8px 16px',
+        backgroundColor: '#007bff',
+        color: 'white',
+        border: 'none',
+        borderRadius: '4px',
+        cursor: 'pointer',
+      }}
+    >
+      Retry
+    </button>
+  </div>
+);
+
+export function TenantProvider({ config, children }: TenantProviderProps) {
+  const { baseUrl, appInfo, appId } = useApp();
+
+  // Tenant state
+  const [tenant, setTenant] = useState<PublicTenantInfo | null>(config.initialTenant || null);
+  const [isTenantLoading, setIsTenantLoading] = useState(!config.initialTenant);
+  const [tenantError, setTenantError] = useState<Error | null>(null);
+
+  // Settings state
   const [settings, setSettings] = useState<TenantSettings | null>(null);
   const [isSettingsLoading, setIsSettingsLoading] = useState(false);
   const [settingsError, setSettingsError] = useState<Error | null>(null);
 
+  // Detect tenant slug from URL or config with localStorage fallback
+  const detectTenantSlug = useCallback((): string | null => {
+    const tenantMode = config.tenantMode || 'optional';
+    const storageKey = `tenant`;
+
+    if (tenantMode === 'fixed') {
+      return config.fixedTenantSlug || null;
+    }
+
+    if (typeof window === 'undefined') return null;
+
+    if (tenantMode === 'subdomain') {
+      const hostname = window.location.hostname;
+      const parts = hostname.split('.');
+
+      // Extract subdomain (assuming format: subdomain.domain.com)
+      if (parts.length >= 3) {
+        const subdomain = parts[0];
+        // Save to localStorage for persistence
+        localStorage.setItem(storageKey, subdomain);
+        return subdomain;
+      }
+
+      // Fallback to localStorage if no subdomain found
+      return localStorage.getItem(storageKey);
+    } else if (tenantMode === 'selector') {
+      // tenantMode === 'selector'
+      const urlParams = new URLSearchParams(window.location.search);
+      const urlTenant = urlParams.get(config.selectorParam || 'tenant');
+
+      if (urlTenant) {
+        // Save to localStorage when found in URL
+        localStorage.setItem(storageKey, urlTenant);
+        return urlTenant;
+      }
+
+      // Fallback to localStorage if not in URL
+      return localStorage.getItem(storageKey);
+    }
+
+    // For 'optional' mode, return null (no tenant required)
+    return null;
+  }, [config.tenantMode, config.fixedTenantSlug, config.selectorParam]);
+
+  const tenantSlug = useMemo(() => detectTenantSlug(), [detectTenantSlug]);
+
   // Get settings schema from app info
   const settingsSchema = appInfo?.settingsSchema || null;
+
+  // Load tenant info
+  const loadTenant = useCallback(
+    async (slug: string) => {
+      try {
+        setIsTenantLoading(true);
+        setTenantError(null);
+
+        const httpService = new HttpService(baseUrl);
+        const tenantApi = new TenantApiService(httpService, appId);
+        const tenantInfo = await tenantApi.getPublicTenantInfo(slug);
+        setTenant(tenantInfo);
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error('Failed to load tenant information');
+        setTenantError(error);
+        setTenant(null);
+      } finally {
+        setIsTenantLoading(false);
+      }
+    },
+    [baseUrl, appId]
+  );
 
   // Load tenant settings
   const loadSettings = useCallback(async () => {
@@ -63,34 +202,6 @@ export function TenantProvider({ children }: TenantProviderProps) {
       setIsSettingsLoading(false);
     }
   }, [baseUrl, tenant]);
-
-  // Update tenant settings
-  const updateSettings = useCallback(
-    async (newSettings: TenantSettings) => {
-      if (!tenant?.id || !sessionManager) {
-        throw new Error('Tenant ID and authentication required to update settings');
-      }
-
-      try {
-        setIsSettingsLoading(true);
-        setSettingsError(null);
-
-        const httpService = new HttpService(baseUrl);
-        const tenantApi = new TenantApiService(httpService, tenant.appId, sessionManager);
-
-        const request: UpdateTenantSettingsRequest = { settings: newSettings };
-        const updatedSettings = await tenantApi.updateTenantSettings(tenant.id, request);
-        setSettings(updatedSettings);
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error('Failed to update tenant settings');
-        setSettingsError(error);
-        throw error;
-      } finally {
-        setIsSettingsLoading(false);
-      }
-    },
-    [baseUrl, tenant, sessionManager]
-  );
 
   // Refresh settings
   const refreshSettings = useCallback(() => {
@@ -205,6 +316,28 @@ export function TenantProvider({ children }: TenantProviderProps) {
     [settingsSchema]
   );
 
+  // Load tenant on mount (if not SSR)
+  useEffect(() => {
+    const tenantMode = config.tenantMode || 'optional';
+    
+    if (!config.initialTenant && tenantSlug) {
+      loadTenant(tenantSlug);
+    } else if (!config.initialTenant && !tenantSlug && tenantMode === 'fixed') {
+      setTenantError(new Error('Fixed tenant mode requires fixedTenantSlug configuration'));
+      setIsTenantLoading(false);
+    } else if (!config.initialTenant && !tenantSlug && (tenantMode === 'subdomain' || tenantMode === 'selector')) {
+      setTenantError(
+        new Error(`No tenant ${tenantMode === 'subdomain' ? 'subdomain' : 'parameter'} found`)
+      );
+      setIsTenantLoading(false);
+    } else if (!config.initialTenant && !tenantSlug && tenantMode === 'optional') {
+      // No tenant required, allow access to root
+      setTenant(null);
+      setTenantError(null);
+      setIsTenantLoading(false);
+    }
+  }, [config.initialTenant, tenantSlug, loadTenant, config.tenantMode, config.fixedTenantSlug]);
+
   // Load settings when tenant changes
   useEffect(() => {
     if (tenant?.id) {
@@ -216,40 +349,74 @@ export function TenantProvider({ children }: TenantProviderProps) {
     }
   }, [tenant?.id, loadSettings]);
 
-  const contextValue = useMemo(
-    () => ({
+  const contextValue = useMemo(() => {
+    // Retry function for tenant loading
+    const retryTenant = () => {
+      if (tenantSlug) {
+        loadTenant(tenantSlug);
+      }
+    };
+
+    return {
+      // Tenant info
+      tenant,
+      tenantSlug,
+      isTenantLoading,
+      tenantError,
+      retryTenant,
       // Settings
       settings,
       settingsSchema,
       isSettingsLoading,
       settingsError,
       // Actions
-      updateSettings,
       refreshSettings,
       // Validation
       validateSettings,
-    }),
-    [
-      settings,
-      settingsSchema,
-      isSettingsLoading,
-      settingsError,
-      updateSettings,
-      refreshSettings,
-      validateSettings,
-    ]
-  );
+    };
+  }, [
+    tenant,
+    tenantSlug,
+    isTenantLoading,
+    tenantError,
+    settings,
+    settingsSchema,
+    isSettingsLoading,
+    settingsError,
+    refreshSettings,
+    validateSettings,
+  ]);
+
+  // Show loading fallback
+  if (isTenantLoading) {
+    return <>{config.loadingFallback || <DefaultLoadingFallback />}</>;
+  }
+
+  // Show error fallback (only if tenant is required)
+  if (tenantError && config.tenantMode !== 'optional') {
+    const ErrorComponent =
+      typeof config.errorFallback === 'function'
+        ? config.errorFallback(tenantError, () => loadTenant(tenantSlug || ''))
+        : config.errorFallback || (
+            <DefaultErrorFallback error={tenantError} retry={() => loadTenant(tenantSlug || '')} />
+          );
+
+    return <>{ErrorComponent}</>;
+  }
 
   return <TenantContext.Provider value={contextValue}>{children}</TenantContext.Provider>;
 }
 
-export function useTenantSettings(): TenantContextValue {
+export function useTenant(): TenantContextValue {
   const context = useContext(TenantContext);
   if (!context) {
-    throw new Error('useTenantSettings must be used within a TenantProvider');
+    throw new Error('useTenant must be used within a TenantProvider');
   }
   return context;
 }
+
+// Backward compatibility
+export const useTenantSettings = useTenant;
 
 // Convenience hook for just the settings
 export function useSettings() {
@@ -258,15 +425,25 @@ export function useSettings() {
     settingsSchema,
     isSettingsLoading,
     settingsError,
-    updateSettings,
     validateSettings,
-  } = useTenantSettings();
+  } = useTenant();
   return {
     settings,
     settingsSchema,
     isLoading: isSettingsLoading,
     error: settingsError,
-    updateSettings,
     validateSettings,
+  };
+}
+
+// Convenience hook for just tenant info
+export function useTenantInfo() {
+  const { tenant, tenantSlug, isTenantLoading, tenantError, retryTenant } = useTenant();
+  return {
+    tenant,
+    tenantSlug,
+    isLoading: isTenantLoading,
+    error: tenantError,
+    retry: retryTenant,
   };
 }

@@ -5,6 +5,7 @@ import { RoleApiService } from '../services/RoleApiService';
 import { UserApiService } from '../services/UserApiService';
 import { HttpService } from '../services/HttpService';
 import { useApp } from './AppProvider';
+import { useTenantInfo } from './TenantProvider';
 import type { Role, Permission, User } from '../types/api';
 
 export interface AuthConfig {
@@ -58,7 +59,9 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ config = {}, children }: AuthProviderProps) {
-  const { appId, tenantSlug, baseUrl } = useApp();
+  const { appId, baseUrl } = useApp();
+  const tenantInfo = useTenantInfo();
+  const tenantSlug = tenantInfo?.tenantSlug || null;
   const [availableRoles, setAvailableRoles] = useState<Role[]>(config.initialRoles || []);
   const [rolesLoading, setRolesLoading] = useState(!config.initialRoles);
   const [currentUser, setCurrentUser] = useState<User | null>(null);

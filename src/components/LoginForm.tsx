@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../providers/AuthProvider';
-import { useApp } from '../providers/AppProvider';
+import { useTenantInfo } from '../providers/TenantProvider';
 
 export interface LoginFormCopy {
   title?: string;
@@ -235,7 +235,7 @@ export function LoginForm({
   const [fieldErrors, setFieldErrors] = useState<{ email?: boolean; password?: boolean }>({});
 
   const { login } = useAuth();
-  const { tenant } = useApp();
+  const { tenant } = useTenantInfo();
 
   const mergedCopy = { ...defaultCopy, ...copy };
   const mergedStyles = { ...defaultStyles, ...styles };

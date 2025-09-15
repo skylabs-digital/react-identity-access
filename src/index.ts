@@ -1,5 +1,5 @@
 // Export providers
-export { AppProvider, useApp, useApi, useTenant } from './providers/AppProvider';
+export { AppProvider, useApp, useApi } from './providers/AppProvider';
 export type { AppConfig } from './providers/AppProvider';
 export { AuthProvider, useAuth } from './providers/AuthProvider';
 export type { AuthConfig, AuthContextValue } from './providers/AuthProvider';
@@ -11,7 +11,8 @@ export type {
   SubscriptionConfig,
   SubscriptionContextValue,
 } from './providers/SubscriptionProvider';
-export { TenantProvider, useTenantSettings, useSettings } from './providers/TenantProvider';
+export { TenantProvider, useTenant, useTenantSettings, useSettings, useTenantInfo } from './providers/TenantProvider';
+export type { TenantConfig } from './providers/TenantProvider';
 
 // Export components
 export { Protected } from './components/Protected';

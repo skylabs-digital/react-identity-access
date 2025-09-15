@@ -2,6 +2,7 @@ import { createContext, useContext, ReactNode, useMemo, useState, useEffect } fr
 import { FeatureFlagApiService } from '../services/FeatureFlagApiService';
 import { HttpService } from '../services/HttpService';
 import { useApp } from './AppProvider';
+import { useTenantInfo } from './TenantProvider';
 import type { FeatureFlagItem } from '../types/api';
 
 export interface FeatureFlagConfig {
@@ -26,7 +27,8 @@ interface FeatureFlagProviderProps {
 }
 
 export function FeatureFlagProvider({ config = {}, children }: FeatureFlagProviderProps) {
-  const { tenant, baseUrl, appId } = useApp();
+  const { baseUrl, appId } = useApp();
+  const { tenant } = useTenantInfo();
   const [featureFlags, setFeatureFlags] = useState<FeatureFlagItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
