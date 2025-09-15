@@ -60,12 +60,12 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/skylabs/react-identity-access.git"
+    "url": "https://github.com/skylabs-digital/react-identity-access.git"
   },
   "bugs": {
-    "url": "https://github.com/skylabs/react-identity-access/issues"
+    "url": "https://github.com/skylabs-digital/react-identity-access/issues"
   },
-  "homepage": "https://github.com/skylabs/react-identity-access#readme",
+  "homepage": "https://github.com/skylabs-digital/react-identity-access#readme",
   "peerDependencies": {
     "react": ">=16.8.0",
     "react-dom": ">=16.8.0",
