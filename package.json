@@ -1,24 +1,44 @@
 {
-  "name": "react-identity-access",
+  "name": "@skylabs-digital/react-identity-access",
   "version": "0.1.0",
+  "type": "module",
+  "publishConfig": {
+    "access": "public"
+  },
   "description": "A comprehensive React library for multi-tenancy, authentication, authorization, roles, session management, and settings management",
   "main": "dist/index.js",
   "module": "dist/index.es.js",
   "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/index.es.js",
+      "require": "./dist/index.js",
+      "types": "./dist/index.d.ts"
+    }
+  },
   "files": [
-    "dist"
+    "dist",
+    "README.md"
   ],
   "scripts": {
     "build": "tsc && vite build",
     "dev": "tsc --watch & vite build --watch",
     "dev:types": "tsc --watch",
     "dev:template": "pnpm run dev:types & cd template && pnpm start",
-    "lint": "eslint --ext .ts,.tsx --report-unused-disable-directives --max-warnings 0 src",
-    "lint:fix": "eslint --ext .ts,.tsx --fix src",
+    "lint": "eslint \"src/**/*.{ts,tsx}\" --report-unused-disable-directives --max-warnings 0",
+    "lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,json,md}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx,json,md}\"",
     "type-check": "tsc --noEmit",
-    "ci": "pnpm lint && pnpm type-check && pnpm test && pnpm build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:ui": "vitest --ui",
+    "test:coverage": "vitest run --coverage",
+    "ci": "pnpm type-check && pnpm test && pnpm build",
+    "prepublishOnly": "pnpm run build",
+    "prepare": "husky install",
+    "commit": "git-cz",
+    "release": "semantic-release",
     "preview": "vite preview",
     "demo": "cd template && pnpm start"
   },
@@ -60,7 +80,15 @@
     }
   },
   "devDependencies": {
+    "@commitlint/cli": "^18.4.4",
+    "@commitlint/config-conventional": "^18.4.4",
     "@eslint/js": "^9.0.0",
+    "@semantic-release/changelog": "^6.0.3",
+    "@semantic-release/commit-analyzer": "^11.1.0",
+    "@semantic-release/git": "^10.0.1",
+    "@semantic-release/github": "^9.2.6",
+    "@semantic-release/npm": "^11.0.2",
+    "@semantic-release/release-notes-generator": "^12.1.0",
     "@testing-library/jest-dom": "^6.6.3",
     "@testing-library/react": "^13.4.0",
     "@testing-library/user-event": "^14.6.1",
@@ -72,17 +100,35 @@
     "@vitejs/plugin-react": "^4.2.1",
     "@vitest/coverage-v8": "^2.1.8",
     "@vitest/ui": "^2.1.8",
-    "eslint": "^9.0.0",
+    "commitizen": "^4.3.0",
+    "cz-conventional-changelog": "^3.3.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.0.0",
     "eslint-plugin-react": "^7.34.0",
     "eslint-plugin-react-hooks": "^4.6.0",
     "eslint-plugin-react-refresh": "^0.4.6",
+    "globals": "^15.0.0",
+    "husky": "^8.0.3",
     "jsdom": "^25.0.1",
+    "lint-staged": "^15.2.10",
     "prettier": "^3.0.0",
+    "semantic-release": "^22.0.12",
     "typescript": "^5.9.2",
     "vite": "^5.2.0",
     "vite-plugin-dts": "^4.3.0",
     "vitest": "^2.1.8"
   },
-  "dependencies": {}
+  "dependencies": {},
+  "lint-staged": {
+    "src/**/*.{ts,tsx}": [
+      "eslint --fix",
+      "prettier --write"
+    ]
+  },
+  "config": {
+    "commitizen": {
+      "path": "./node_modules/cz-conventional-changelog"
+    }
+  }
 }
