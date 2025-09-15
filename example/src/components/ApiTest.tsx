@@ -1,4 +1,4 @@
-import { HttpService, useApp, useAuth } from 'react-identity-access';
+import { HttpService, useApp, useAuth } from '@skylabs-digital/react-identity-access';
 import { useState, useMemo } from 'react';
 
 export default function ApiTest() {

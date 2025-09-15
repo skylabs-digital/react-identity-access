@@ -1,5 +1,5 @@
 import React from 'react';
-import { SubscriptionGuard, useSubscription } from 'react-identity-access';
+import { SubscriptionGuard, useSubscription } from '@skylabs-digital/react-identity-access';
 
 const SubscriptionDemo: React.FC = () => {
   const {

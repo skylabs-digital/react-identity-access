@@ -1,4 +1,4 @@
-import { FeatureFlag, useFeatureFlags } from 'react-identity-access';
+import { FeatureFlag, useFeatureFlags } from '@skylabs-digital/react-identity-access';
 
 export default function FeatureFlagTest() {
   const { featureFlags, loading, error, isEnabled, getFlag, refresh } = useFeatureFlags();

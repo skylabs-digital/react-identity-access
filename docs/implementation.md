@@ -19,13 +19,13 @@ This guide provides detailed instructions for implementing React Identity Access
 
 ```bash
 # Using npm
-npm install react-identity-access
+npm install @skylabs-digital/react-identity-access
 
 # Using yarn
-yarn add react-identity-access
+yarn add @skylabs-digital/react-identity-access
 
 # Using pnpm (recommended)
-pnpm add react-identity-access
+pnpm add @skylabs-digital/react-identity-access
 ```
 
 ### Peer Dependencies
@@ -52,7 +52,7 @@ import {
   AuthProvider,
   FeatureFlagProvider,
   SubscriptionProvider
-} from 'react-identity-access';
+} from '@skylabs-digital/react-identity-access';
 
 function App() {
   return (
@@ -143,7 +143,7 @@ Handles billing and subscription management:
 ### Login Process
 
 ```tsx
-import { useAuth } from 'react-identity-access';
+import { useAuth } from '@skylabs-digital/react-identity-access';
 
 function LoginForm() {
   const { login, isLoading } = useAuth();
@@ -296,7 +296,7 @@ billing:manage  # Manage billing
 ### Using Permissions
 
 ```tsx
-import { useAuth, Protected } from 'react-identity-access';
+import { useAuth, Protected } from '@skylabs-digital/react-identity-access';
 
 function Dashboard() {
   const { hasPermission, hasAnyPermission, hasAllPermissions } = useAuth();
@@ -522,7 +522,7 @@ function UserList() {
 ```tsx
 // Test utilities
 import { render } from '@testing-library/react';
-import { AppProvider, AuthProvider } from 'react-identity-access';
+import { AppProvider, AuthProvider } from '@skylabs-digital/react-identity-access';
 
 const TestWrapper = ({ children }: { children: React.ReactNode }) => (
   <AppProvider config={testConfig}>

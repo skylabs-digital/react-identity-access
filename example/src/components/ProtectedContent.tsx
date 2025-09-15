@@ -1,4 +1,4 @@
-import { Protected, useAuth } from 'react-identity-access';
+import { Protected, useAuth } from '@skylabs-digital/react-identity-access';
 
 export default function ProtectedContent() {
   const { hasValidSession, logout } = useAuth();

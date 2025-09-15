@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router';
-import { useAuth } from 'react-identity-access';
+import { useAuth } from '@skylabs-digital/react-identity-access';
 
 const Home: React.FC = () => {
   const { sessionManager, hasValidSession } = useAuth();
@@ -165,7 +165,7 @@ const Home: React.FC = () => {
                 Integrate React Identity Access into your application in minutes.
               </p>
               <div className="bg-gray-100 rounded p-3 text-left text-sm font-mono">
-                npm install react-identity-access
+                npm install @skylabs-digital/react-identity-access
               </div>
             </div>
             <div className="bg-white rounded-lg p-6 shadow-md">

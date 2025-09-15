@@ -1,4 +1,4 @@
-import { useAuth, useApp } from 'react-identity-access';
+import { useAuth, useApp } from '@skylabs-digital/react-identity-access';
 import { useState } from 'react';
 
 export default function AuthTest() {

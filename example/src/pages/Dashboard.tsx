@@ -1,5 +1,5 @@
 import React from 'react';
-import { useAuth, Protected } from 'react-identity-access';
+import { useAuth, Protected } from '@skylabs-digital/react-identity-access';
 import { Link } from 'react-router';
 
 const Dashboard: React.FC = () => {

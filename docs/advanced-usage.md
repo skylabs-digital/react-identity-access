@@ -22,7 +22,7 @@ This guide covers advanced features and patterns for React Identity Access.
 Create a custom hook for complex permission logic:
 
 ```tsx
-import { useAuth } from 'react-identity-access';
+import { useAuth } from '@skylabs-digital/react-identity-access';
 import { useMemo } from 'react';
 
 interface PermissionConfig {
@@ -73,7 +73,7 @@ function AdminDashboard() {
 Implement route-level authentication guards:
 
 ```tsx
-import { useAuth } from 'react-identity-access';
+import { useAuth } from '@skylabs-digital/react-identity-access';
 import { useNavigate } from 'react-router';
 import { useEffect } from 'react';
 
@@ -331,7 +331,7 @@ function useSessionMonitor() {
 ### Advanced Feature Flag Usage
 
 ```tsx
-import { useFeatureFlag } from 'react-identity-access';
+import { useFeatureFlag } from '@skylabs-digital/react-identity-access';
 
 function useFeatureFlags() {
   const { isEnabled, getValue } = useFeatureFlag();
@@ -394,7 +394,7 @@ function AdminFeature() {
 ### Subscription-Based Features
 
 ```tsx
-import { useSubscription } from 'react-identity-access';
+import { useSubscription } from '@skylabs-digital/react-identity-access';
 
 function useSubscriptionFeatures() {
   const { subscription, hasFeature, getLimit } = useSubscription();
@@ -556,7 +556,7 @@ function Dashboard() {
 
 ```tsx
 // pages/_app.tsx
-import { AppProvider, AuthProvider } from 'react-identity-access';
+import { AppProvider, AuthProvider } from '@skylabs-digital/react-identity-access';
 import type { AppProps } from 'next/app';
 
 function MyApp({ Component, pageProps }: AppProps) {

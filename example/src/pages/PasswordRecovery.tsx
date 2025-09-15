@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { PasswordRecoveryForm, FeatureFlag } from 'react-identity-access';
+import { PasswordRecoveryForm, FeatureFlag } from '@skylabs-digital/react-identity-access';
 import { useNavigate } from 'react-router';
 
 function PasswordRecovery() {

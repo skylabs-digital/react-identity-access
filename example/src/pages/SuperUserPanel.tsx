@@ -1,4 +1,4 @@
-import { FeatureFlag, UserType } from 'react-identity-access';
+import { FeatureFlag, UserType } from '@skylabs-digital/react-identity-access';
 
 function SuperUserPanel() {
   return (

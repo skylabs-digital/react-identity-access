@@ -49,7 +49,7 @@ cd react-identity-access
 3. Add the upstream remote:
 
 ```bash
-git remote add upstream https://github.com/skylabs/react-identity-access.git
+git remote add upstream https://github.com/skylabs-digital/react-identity-access.git
 ```
 
 ## Development Setup

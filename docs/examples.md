@@ -18,7 +18,7 @@ Real-world implementation examples for React Identity Access.
 
 ```tsx
 // App.tsx
-import { AppProvider, AuthProvider } from 'react-identity-access';
+import { AppProvider, AuthProvider } from '@skylabs-digital/react-identity-access';
 import { BrowserRouter as Router, Routes, Route } from 'react-router';
 import Home from './pages/Home';
 import Login from './pages/Login';
@@ -50,7 +50,7 @@ function App() {
 }
 
 // pages/Dashboard.tsx
-import { useAuth, Protected } from 'react-identity-access';
+import { useAuth, Protected } from '@skylabs-digital/react-identity-access';
 
 function Dashboard() {
   const { sessionManager } = useAuth();
@@ -78,7 +78,7 @@ function Dashboard() {
 
 ```tsx
 // components/ProductManagement.tsx
-import { useAuth, Protected } from 'react-identity-access';
+import { useAuth, Protected } from '@skylabs-digital/react-identity-access';
 import { useState, useEffect } from 'react';
 
 interface Product {
@@ -167,8 +167,8 @@ function ProductCard({ product }: { product: Product }) {
 
 ```tsx
 // components/OrderManagement.tsx
-import { useAuth, Protected } from 'react-identity-access';
-import { useSubscription } from 'react-identity-access';
+import { useAuth, Protected } from '@skylabs-digital/react-identity-access';
+import { useSubscription } from '@skylabs-digital/react-identity-access';
 
 function OrderManagement() {
   const { hasPermission, userRole } = useAuth();
@@ -318,8 +318,7 @@ function UserManagement({ maxUsers }: { maxUsers: number }) {
 
 ```tsx
 // pages/AdminDashboard.tsx
-import { useAuth, Protected } from 'react-identity-access';
-import { useFeatureFlag } from 'react-identity-access';
+import { useAuth, Protected, useFeatureFlag } from '@skylabs-digital/react-identity-access';
 
 function AdminDashboard() {
   const { userPermissions, hasPermission } = useAuth();
@@ -435,7 +434,7 @@ function UserManagementSection() {
 
 ```tsx
 // components/ContentEditor.tsx
-import { useAuth, Protected } from 'react-identity-access';
+import { useAuth, Protected } from '@skylabs-digital/react-identity-access';
 
 interface Article {
   id: string;
@@ -588,7 +587,7 @@ function EditorialDashboard() {
 
 ```tsx
 // components/PatientDashboard.tsx
-import { useAuth, Protected } from 'react-identity-access';
+import { useAuth, Protected } from '@skylabs-digital/react-identity-access';
 
 interface Patient {
   id: string;
@@ -722,8 +721,8 @@ function MedicalRecordForm({ patientId }: { patientId: string }) {
 
 ```tsx
 // components/PortfolioDashboard.tsx
-import { useAuth, Protected } from 'react-identity-access';
-import { useSubscription } from 'react-identity-access';
+import { useAuth, Protected } from '@skylabs-digital/react-identity-access';
+import { useSubscription } from '@skylabs-digital/react-identity-access';
 
 function PortfolioDashboard() {
   const { hasPermission, userRole } = useAuth();

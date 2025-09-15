@@ -13,7 +13,7 @@
     "@types/react-dom": "^19.1.9",
     "react": "^19.1.1",
     "react-dom": "^19.1.1",
-    "react-identity-access": "workspace:*",
+    "@skylabs-digital/react-identity-access": "workspace:*",
     "react-router": "^7.8.2",
     "react-scripts": "5.0.1",
     "typescript": "^5.0.0",
@@ -54,5 +54,6 @@
     "prettier": "^3.6.2",
     "tailwindcss": "^3.4.17",
     "ts-loader": "^9.5.4"
-  }
+  },
+  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
 }

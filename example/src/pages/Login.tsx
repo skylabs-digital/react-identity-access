@@ -1,4 +1,4 @@
-import { LoginForm, FeatureFlag } from 'react-identity-access';
+import { LoginForm, FeatureFlag } from '@skylabs-digital/react-identity-access';
 import { useNavigate } from 'react-router';
 
 function Login() {

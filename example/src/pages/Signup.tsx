@@ -1,4 +1,4 @@
-import { SignupForm, FeatureFlag } from 'react-identity-access';
+import { SignupForm, FeatureFlag } from '@skylabs-digital/react-identity-access';
 import { useNavigate } from 'react-router';
 
 function Signup() {

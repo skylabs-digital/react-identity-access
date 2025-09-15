@@ -1,4 +1,4 @@
-import { useApp, useTenant } from 'react-identity-access';
+import { useApp, useTenant } from '@skylabs-digital/react-identity-access';
 import { useState } from 'react';
 
 export default function TenantTest() {

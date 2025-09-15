@@ -5,7 +5,7 @@ import {
   FeatureFlagProvider,
   SubscriptionProvider,
   TenantProvider,
-} from 'react-identity-access';
+} from '@skylabs-digital/react-identity-access';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Signup from './pages/Signup';

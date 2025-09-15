@@ -1,5 +1,5 @@
 import React from 'react';
-import { useAuth } from 'react-identity-access';
+import { useAuth } from '@skylabs-digital/react-identity-access';
 
 const Profile: React.FC = () => {
   const { sessionManager } = useAuth();

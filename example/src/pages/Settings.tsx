@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useSettings, JSONSchema } from 'react-identity-access';
+import { useSettings, JSONSchema } from '@skylabs-digital/react-identity-access';
 
 const Settings: React.FC = () => {
   const { settings, settingsSchema, isLoading, error, updateSettings, validateSettings } =

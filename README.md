@@ -17,11 +17,11 @@ A powerful, modern authentication and authorization library for React applicatio
 ## 📦 Installation
 
 ```bash
-npm install react-identity-access
+npm install @skylabs-digital/react-identity-access
 # or
-yarn add react-identity-access
+yarn add @skylabs-digital/react-identity-access
 # or
-pnpm add react-identity-access
+pnpm add @skylabs-digital/react-identity-access
 ```
 
 ## 🏃‍♂️ Quick Start
@@ -31,7 +31,7 @@ pnpm add react-identity-access
 Wrap your application with the required providers:
 
 ```tsx
-import { AppProvider, AuthProvider } from 'react-identity-access';
+import { AppProvider, AuthProvider } from '@skylabs-digital/react-identity-access';
 
 function App() {
   return (
@@ -54,7 +54,7 @@ function App() {
 ### 2. Use Authentication
 
 ```tsx
-import { useAuth } from 'react-identity-access';
+import { useAuth } from '@skylabs-digital/react-identity-access';
 
 function LoginComponent() {
   const { login, logout, sessionManager } = useAuth();
@@ -86,7 +86,7 @@ function LoginComponent() {
 ### 3. Protect Components
 
 ```tsx
-import { Protected } from 'react-identity-access';
+import { Protected } from '@skylabs-digital/react-identity-access';
 
 function AdminPanel() {
   return (
@@ -159,7 +159,7 @@ The demo showcases:
 
 ```bash
 # Clone the repository
-git clone <repository-url>
+git clone https://github.com/skylabs-digital/react-identity-access.git
 cd react-identity-access
 
 # Install dependencies
@@ -263,7 +263,7 @@ We welcome contributions! Please see our [Contributing Guide](./docs/contributin
 
 - 📧 Email: support@skylabs.com
 - 💬 Discord: [Join our community](https://discord.gg/skylabs)
-- 🐛 Issues: [GitHub Issues](https://github.com/skylabs/react-identity-access/issues)
+- 🐛 Issues: [GitHub Issues](https://github.com/skylabs-digital/react-identity-access/issues)
 - 📖 Docs: [Documentation](./docs/)
 
 ## 🎯 Roadmap
