@@ -14,8 +14,7 @@ import type { TenantSettings, JSONSchema, PublicTenantInfo } from '../types/api'
 
 export interface TenantConfig {
   // Tenant configuration
-  tenantMode?: 'subdomain' | 'selector' | 'fixed' | 'optional';
-  fixedTenantSlug?: string; // Required when tenantMode is 'fixed'
+  tenantMode?: 'subdomain' | 'selector';
   selectorParam?: string; // Default: 'tenant', used when tenantMode is 'selector'
   // SSR support
   initialTenant?: PublicTenantInfo;
@@ -113,12 +112,8 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
 
   // Detect tenant slug from URL or config with localStorage fallback
   const detectTenantSlug = useCallback((): string | null => {
-    const tenantMode = config.tenantMode || 'optional';
+    const tenantMode = config.tenantMode || 'selector';
     const storageKey = `tenant`;
-
-    if (tenantMode === 'fixed') {
-      return config.fixedTenantSlug || null;
-    }
 
     if (typeof window === 'undefined') return null;
 
@@ -151,9 +146,9 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
       return localStorage.getItem(storageKey);
     }
 
-    // For 'optional' mode, return null (no tenant required)
+    // No tenant mode specified, return null
     return null;
-  }, [config.tenantMode, config.fixedTenantSlug, config.selectorParam]);
+  }, [config.tenantMode, config.selectorParam]);
 
   const tenantSlug = useMemo(() => detectTenantSlug(), [detectTenantSlug]);
 
@@ -318,25 +313,16 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
 
   // Load tenant on mount (if not SSR)
   useEffect(() => {
-    const tenantMode = config.tenantMode || 'optional';
-    
     if (!config.initialTenant && tenantSlug) {
+      // Tenant slug found, try to load it from server
       loadTenant(tenantSlug);
-    } else if (!config.initialTenant && !tenantSlug && tenantMode === 'fixed') {
-      setTenantError(new Error('Fixed tenant mode requires fixedTenantSlug configuration'));
-      setIsTenantLoading(false);
-    } else if (!config.initialTenant && !tenantSlug && (tenantMode === 'subdomain' || tenantMode === 'selector')) {
-      setTenantError(
-        new Error(`No tenant ${tenantMode === 'subdomain' ? 'subdomain' : 'parameter'} found`)
-      );
-      setIsTenantLoading(false);
-    } else if (!config.initialTenant && !tenantSlug && tenantMode === 'optional') {
-      // No tenant required, allow access to root
+    } else if (!config.initialTenant && !tenantSlug) {
+      // No tenant slug found - continue without tenant
       setTenant(null);
       setTenantError(null);
       setIsTenantLoading(false);
     }
-  }, [config.initialTenant, tenantSlug, loadTenant, config.tenantMode, config.fixedTenantSlug]);
+  }, [config.initialTenant, tenantSlug, loadTenant]);
 
   // Load settings when tenant changes
   useEffect(() => {
@@ -392,8 +378,8 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
     return <>{config.loadingFallback || <DefaultLoadingFallback />}</>;
   }
 
-  // Show error fallback (only if tenant is required)
-  if (tenantError && config.tenantMode !== 'optional') {
+  // Show error fallback
+  if (tenantError) {
     const ErrorComponent =
       typeof config.errorFallback === 'function'
         ? config.errorFallback(tenantError, () => loadTenant(tenantSlug || ''))
