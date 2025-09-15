@@ -13,22 +13,10 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Debug - Check file structure
-        run: |
-          echo "Current directory:"
-          pwd
-          echo "Files in current directory:"
-          ls -la
-          echo "Looking for pnpm-lock.yaml:"
-          find . -name "pnpm-lock.yaml" -type f
-          echo "Environment variables:"
-          echo "GITHUB_WORKSPACE: $GITHUB_WORKSPACE"
-          echo "RUNNER_WORKSPACE: $RUNNER_WORKSPACE"
-
       - name: Install pnpm
         uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 9
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -72,7 +60,7 @@ jobs:
       - name: Install pnpm
         uses: pnpm/action-setup@v2
         with:
-          version: 8
+          version: 9
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
