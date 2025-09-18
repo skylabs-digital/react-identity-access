@@ -18,7 +18,13 @@ export interface AuthContextValue {
   authenticatedHttpService: HttpService; // Authenticated HttpService for protected endpoints
   // Auth methods
   login: (email: string, password: string, tenantId: string) => Promise<any>;
-  signup: (email: string, name: string, password: string, tenantId: string, lastName?: string) => Promise<any>;
+  signup: (
+    email: string,
+    name: string,
+    password: string,
+    tenantId: string,
+    lastName?: string
+  ) => Promise<any>;
   signupTenantAdmin: (
     email: string,
     name: string,
@@ -200,8 +206,20 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       return loginResponse;
     };
 
-    const signup = async (email: string, name: string, password: string, tenantId: string, lastName?: string) => {
-      const signupResponse = await authApiService.signup({ email, name, password, tenantId, lastName });
+    const signup = async (
+      email: string,
+      name: string,
+      password: string,
+      tenantId: string,
+      lastName?: string
+    ) => {
+      const signupResponse = await authApiService.signup({
+        email,
+        name,
+        password,
+        tenantId,
+        lastName,
+      });
       return signupResponse;
     };
 

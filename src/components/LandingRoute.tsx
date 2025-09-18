@@ -40,11 +40,7 @@ const DefaultTenantDetectedFallback = ({ redirectPath }: { redirectPath: string 
   </div>
 );
 
-export function LandingRoute({
-  children,
-  redirectTo = '/dashboard',
-  fallback,
-}: LandingRouteProps) {
+export function LandingRoute({ children, redirectTo = '/dashboard', fallback }: LandingRouteProps) {
   const { tenant, isLoading, error } = useTenantInfo();
   const location = useLocation();
 

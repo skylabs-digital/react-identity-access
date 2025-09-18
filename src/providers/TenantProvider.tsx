@@ -406,13 +406,8 @@ export const useTenantSettings = useTenant;
 
 // Convenience hook for just the settings
 export function useSettings() {
-  const {
-    settings,
-    settingsSchema,
-    isSettingsLoading,
-    settingsError,
-    validateSettings,
-  } = useTenant();
+  const { settings, settingsSchema, isSettingsLoading, settingsError, validateSettings } =
+    useTenant();
   return {
     settings,
     settingsSchema,

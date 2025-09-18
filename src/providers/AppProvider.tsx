@@ -91,7 +91,6 @@ export function AppProvider({ config, children }: AppProviderProps) {
   const [isAppLoading, setIsAppLoading] = useState(true);
   const [appError, setAppError] = useState<Error | null>(null);
 
-
   const contextValue = useMemo(() => {
     // Retry function for app loading
     const retryApp = () => {
@@ -128,12 +127,10 @@ export function AppProvider({ config, children }: AppProviderProps) {
     }
   }, [config.baseUrl, config.appId]);
 
-
   // Load app info on mount
   useEffect(() => {
     loadApp();
   }, [loadApp]);
-
 
   // Show loading fallback for app info
   if (isAppLoading) {
@@ -145,9 +142,7 @@ export function AppProvider({ config, children }: AppProviderProps) {
     const ErrorComponent =
       typeof config.errorFallback === 'function'
         ? config.errorFallback(appError, () => loadApp())
-        : config.errorFallback || (
-            <DefaultErrorFallback error={appError} retry={() => loadApp()} />
-          );
+        : config.errorFallback || <DefaultErrorFallback error={appError} retry={() => loadApp()} />;
 
     return <>{ErrorComponent}</>;
   }
@@ -165,4 +160,3 @@ export function useApp(): AppContextValue {
 
 // Backward compatibility
 export const useApi = useApp;
-

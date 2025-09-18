@@ -11,7 +11,13 @@ export type {
   SubscriptionConfig,
   SubscriptionContextValue,
 } from './providers/SubscriptionProvider';
-export { TenantProvider, useTenant, useTenantSettings, useSettings, useTenantInfo } from './providers/TenantProvider';
+export {
+  TenantProvider,
+  useTenant,
+  useTenantSettings,
+  useSettings,
+  useTenantInfo,
+} from './providers/TenantProvider';
 export type { TenantConfig } from './providers/TenantProvider';
 
 // Export components

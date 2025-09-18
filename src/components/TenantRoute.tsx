@@ -40,11 +40,7 @@ const DefaultTenantRequiredFallback = ({ redirectPath }: { redirectPath: string 
   </div>
 );
 
-export function TenantRoute({
-  children,
-  redirectTo = '/',
-  fallback,
-}: TenantRouteProps) {
+export function TenantRoute({ children, redirectTo = '/', fallback }: TenantRouteProps) {
   const { tenant, isLoading, error } = useTenantInfo();
   const location = useLocation();
 
