@@ -24,7 +24,7 @@
     "build": "tsc && vite build",
     "dev": "tsc --watch & vite build --watch",
     "dev:types": "tsc --watch",
-    "dev:template": "pnpm run dev:types & cd template && pnpm start",
+    "dev:template": "yarn dev:types & cd template && yarn start",
     "lint": "eslint \"src/**/*.{ts,tsx}\" --report-unused-disable-directives --max-warnings 0",
     "lint:fix": "eslint \"src/**/*.{ts,tsx}\" --fix",
     "format": "prettier --write \"src/**/*.{ts,tsx,json,md}\"",
@@ -34,13 +34,13 @@
     "test:watch": "vitest",
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
-    "ci": "pnpm type-check && pnpm test && pnpm build",
-    "prepublishOnly": "pnpm run build",
+    "ci": "yarn type-check && yarn test && yarn build",
+    "prepublishOnly": "yarn build",
     "prepare": "husky install",
     "commit": "git-cz",
     "release": "semantic-release",
     "preview": "vite preview",
-    "demo": "cd template && pnpm start"
+    "demo": "cd template && yarn start"
   },
   "keywords": [
     "react",

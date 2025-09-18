@@ -13,31 +13,26 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 9
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'pnpm'
+          cache: 'yarn'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: yarn install --frozen-lockfile
 
       - name: Type check
-        run: pnpm type-check
+        run: yarn type-check
 
       - name: Format check
-        run: pnpm format:check
+        run: yarn format:check
 
       - name: Run tests
-        run: pnpm test:coverage
+        run: yarn test:coverage
 
       - name: Build
-        run: pnpm build
+        run: yarn build
 
   release:
     needs: test
@@ -57,23 +52,18 @@ jobs:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
 
-      - name: Install pnpm
-        uses: pnpm/action-setup@v2
-        with:
-          version: 9
-
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          cache: 'pnpm'
+          cache: 'yarn'
           registry-url: 'https://registry.npmjs.org'
 
       - name: Install dependencies
-        run: pnpm install --frozen-lockfile
+        run: yarn install --frozen-lockfile
 
       - name: Build
-        run: pnpm build
+        run: yarn build
 
       - name: Release
         env:
