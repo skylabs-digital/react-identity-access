@@ -1,3 +1,10 @@
+# [1.5.0](https://github.com/skylabs-digital/react-identity-access/compare/v1.4.1...v1.5.0) (2025-09-18)
+
+
+### Features
+
+* add TenantRoute and LandingRoute components with lastName field support ([fd0c08b](https://github.com/skylabs-digital/react-identity-access/commit/fd0c08bb99935e322ba601417593c55df9b588aa))
+
 # 1.0.0 (2025-09-15)
 
 
