@@ -28,6 +28,7 @@ export class AuthApiService {
   async signupTenantAdmin(request: {
     email: string;
     name: string;
+    lastName?: string;
     password: string;
     tenantName: string;
     appId: string;

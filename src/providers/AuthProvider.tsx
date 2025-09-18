@@ -18,12 +18,13 @@ export interface AuthContextValue {
   authenticatedHttpService: HttpService; // Authenticated HttpService for protected endpoints
   // Auth methods
   login: (email: string, password: string, tenantId: string) => Promise<any>;
-  signup: (email: string, name: string, password: string, tenantId: string) => Promise<any>;
+  signup: (email: string, name: string, password: string, tenantId: string, lastName?: string) => Promise<any>;
   signupTenantAdmin: (
     email: string,
     name: string,
     password: string,
-    tenantName: string
+    tenantName: string,
+    lastName?: string
   ) => Promise<any>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   requestPasswordReset: (email: string, tenantId: string) => Promise<void>;
@@ -199,8 +200,8 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       return loginResponse;
     };
 
-    const signup = async (email: string, name: string, password: string, tenantId: string) => {
-      const signupResponse = await authApiService.signup({ email, name, password, tenantId });
+    const signup = async (email: string, name: string, password: string, tenantId: string, lastName?: string) => {
+      const signupResponse = await authApiService.signup({ email, name, password, tenantId, lastName });
       return signupResponse;
     };
 
@@ -208,7 +209,8 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       email: string,
       name: string,
       password: string,
-      tenantName: string
+      tenantName: string,
+      lastName?: string
     ) => {
       const signupResponse = await authApiService.signupTenantAdmin({
         email,
@@ -216,6 +218,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
         password,
         tenantName,
         appId,
+        lastName,
       });
       return signupResponse;
     };

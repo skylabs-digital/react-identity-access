@@ -35,6 +35,7 @@ export interface User {
   id: string;
   email: string;
   name: string;
+  lastName?: string;
   isActive: boolean;
   userType: UserType;
   tenantId: string;
@@ -46,6 +47,7 @@ export interface User {
 export interface CreateUserRequest {
   email: string;
   name: string;
+  lastName?: string;
   password: string;
   tenantId: string;
   userType?: string;
@@ -69,6 +71,7 @@ export interface LoginResponse {
 export interface SignupRequest {
   email: string;
   name: string;
+  lastName?: string;
   password: string;
   tenantId: string;
 }

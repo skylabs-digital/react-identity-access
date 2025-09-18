@@ -17,6 +17,8 @@ export type { TenantConfig } from './providers/TenantProvider';
 // Export components
 export { Protected } from './components/Protected';
 export { ProtectedRoute } from './components/ProtectedRoute';
+export { TenantRoute } from './components/TenantRoute';
+export { LandingRoute } from './components/LandingRoute';
 export { SubscriptionGuard } from './components/SubscriptionGuard';
 export { FeatureFlag } from './components/FeatureFlag';
 export { LoginForm } from './components/LoginForm';
@@ -26,6 +28,8 @@ export { PasswordRecoveryForm } from './components/PasswordRecoveryForm';
 // Export component types
 export type { ProtectedProps } from './components/Protected';
 export type { ProtectedRouteProps } from './components/ProtectedRoute';
+export type { TenantRouteProps } from './components/TenantRoute';
+export type { LandingRouteProps } from './components/LandingRoute';
 export type { SubscriptionGuardProps } from './components/SubscriptionGuard';
 export type { LoginFormProps, LoginFormCopy, LoginFormStyles } from './components/LoginForm';
 export type { SignupFormProps, SignupFormCopy, SignupFormStyles } from './components/SignupForm';

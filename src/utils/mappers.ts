@@ -29,7 +29,7 @@ export class ApiMappers {
       ...user,
       createdAt: this.toDate(user.createdAt),
       updatedAt: this.toDate(user.updatedAt),
-      displayName: user.name,
+      displayName: user.lastName ? `${user.name} ${user.lastName}` : user.name,
       isActiveUser: user.isActive,
     };
   }
