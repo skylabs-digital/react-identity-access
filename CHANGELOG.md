@@ -1,3 +1,10 @@
+# [1.6.0](https://github.com/skylabs-digital/react-identity-access/compare/v1.5.0...v1.6.0) (2025-09-23)
+
+
+### Features
+
+* add magic link authentication with email/phone support ([831f2d8](https://github.com/skylabs-digital/react-identity-access/commit/831f2d8235e7292711e66e55382619e90785e76f))
+
 # [1.5.0](https://github.com/skylabs-digital/react-identity-access/compare/v1.4.1...v1.5.0) (2025-09-18)
 
 
