@@ -12,6 +12,10 @@ function Signup() {
     navigate('/login');
   };
 
+  const handleMagicLinkClick = () => {
+    navigate('/magic-link');
+  };
+
   // Custom copy for branding
   const customCopy = {
     title: 'Join Our Platform',
@@ -47,7 +51,9 @@ function Signup() {
         copy={customCopy}
         onSuccess={handleSuccess}
         onLoginClick={handleLoginClick}
+        onMagicLinkClick={handleMagicLinkClick}
         showLoginLink={true}
+        showMagicLinkOption={true}
         signupType={'user'}
       />
 

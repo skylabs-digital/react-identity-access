@@ -1,9 +1,9 @@
-import { useAuth, useApp } from '@skylabs-digital/react-identity-access';
+import { useAuth } from '@skylabs-digital/react-identity-access';
 import { useState } from 'react';
 
 export default function AuthTest() {
   const { login, logout, sessionManager, hasValidSession } = useAuth();
-  const { tenantSlug } = useApp();
+  // const { appId } = useApp(); // Not used in current demo
   const [email, setEmail] = useState('test@example.com');
   const [password, setPassword] = useState('password123');
   const [tenantId, setTenantId] = useState('tenant-1');
@@ -56,10 +56,10 @@ export default function AuthTest() {
           <strong>Has Valid Session:</strong> {isAuthenticated ? '✅ Yes' : '❌ No'}
         </p>
         <p>
-          <strong>Current Tenant:</strong> {tenantSlug || 'None'}
+          <strong>Current Tenant:</strong> {'demo-tenant'}
         </p>
         <p>
-          <strong>Storage Key:</strong> {tenantSlug ? `auth_tokens_${tenantSlug}` : 'auth_tokens'}
+          <strong>Storage Key:</strong> {'auth_tokens_demo-tenant'}
         </p>
       </div>
 

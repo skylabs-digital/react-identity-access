@@ -33,7 +33,8 @@ export enum UserType {
 
 export interface User {
   id: string;
-  email: string;
+  email?: string;
+  phoneNumber?: string;
   name: string;
   lastName?: string;
   isActive: boolean;
@@ -45,7 +46,8 @@ export interface User {
 }
 
 export interface CreateUserRequest {
-  email: string;
+  email?: string;
+  phoneNumber?: string;
   name: string;
   lastName?: string;
   password: string;
@@ -56,9 +58,10 @@ export interface CreateUserRequest {
 
 // Auth Types
 export interface LoginRequest {
-  email: string;
+  username: string; // Can be email or phoneNumber
   password: string;
-  tenantId: string;
+  appId?: string;
+  tenantId?: string;
 }
 
 export interface LoginResponse {
@@ -69,11 +72,13 @@ export interface LoginResponse {
 }
 
 export interface SignupRequest {
-  email: string;
+  email?: string;
+  phoneNumber?: string;
   name: string;
   lastName?: string;
   password: string;
-  tenantId: string;
+  tenantId?: string;
+  appId?: string;
 }
 
 export interface ChangePasswordRequest {
@@ -89,6 +94,36 @@ export interface RefreshTokenResponse {
   accessToken: string;
   refreshToken: string;
   expiresIn: number;
+}
+
+// Magic Link Types
+export interface MagicLinkRequest {
+  email: string;
+  tenantId: string;
+  frontendUrl: string;
+  name?: string; // Required for signup, optional for login
+  lastName?: string;
+  appId?: string;
+}
+
+export interface MagicLinkResponse {
+  message: string;
+  emailSent: boolean;
+}
+
+export interface VerifyMagicLinkRequest {
+  token: string;
+  email: string;
+  appId: string;
+  tenantId?: string;
+}
+
+export interface VerifyMagicLinkResponse {
+  user: User;
+  accessToken: string;
+  refreshToken: string;
+  expiresIn: number;
+  isNewUser: boolean; // Indicates if user was created during this process
 }
 
 // Role Types

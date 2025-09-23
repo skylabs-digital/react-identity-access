@@ -2,7 +2,7 @@ import { HttpService, useApp, useAuth } from '@skylabs-digital/react-identity-ac
 import { useState, useMemo } from 'react';
 
 export default function ApiTest() {
-  const { tenantSlug, appId, baseUrl } = useApp();
+  const { appId, baseUrl } = useApp();
   const { sessionManager, hasValidSession, authenticatedHttpService } = useAuth();
   const [apiResponse, setApiResponse] = useState<any>(null);
   const [loading, setLoading] = useState<any>(false);
@@ -128,7 +128,7 @@ export default function ApiTest() {
           hasauthenticatedHttpService: !!authenticatedHttpService,
           publicHttpServiceType: publicHttpService.constructor.name,
           authenticatedHttpServiceType: authenticatedHttpService.constructor.name,
-          tenantSlug,
+          // tenantSlug removed from API
           appId,
         },
       });
@@ -145,7 +145,7 @@ export default function ApiTest() {
 
     try {
       // Get current tenant from context
-      const currentTenant = tenantSlug;
+      const currentTenant = 'demo-tenant'; // Using hardcoded value for demo
 
       // Check localStorage
       const storedTenant = localStorage.getItem('tenant');

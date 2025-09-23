@@ -1,10 +1,12 @@
 # React Identity Access
 
-A powerful, modern authentication and authorization library for React applications. Built with TypeScript, featuring role-based access control, permission management, and seamless integration with React applications.
+A powerful, modern authentication and authorization library for React applications. Built with TypeScript, featuring role-based access control, permission management, Magic Link authentication, and seamless integration with React applications.
 
 ## 🚀 Features
 
 - **🔐 Secure Authentication** - JWT-based authentication with automatic token refresh
+- **✨ Magic Link Authentication** - Passwordless authentication via email with automatic verification
+- **📧 Flexible Login** - Support for both email and phone number authentication
 - **👥 Role-Based Access Control** - Granular permission system with role hierarchy
 - **🛡️ Protected Components** - Easy-to-use components for conditional rendering
 - **📱 Multi-Tenant Support** - Built-in support for multi-tenant applications
@@ -31,7 +33,11 @@ pnpm add @skylabs-digital/react-identity-access
 Wrap your application with the required providers:
 
 ```tsx
-import { AppProvider, AuthProvider } from '@skylabs-digital/react-identity-access';
+import { 
+  AppProvider, 
+  TenantProvider, 
+  AuthProvider 
+} from '@skylabs-digital/react-identity-access';
 
 function App() {
   return (
@@ -39,19 +45,24 @@ function App() {
       config={{
         baseUrl: 'https://your-api.com',
         appId: 'your-app-id',
-        tenantMode: 'subdomain', // or 'path' or 'header'
-        selectorParam: 'tenant',
       }}
     >
-      <AuthProvider>
-        {/* Your app components */}
-      </AuthProvider>
+      <TenantProvider
+        config={{
+          tenantMode: 'selector', // 'subdomain', 'selector', or 'fixed'
+          selectorParam: 'tenant',
+        }}
+      >
+        <AuthProvider>
+          {/* Your app components */}
+        </AuthProvider>
+      </TenantProvider>
     </AppProvider>
   );
 }
 ```
 
-### 2. Use Authentication
+### 2. Traditional Authentication
 
 ```tsx
 import { useAuth } from '@skylabs-digital/react-identity-access';
@@ -62,7 +73,9 @@ function LoginComponent() {
 
   const handleLogin = async () => {
     try {
-      await login('user@example.com', 'password', 'tenant-id');
+      // Supports both email and phone number
+      await login('user@example.com', 'password'); // Email
+      // await login('+1234567890', 'password'); // Phone
     } catch (error) {
       console.error('Login failed:', error);
     }
@@ -83,7 +96,59 @@ function LoginComponent() {
 }
 ```
 
-### 3. Protect Components
+### 3. Magic Link Authentication
+
+```tsx
+import { 
+  MagicLinkForm, 
+  MagicLinkVerify,
+  useAuth 
+} from '@skylabs-digital/react-identity-access';
+import { useNavigate } from 'react-router-dom';
+
+// Send Magic Link
+function MagicLinkLogin() {
+  const navigate = useNavigate();
+
+  const handleSuccess = (response) => {
+    console.log('Magic link sent successfully!');
+  };
+
+  return (
+    <MagicLinkForm
+      frontendUrl="https://yourapp.com"
+      onSuccess={handleSuccess}
+      onLoginClick={() => navigate('/login')}
+      onSignupClick={() => navigate('/signup')}
+    />
+  );
+}
+
+// Verify Magic Link (at /magic-link/verify route)
+function MagicLinkVerifyPage() {
+  const navigate = useNavigate();
+
+  const handleSuccess = (data) => {
+    console.log('Magic link verified!', data);
+    navigate('/dashboard');
+  };
+
+  const handleError = (error) => {
+    console.error('Verification failed:', error);
+  };
+
+  return (
+    <MagicLinkVerify
+      onSuccess={handleSuccess}
+      onError={handleError}
+      onBackToLogin={() => navigate('/login')}
+      autoRedirectDelay={3000}
+    />
+  );
+}
+```
+
+### 4. Protect Components
 
 ```tsx
 import { Protected } from '@skylabs-digital/react-identity-access';
@@ -100,11 +165,88 @@ function AdminPanel() {
 }
 ```
 
+## 🧩 Pre-built Components
+
+The library includes ready-to-use form components with full customization support:
+
+### Authentication Forms
+
+```tsx
+import { 
+  LoginForm, 
+  SignupForm, 
+  MagicLinkForm,
+  MagicLinkVerify,
+  PasswordRecoveryForm 
+} from '@skylabs-digital/react-identity-access';
+
+// Login Form (supports email/phone + password)
+<LoginForm
+  onSuccess={(user) => console.log('Logged in:', user)}
+  onForgotPasswordClick={() => navigate('/forgot-password')}
+  onSignupClick={() => navigate('/signup')}
+  onMagicLinkClick={() => navigate('/magic-link')}
+  showMagicLinkOption={true}
+/>
+
+// Signup Form
+<SignupForm
+  onSuccess={(user) => console.log('Signed up:', user)}
+  onLoginClick={() => navigate('/login')}
+  onMagicLinkClick={() => navigate('/magic-link')}
+  showMagicLinkOption={true}
+/>
+
+// Magic Link Form
+<MagicLinkForm
+  frontendUrl="https://yourapp.com"
+  onSuccess={() => console.log('Magic link sent!')}
+  onLoginClick={() => navigate('/login')}
+  onSignupClick={() => navigate('/signup')}
+/>
+
+// Magic Link Verification
+<MagicLinkVerify
+  onSuccess={(data) => navigate('/dashboard')}
+  onError={(error) => console.error(error)}
+  onBackToLogin={() => navigate('/login')}
+/>
+
+// Password Recovery
+<PasswordRecoveryForm
+  onSuccess={() => console.log('Recovery email sent!')}
+  onBackToLogin={() => navigate('/login')}
+/>
+```
+
+### Customization
+
+All components support full customization of copy, styles, and icons:
+
+```tsx
+<LoginForm
+  copy={{
+    title: 'Welcome Back',
+    submitButton: 'Sign In',
+    usernameLabel: 'Email or Phone',
+  }}
+  styles={{
+    container: { backgroundColor: '#f8f9fa' },
+    button: { backgroundColor: '#007bff' },
+  }}
+  icons={{
+    showPassword: <CustomEyeIcon />,
+    hidePassword: <CustomEyeOffIcon />,
+  }}
+/>
+```
+
 ## 🏗️ Architecture
 
 ### Core Providers
 
 - **AppProvider** - Application configuration and context
+- **TenantProvider** - Multi-tenant configuration and management
 - **AuthProvider** - Authentication and session management
 - **FeatureFlagProvider** - Feature flag management
 - **SubscriptionProvider** - Billing and subscription handling
@@ -133,27 +275,31 @@ Examples:
 
 ## 🎮 Demo Application
 
-A complete demo application is included in the `template/` directory. To run it:
+A complete demo application is included in the `example/` directory. To run it:
 
 ```bash
-cd template
-pnpm install
-pnpm start
+cd example
+yarn install
+yarn start
 ```
 
 The demo showcases:
-- User authentication flow
-- Role-based dashboard
-- Permission testing
-- Protected routes
-- Feature flag usage
+- **Traditional Authentication** - Email/phone + password login
+- **Magic Link Authentication** - Passwordless login with automatic verification
+- **User Registration** - Signup with email/phone support
+- **Password Recovery** - Reset password functionality
+- **Role-based Dashboard** - Different views based on user roles
+- **Permission Testing** - Interactive permission system testing
+- **Protected Routes** - Route-level access control
+- **Feature Flag Usage** - Dynamic feature toggling
+- **Multi-tenant Support** - Tenant switching and management
 
 ## 🛠️ Development
 
 ### Prerequisites
 
-- Node.js 16+
-- pnpm (recommended) or npm/yarn
+- Node.js 18+
+- yarn (recommended) or npm
 
 ### Setup
 
@@ -163,16 +309,19 @@ git clone https://github.com/skylabs-digital/react-identity-access.git
 cd react-identity-access
 
 # Install dependencies
-pnpm install
+yarn install
 
 # Build the library
-pnpm build
+yarn build
 
 # Run tests
-pnpm test
+yarn test
 
-# Start development
-pnpm dev
+# Run CI pipeline
+yarn ci
+
+# Start example app
+cd example && yarn start
 ```
 
 ### Project Structure
@@ -180,12 +329,12 @@ pnpm dev
 ```
 react-identity-access/
 ├── src/                    # Library source code
-│   ├── components/         # React components
-│   ├── providers/          # Context providers
-│   ├── services/           # API services
+│   ├── components/         # React components (forms, guards, etc.)
+│   ├── providers/          # Context providers (Auth, Tenant, etc.)
+│   ├── services/           # API services and HTTP client
 │   ├── types/              # TypeScript definitions
 │   └── index.ts           # Main export
-├── template/               # Demo application
+├── example/                # Demo application
 ├── docs/                   # Documentation
 ├── dist/                   # Built library
 └── package.json
@@ -201,16 +350,23 @@ REACT_APP_ID=your-app-id
 REACT_APP_TENANT_MODE=subdomain
 ```
 
-### AppProvider Config
+### Provider Configuration
 
 ```tsx
+// AppProvider Config
 interface AppConfig {
   baseUrl: string;           // API base URL
   appId: string;            // Application identifier
-  tenantMode: 'subdomain' | 'path' | 'header';
-  selectorParam: string;    // Tenant selector parameter
   apiTimeout?: number;      // Request timeout (default: 30000)
   retryAttempts?: number;   // Retry attempts (default: 3)
+}
+
+// TenantProvider Config
+interface TenantConfig {
+  tenantMode: 'subdomain' | 'selector' | 'fixed';
+  selectorParam?: string;   // For 'selector' mode
+  fixedTenantSlug?: string; // For 'fixed' mode
+  initialTenant?: string;   // Initial tenant value
 }
 ```
 
@@ -220,13 +376,13 @@ The library includes comprehensive tests:
 
 ```bash
 # Run all tests
-pnpm test
+yarn test
 
 # Run tests in watch mode
-pnpm test:watch
+yarn test:watch
 
 # Run tests with coverage
-pnpm test:coverage
+yarn test:coverage
 ```
 
 ## 📈 Performance
@@ -268,12 +424,17 @@ We welcome contributions! Please see our [Contributing Guide](./docs/contributin
 
 ## 🎯 Roadmap
 
-- [ ] OAuth 2.0 / OpenID Connect support
-- [ ] Multi-factor authentication
-- [ ] Advanced audit logging
-- [ ] GraphQL integration
-- [ ] React Native support
-- [ ] SSR/Next.js optimization
+- [x] **Magic Link Authentication** - Passwordless authentication via email ✅
+- [x] **Email/Phone Login Support** - Flexible authentication methods ✅
+- [x] **Pre-built Form Components** - Ready-to-use authentication forms ✅
+- [x] **Multi-tenant Architecture** - Separate App and Tenant providers ✅
+- [ ] **OAuth 2.0 / OpenID Connect** - Social login integration
+- [ ] **Multi-factor Authentication** - SMS/TOTP support
+- [ ] **Advanced Audit Logging** - Comprehensive security tracking
+- [ ] **GraphQL Integration** - GraphQL API support
+- [ ] **React Native Support** - Mobile app integration
+- [ ] **SSR/Next.js Optimization** - Server-side rendering support
+- [ ] **Biometric Authentication** - WebAuthn/FIDO2 support
 
 ---
 

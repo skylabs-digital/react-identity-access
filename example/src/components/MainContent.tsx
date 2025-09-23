@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useLocation } from 'react-router';
+import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '@skylabs-digital/react-identity-access';
 import ApiTest from './ApiTest';
 

@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import { useSettings, JSONSchema } from '@skylabs-digital/react-identity-access';
 
 const Settings: React.FC = () => {
-  const { settings, settingsSchema, isLoading, error, updateSettings, validateSettings } =
-    useSettings();
+  const { settings, settingsSchema, isLoading, error, validateSettings } = useSettings();
+  // updateSettings removed from current API
   const [formData, setFormData] = useState<Record<string, any>>(settings || {});
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -44,8 +44,8 @@ const Settings: React.FC = () => {
     try {
       setIsSubmitting(true);
       setValidationErrors([]);
-      await updateSettings(formData);
-      setSuccessMessage('Settings updated successfully!');
+      // await updateSettings(formData); // Removed from current API
+      setSuccessMessage('Settings update functionality not available in current demo');
     } catch (err) {
       const errorMessage = err instanceof Error ? err.message : 'Failed to update settings';
       setValidationErrors([errorMessage]);

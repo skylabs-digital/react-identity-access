@@ -16,6 +16,10 @@ function Login() {
     navigate('/signup');
   };
 
+  const handleMagicLinkClick = () => {
+    navigate('/magic-link');
+  };
+
   // Custom copy for branding
   const customCopy = {
     title: 'Welcome Back',
@@ -50,8 +54,10 @@ function Login() {
         onSuccess={handleSuccess}
         onForgotPassword={handleForgotPassword}
         onSignupClick={handleSignupClick}
+        onMagicLinkClick={handleMagicLinkClick}
         showForgotPassword={true}
         showSignupLink={true}
+        showMagicLinkOption={true}
       />
 
       {/* Feature flag controlled additional login options */}

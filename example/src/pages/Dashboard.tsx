@@ -1,6 +1,6 @@
 import React from 'react';
 import { useAuth, Protected } from '@skylabs-digital/react-identity-access';
-import { Link } from 'react-router';
+import { Link } from 'react-router-dom';
 
 const Dashboard: React.FC = () => {
   const { sessionManager, userRole, userPermissions, hasValidSession } = useAuth();

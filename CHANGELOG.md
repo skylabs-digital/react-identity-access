@@ -25,7 +25,30 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Added
+### Added - Magic Link Authentication Support
+- **Magic Link Authentication**: Complete passwordless authentication system
+- **MagicLinkForm Component**: Unified login/signup form with magic link support
+- **Updated User Model**: Added optional `phoneNumber` field alongside `email`
+- **Flexible Login**: `LoginForm` now accepts username (email or phone number)
+- **Enhanced Signup**: `SignupForm` supports optional email/phone (at least one required)
+- **API Integration**: New `sendMagicLink()` and `verifyMagicLink()` methods in AuthProvider
+- **Cross-Navigation**: Seamless switching between traditional and magic link authentication
+- **Auto-Verification**: Automatic token verification from URL parameters
+- **Demo Integration**: Complete Magic Link demo in example application
+
+### Changed
+- **Breaking**: `LoginRequest` now uses `username` instead of `email` field
+- **Enhanced**: `SignupRequest` and `CreateUserRequest` support optional email/phoneNumber
+- **Improved**: All authentication forms now support cross-navigation between methods
+- **Updated**: AuthProvider methods now handle email/phone flexibility
+
+### Technical Details
+- Added `MagicLinkRequest`, `MagicLinkResponse`, `VerifyMagicLinkRequest`, `VerifyMagicLinkResponse` interfaces
+- Updated `AuthApiService` with magic link endpoints
+- Enhanced form validation for email/phone requirements
+- Maintained full backward compatibility for existing implementations
+
+### Previous Features
 - Initial release of react-identity-access library
 - Multi-tenancy support with AppProvider
 - Authentication system with AuthProvider  

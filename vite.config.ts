@@ -19,23 +19,18 @@ export default defineConfig({
       fileName: format => `index.${format === 'cjs' ? '' : format + '.'}js`,
     },
     rollupOptions: {
-      external: id => {
-        return (
-          id === 'react' ||
-          id === 'react-dom' ||
-          id === 'react-router' ||
-          id === 'react/jsx-runtime' ||
-          id === 'react/jsx-dev-runtime' ||
-          id.startsWith('react/') ||
-          id.startsWith('react-dom/') ||
-          id.startsWith('react-router/')
-        );
-      },
+      external: [
+        'react',
+        'react-dom',
+        'react-router-dom',
+        'react/jsx-runtime',
+        'react/jsx-dev-runtime',
+      ],
       output: {
         globals: {
           react: 'React',
           'react-dom': 'ReactDOM',
-          'react-router': 'ReactRouter',
+          'react-router-dom': 'ReactRouterDOM',
           'react/jsx-runtime': 'React',
           'react/jsx-dev-runtime': 'React',
         },

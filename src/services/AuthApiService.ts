@@ -6,6 +6,10 @@ import type {
   ChangePasswordRequest,
   RefreshTokenRequest,
   RefreshTokenResponse,
+  MagicLinkRequest,
+  MagicLinkResponse,
+  VerifyMagicLinkRequest,
+  VerifyMagicLinkResponse,
   ApiResponse,
   User,
 } from '../types/api';
@@ -26,12 +30,13 @@ export class AuthApiService {
   }
 
   async signupTenantAdmin(request: {
-    email: string;
+    email?: string;
+    phoneNumber?: string;
     name: string;
     lastName?: string;
     password: string;
     tenantName: string;
-    appId: string;
+    appId?: string;
   }): Promise<{ user: User; tenant: any }> {
     const response = await this.httpService.post<{ user: User; tenant: any }>(
       '/auth/signup/tenant-admin',
@@ -47,6 +52,22 @@ export class AuthApiService {
 
   async requestPasswordReset(request: { email: string; tenantId: string }): Promise<void> {
     await this.httpService.post<void>('/auth/password-reset/request', request);
+  }
+
+  async sendMagicLink(request: MagicLinkRequest): Promise<MagicLinkResponse> {
+    const response = await this.httpService.post<MagicLinkResponse>(
+      '/auth/magic-link/send',
+      request
+    );
+    return response;
+  }
+
+  async verifyMagicLink(request: VerifyMagicLinkRequest): Promise<VerifyMagicLinkResponse> {
+    const response = await this.httpService.post<VerifyMagicLinkResponse>(
+      '/auth/magic-link/verify',
+      request
+    );
+    return response;
   }
 
   async confirmPasswordReset(request: { token: string; newPassword: string }): Promise<void> {

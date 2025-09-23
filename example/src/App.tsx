@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Link } from 'react-router';
+import { BrowserRouter as Router, Routes, Route, Link } from 'react-router-dom';
 import {
   AppProvider,
   AuthProvider,
@@ -15,19 +15,24 @@ import Profile from './pages/Profile';
 import Settings from './pages/Settings';
 import SubscriptionDemo from './pages/SubscriptionDemo';
 import RolePermissionTest from './components/RolePermissionTest';
+import MagicLink from './pages/MagicLink';
+import MagicLinkVerifyPage from './pages/MagicLinkVerifyPage';
 
 function App() {
   return (
     <AppProvider
       config={{
-        baseUrl: process.env.REACT_APP_BASE_URL || 'http://localhost:3000',
-        appId: process.env.REACT_APP_ID || '093009e3-24d4-410e-8d49-8453b961e28f',
-        tenantMode: 'selector',
-        selectorParam: 'tenant',
+        baseUrl: process.env.REACT_APP_BASE_URL || 'https://idachu-dev.skylabs.digital/api',
+        appId: process.env.REACT_APP_ID || '67420000-5b08-420f-a384-5d9dc6532ba2',
       }}
     >
-      <AuthProvider>
-        <TenantProvider>
+      <TenantProvider
+        config={{
+          tenantMode: 'selector', // Use selector mode for development
+          selectorParam: 'tenant', // URL parameter for tenant selection
+        }}
+      >
+        <AuthProvider>
           <FeatureFlagProvider>
             <SubscriptionProvider>
               <Router>
@@ -76,6 +81,12 @@ function App() {
                             >
                               Subscription
                             </Link>
+                            <Link
+                              to="/magic-link"
+                              className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                            >
+                              ✨ Magic Link
+                            </Link>
                           </div>
                         </div>
                         <div className="flex items-center space-x-3">
@@ -107,14 +118,16 @@ function App() {
                       <Route path="/settings" element={<Settings />} />
                       <Route path="/subscription" element={<SubscriptionDemo />} />
                       <Route path="/roles" element={<RolePermissionTest />} />
+                      <Route path="/magic-link" element={<MagicLink />} />
+                      <Route path="/magic-link/verify" element={<MagicLinkVerifyPage />} />
                     </Routes>
                   </main>
                 </div>
               </Router>
             </SubscriptionProvider>
           </FeatureFlagProvider>
-        </TenantProvider>
-      </AuthProvider>
+        </AuthProvider>
+      </TenantProvider>
     </AppProvider>
   );
 }

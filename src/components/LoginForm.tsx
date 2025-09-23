@@ -1,17 +1,20 @@
 import React, { useState } from 'react';
 import { useAuth } from '../providers/AuthProvider';
 import { useTenantInfo } from '../providers/TenantProvider';
+import { useApp } from '../providers/AppProvider';
 
 export interface LoginFormCopy {
   title?: string;
-  emailLabel?: string;
-  emailPlaceholder?: string;
+  usernameLabel?: string;
+  usernamePlaceholder?: string;
   passwordLabel?: string;
   passwordPlaceholder?: string;
   submitButton?: string;
   forgotPasswordLink?: string;
   signupLink?: string;
   signupText?: string;
+  magicLinkText?: string;
+  magicLinkLink?: string;
   errorMessage?: string;
   loadingText?: string;
 }
@@ -48,8 +51,10 @@ export interface LoginFormProps {
   onError?: (error: string) => void;
   onForgotPassword?: () => void;
   onSignupClick?: () => void;
+  onMagicLinkClick?: () => void;
   showForgotPassword?: boolean;
   showSignupLink?: boolean;
+  showMagicLinkOption?: boolean;
   className?: string;
 }
 
@@ -95,15 +100,17 @@ const defaultIcons: Required<LoginFormIcons> = {
 
 const defaultCopy: Required<LoginFormCopy> = {
   title: 'Sign In',
-  emailLabel: 'Email',
-  emailPlaceholder: 'Enter your email',
+  usernameLabel: 'Email or Phone',
+  usernamePlaceholder: 'Enter your email or phone number',
   passwordLabel: 'Password',
   passwordPlaceholder: 'Enter your password',
   submitButton: 'Sign In',
   forgotPasswordLink: 'Forgot your password?',
   signupLink: 'Sign up here',
   signupText: "Don't have an account?",
-  errorMessage: 'Invalid email or password',
+  magicLinkText: 'Prefer passwordless?',
+  magicLinkLink: 'Use Magic Link',
+  errorMessage: 'Invalid credentials',
   loadingText: 'Signing in...',
 };
 
@@ -223,28 +230,31 @@ export function LoginForm({
   onError,
   onForgotPassword,
   onSignupClick,
+  onMagicLinkClick,
   showForgotPassword = true,
   showSignupLink = true,
+  showMagicLinkOption = true,
   className,
 }: LoginFormProps) {
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [fieldErrors, setFieldErrors] = useState<{ email?: boolean; password?: boolean }>({});
+  const [fieldErrors, setFieldErrors] = useState<{ username?: boolean; password?: boolean }>({});
 
   const { login } = useAuth();
   const { tenant } = useTenantInfo();
+  const { appId } = useApp();
 
   const mergedCopy = { ...defaultCopy, ...copy };
   const mergedStyles = { ...defaultStyles, ...styles };
   const mergedIcons = { ...defaultIcons, ...icons };
 
   const validateForm = () => {
-    const errors: { email?: boolean; password?: boolean } = {};
+    const errors: { username?: boolean; password?: boolean } = {};
 
-    if (!email.trim()) errors.email = true;
+    if (!username.trim()) errors.username = true;
     if (!password.trim()) errors.password = true;
 
     setFieldErrors(errors);
@@ -264,7 +274,7 @@ export function LoginForm({
     setError('');
 
     try {
-      const result = await login(email, password, tenant.id);
+      const result = await login(username, password, appId, tenant.id);
       onSuccess?.(result);
     } catch (err: any) {
       const errorMessage = err.message || mergedCopy.errorMessage;
@@ -275,7 +285,7 @@ export function LoginForm({
     }
   };
 
-  const getInputStyle = (field: 'email' | 'password') => ({
+  const getInputStyle = (field: 'username' | 'password') => ({
     ...mergedStyles.input,
     ...(fieldErrors[field] ? mergedStyles.inputError : {}),
   });
@@ -283,7 +293,7 @@ export function LoginForm({
   const getButtonStyle = () => ({
     ...mergedStyles.button,
     ...(loading ? mergedStyles.buttonLoading : {}),
-    ...(!email || !password || loading ? mergedStyles.buttonDisabled : {}),
+    ...(!username || !password || loading ? mergedStyles.buttonDisabled : {}),
   });
 
   return (
@@ -292,20 +302,20 @@ export function LoginForm({
 
       <form onSubmit={handleSubmit} style={mergedStyles.form}>
         <div style={mergedStyles.fieldGroup}>
-          <label style={mergedStyles.label}>{mergedCopy.emailLabel}</label>
+          <label style={mergedStyles.label}>{mergedCopy.usernameLabel}</label>
           <input
-            id="email"
-            name="email"
-            type="email"
-            value={email}
+            id="username"
+            name="username"
+            type="text"
+            value={username}
             onChange={e => {
-              setEmail(e.target.value);
-              if (fieldErrors.email) {
-                setFieldErrors(prev => ({ ...prev, email: false }));
+              setUsername(e.target.value);
+              if (fieldErrors.username) {
+                setFieldErrors(prev => ({ ...prev, username: false }));
               }
             }}
-            placeholder={mergedCopy.emailPlaceholder}
-            style={getInputStyle('email')}
+            placeholder={mergedCopy.usernamePlaceholder}
+            style={getInputStyle('username')}
             disabled={loading}
           />
         </div>
@@ -343,15 +353,28 @@ export function LoginForm({
           </div>
         </div>
 
-        <button type="submit" disabled={!email || !password || loading} style={getButtonStyle()}>
+        <button type="submit" disabled={!username || !password || loading} style={getButtonStyle()}>
           {loading ? mergedCopy.loadingText : mergedCopy.submitButton}
         </button>
 
         {error && <div style={mergedStyles.errorText}>{error}</div>}
       </form>
 
-      {(showForgotPassword || showSignupLink) && (
+      {(showForgotPassword || showSignupLink || showMagicLinkOption) && (
         <div style={mergedStyles.linkContainer}>
+          {showMagicLinkOption && (
+            <div>
+              <span style={mergedStyles.divider}>{mergedCopy.magicLinkText} </span>
+              <a onClick={onMagicLinkClick} style={mergedStyles.link}>
+                {mergedCopy.magicLinkLink}
+              </a>
+            </div>
+          )}
+
+          {showMagicLinkOption && (showForgotPassword || showSignupLink) && (
+            <div style={mergedStyles.divider}>•</div>
+          )}
+
           {showForgotPassword && (
             <a onClick={onForgotPassword} style={mergedStyles.link}>
               {mergedCopy.forgotPasswordLink}

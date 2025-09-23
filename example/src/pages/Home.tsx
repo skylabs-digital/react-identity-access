@@ -1,6 +1,7 @@
 import React from 'react';
-import { Link } from 'react-router';
+import { Link } from 'react-router-dom';
 import { useAuth } from '@skylabs-digital/react-identity-access';
+import { MagicLinkPromo } from '../components/MagicLinkPromo';
 
 const Home: React.FC = () => {
   const { sessionManager, hasValidSession } = useAuth();
@@ -56,6 +57,11 @@ const Home: React.FC = () => {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Magic Link Promo Section */}
+      <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8">
+        <MagicLinkPromo />
       </div>
 
       {/* Features Section */}

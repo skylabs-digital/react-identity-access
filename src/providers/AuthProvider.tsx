@@ -17,21 +17,35 @@ export interface AuthContextValue {
   sessionManager: SessionManager;
   authenticatedHttpService: HttpService; // Authenticated HttpService for protected endpoints
   // Auth methods
-  login: (email: string, password: string, tenantId: string) => Promise<any>;
+  login: (username: string, password: string, appId?: string, tenantId?: string) => Promise<any>;
   signup: (
-    email: string,
-    name: string,
-    password: string,
-    tenantId: string,
-    lastName?: string
+    email?: string,
+    phoneNumber?: string,
+    name?: string,
+    password?: string,
+    tenantId?: string,
+    lastName?: string,
+    appId?: string
   ) => Promise<any>;
   signupTenantAdmin: (
-    email: string,
-    name: string,
-    password: string,
-    tenantName: string,
-    lastName?: string
+    email?: string,
+    phoneNumber?: string,
+    name?: string,
+    password?: string,
+    tenantName?: string,
+    lastName?: string,
+    appId?: string
   ) => Promise<any>;
+  // Magic Link methods
+  sendMagicLink: (
+    email: string,
+    tenantId: string,
+    frontendUrl: string,
+    name?: string,
+    lastName?: string,
+    appId?: string
+  ) => Promise<any>;
+  verifyMagicLink: (token: string, email: string, appId: string, tenantId?: string) => Promise<any>;
   changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
   requestPasswordReset: (email: string, tenantId: string) => Promise<void>;
   confirmPasswordReset: (token: string, newPassword: string) => Promise<void>;
@@ -177,10 +191,11 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     };
 
     // Auth methods
-    const login = async (email: string, password: string, tenantId: string) => {
+    const login = async (username: string, password: string, appId?: string, tenantId?: string) => {
       const loginResponse = await authApiService.login({
-        email,
+        username,
         password,
+        appId,
         tenantId,
       });
 
@@ -207,31 +222,52 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     };
 
     const signup = async (
-      email: string,
-      name: string,
-      password: string,
-      tenantId: string,
-      lastName?: string
+      email?: string,
+      phoneNumber?: string,
+      name?: string,
+      password?: string,
+      tenantId?: string,
+      lastName?: string,
+      appId?: string
     ) => {
+      if (!email && !phoneNumber) {
+        throw new Error('Either email or phoneNumber is required');
+      }
+      if (!name || !password) {
+        throw new Error('Name and password are required');
+      }
+
       const signupResponse = await authApiService.signup({
         email,
+        phoneNumber,
         name,
         password,
         tenantId,
         lastName,
+        appId,
       });
       return signupResponse;
     };
 
     const signupTenantAdmin = async (
-      email: string,
-      name: string,
-      password: string,
-      tenantName: string,
-      lastName?: string
+      email?: string,
+      phoneNumber?: string,
+      name?: string,
+      password?: string,
+      tenantName?: string,
+      lastName?: string,
+      appId?: string
     ) => {
+      if (!email && !phoneNumber) {
+        throw new Error('Either email or phoneNumber is required');
+      }
+      if (!name || !password || !tenantName) {
+        throw new Error('Name, password, and tenantName are required');
+      }
+
       const signupResponse = await authApiService.signupTenantAdmin({
         email,
+        phoneNumber,
         name,
         password,
         tenantName,
@@ -252,6 +288,62 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
     const confirmPasswordReset = async (token: string, newPassword: string) => {
       await authApiService.confirmPasswordReset({ token, newPassword });
+    };
+
+    // Magic Link methods
+    const sendMagicLink = async (
+      email: string,
+      tenantId: string,
+      frontendUrl: string,
+      name?: string,
+      lastName?: string,
+      appId?: string
+    ) => {
+      const response = await authApiService.sendMagicLink({
+        email,
+        tenantId,
+        frontendUrl,
+        name,
+        lastName,
+        appId,
+      });
+      return response;
+    };
+
+    const verifyMagicLink = async (
+      token: string,
+      email: string,
+      appId: string,
+      tenantId?: string
+    ) => {
+      const verifyResponse = await authApiService.verifyMagicLink({
+        token,
+        email,
+        appId,
+        tenantId,
+      });
+
+      // Set tokens from magic link verification
+      sessionManager.setTokens({
+        accessToken: verifyResponse.accessToken,
+        refreshToken: verifyResponse.refreshToken,
+        expiresIn: verifyResponse.expiresIn,
+      });
+
+      // Store user data
+      if (verifyResponse.user) {
+        sessionManager.setUser(verifyResponse.user);
+        setCurrentUser(verifyResponse.user);
+
+        // Load complete user data from API after magic link login
+        try {
+          await loadUserData();
+        } catch (error) {
+          console.warn('Failed to load complete user data after magic link login:', error);
+        }
+      }
+
+      return verifyResponse;
     };
 
     const refreshToken = async () => {
@@ -351,6 +443,8 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       login,
       signup,
       signupTenantAdmin,
+      sendMagicLink,
+      verifyMagicLink,
       changePassword,
       requestPasswordReset,
       confirmPasswordReset,

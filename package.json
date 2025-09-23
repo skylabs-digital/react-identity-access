@@ -67,9 +67,9 @@
   },
   "homepage": "https://github.com/skylabs-digital/react-identity-access#readme",
   "peerDependencies": {
-    "react": ">=16.8.0",
-    "react-dom": ">=16.8.0",
-    "react-router-dom": ">=6.0.0"
+    "react": ">=18.0.0",
+    "react-dom": ">=18.0.0",
+    "react-router-dom": "^6.0.0"
   },
   "peerDependenciesMeta": {
     "react": {

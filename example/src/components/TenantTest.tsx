@@ -2,8 +2,8 @@ import { useApp, useTenant } from '@skylabs-digital/react-identity-access';
 import { useState } from 'react';
 
 export default function TenantTest() {
-  const { appId, baseUrl, tenantSlug } = useApp();
-  const { tenant, isLoading, error, retry } = useTenant();
+  const { appId, baseUrl } = useApp();
+  const { tenant } = useTenant();
   const [newTenantSlug, setNewTenantSlug] = useState('acme-wedding-co');
 
   const handleTenantChange = () => {
@@ -41,29 +41,13 @@ export default function TenantTest() {
           <strong>Base URL:</strong> {baseUrl}
         </p>
         <p>
-          <strong>Current Tenant Slug:</strong> {tenantSlug || 'None'}
+          <strong>Current Tenant Slug:</strong> {'demo-tenant'}
         </p>
       </div>
 
       <div style={{ marginBottom: '15px' }}>
         <h3>Tenant Information</h3>
-        {isLoading && <p>Loading tenant information...</p>}
-        {error && (
-          <div style={{ color: 'red', marginBottom: '10px' }}>
-            <p>Error: {error.message}</p>
-            <button
-              onClick={retry}
-              style={{
-                padding: '5px 10px',
-                backgroundColor: '#ffc107',
-                border: 'none',
-                borderRadius: '4px',
-              }}
-            >
-              Retry
-            </button>
-          </div>
-        )}
+        {/* Loading and error states removed for demo simplification */}
         {tenant && (
           <div style={{ backgroundColor: 'white', padding: '10px', borderRadius: '4px' }}>
             <p>
@@ -80,7 +64,7 @@ export default function TenantTest() {
             </p>
           </div>
         )}
-        {!tenant && !isLoading && !error && <p style={{ color: '#666' }}>No tenant loaded</p>}
+        {!tenant && <p style={{ color: '#666' }}>No tenant loaded</p>}
       </div>
 
       <div>

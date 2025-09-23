@@ -29,6 +29,8 @@ export { SubscriptionGuard } from './components/SubscriptionGuard';
 export { FeatureFlag } from './components/FeatureFlag';
 export { LoginForm } from './components/LoginForm';
 export { SignupForm } from './components/SignupForm';
+export { MagicLinkForm } from './components/MagicLinkForm';
+export { MagicLinkVerify } from './components/MagicLinkVerify';
 export { PasswordRecoveryForm } from './components/PasswordRecoveryForm';
 
 // Export component types
@@ -39,6 +41,12 @@ export type { LandingRouteProps } from './components/LandingRoute';
 export type { SubscriptionGuardProps } from './components/SubscriptionGuard';
 export type { LoginFormProps, LoginFormCopy, LoginFormStyles } from './components/LoginForm';
 export type { SignupFormProps, SignupFormCopy, SignupFormStyles } from './components/SignupForm';
+export type { MagicLinkVerifyProps, MagicLinkVerifyCopy, MagicLinkVerifyStyles } from './components/MagicLinkVerify';
+export type {
+  MagicLinkFormProps,
+  MagicLinkFormCopy,
+  MagicLinkFormStyles,
+} from './components/MagicLinkForm';
 export type {
   PasswordRecoveryFormProps,
   PasswordRecoveryFormCopy,
