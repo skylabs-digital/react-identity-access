@@ -41,7 +41,11 @@ export type { LandingRouteProps } from './components/LandingRoute';
 export type { SubscriptionGuardProps } from './components/SubscriptionGuard';
 export type { LoginFormProps, LoginFormCopy, LoginFormStyles } from './components/LoginForm';
 export type { SignupFormProps, SignupFormCopy, SignupFormStyles } from './components/SignupForm';
-export type { MagicLinkVerifyProps, MagicLinkVerifyCopy, MagicLinkVerifyStyles } from './components/MagicLinkVerify';
+export type {
+  MagicLinkVerifyProps,
+  MagicLinkVerifyCopy,
+  MagicLinkVerifyStyles,
+} from './components/MagicLinkVerify';
 export type {
   MagicLinkFormProps,
   MagicLinkFormCopy,
