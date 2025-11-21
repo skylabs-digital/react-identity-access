@@ -65,7 +65,7 @@ export type { User, PlanFeature, TenantSubscriptionFeatures } from './types/api'
 export { HttpService } from './services/HttpService';
 export type { RequestOptions } from './services/HttpService';
 export { SessionManager } from './services/SessionManager';
-export type { TokenData, SessionConfig } from './services/SessionManager';
+export type { TokenData, SessionConfig, JwtPayload } from './services/SessionManager';
 
 // Main API Service - removed in favor of provider pattern
 
@@ -84,6 +84,18 @@ export { HealthApiService } from './services/HealthApiService';
 // Types
 export * from './types/api';
 export type { JSONSchema } from './types/api';
+
+// Auth parameter types (RFC-002)
+export type {
+  LoginParams,
+  SignupParams,
+  SignupTenantAdminParams,
+  SendMagicLinkParams,
+  VerifyMagicLinkParams,
+  RequestPasswordResetParams,
+  ConfirmPasswordResetParams,
+  ChangePasswordParams,
+} from './types/authParams';
 
 // Utilities
 export { ApiMappers } from './utils/mappers';

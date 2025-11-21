@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../providers/AuthProvider';
 import { useTenantInfo } from '../providers/TenantProvider';
-import { useApp } from '../providers/AppProvider';
 
 export interface MagicLinkFormCopy {
   title?: string;
@@ -206,7 +205,6 @@ export function MagicLinkForm({
 
   const { sendMagicLink, verifyMagicLink } = useAuth();
   const { tenant } = useTenantInfo();
-  const { appId } = useApp();
 
   const mergedCopy = { ...defaultCopy, ...copy };
   const mergedStyles = { ...defaultStyles, ...styles };
@@ -219,16 +217,20 @@ export function MagicLinkForm({
   }, [verifyToken]);
 
   const handleVerifyMagicLink = async (token: string) => {
+    if (!tenant || !email) {
+      setError('Missing tenant or email');
+      return;
+    }
+
     setVerifying(true);
     setError('');
 
     try {
-      // For verification, we need email and appId - these should be provided via props or URL params
-      // For now, we'll require them to be passed somehow. This is a limitation that needs to be addressed.
-      if (!email || !appId) {
-        throw new Error('Email and App ID are required for magic link verification');
-      }
-      const result = await verifyMagicLink(token, email, appId, tenant?.id);
+      const result = await verifyMagicLink({
+        token,
+        email,
+        // tenantId inferred from context automatically
+      });
       onSuccess?.(result);
     } catch (err: any) {
       const errorMessage = err.message || 'Failed to verify magic link';
@@ -265,14 +267,13 @@ export function MagicLinkForm({
     try {
       const finalFrontendUrl =
         frontendUrl || (typeof window !== 'undefined' ? window.location.origin : '');
-      const result = await sendMagicLink(
+      const result = await sendMagicLink({
         email,
-        tenant.id,
-        finalFrontendUrl,
-        showNameFields ? name : undefined,
-        showNameFields ? lastName : undefined,
-        appId
-      );
+        tenantId: tenant.id,
+        frontendUrl: finalFrontendUrl,
+        name: showNameFields ? name : undefined,
+        lastName: showNameFields ? lastName : undefined,
+      });
       setSuccess(mergedCopy.successMessage);
       onSuccess?.(result);
     } catch (err: any) {

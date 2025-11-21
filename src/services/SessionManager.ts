@@ -6,6 +6,18 @@ export interface TokenData {
   tokenType?: string;
 }
 
+export interface JwtPayload {
+  userId: string;
+  email: string | null;
+  phoneNumber: string | null;
+  userType: string;
+  role: string | null;
+  tenantId: string | null;
+  appId: string | null;
+  iat?: number;
+  exp?: number;
+}
+
 export interface TokenStorage {
   get(): any;
   set(data: any): void;
@@ -14,6 +26,7 @@ export interface TokenStorage {
 
 export interface SessionConfig {
   storageKey?: string;
+  tenantSlug?: string | null; // Tenant slug to generate storage key automatically
   autoRefresh?: boolean;
   refreshThreshold?: number;
   onRefreshFailed?: () => void;
@@ -37,17 +50,28 @@ export class SessionManager {
   }> = [];
 
   constructor(config: SessionConfig = {}) {
-    this.storageKey = config.storageKey || 'auth_tokens';
+    // Generate storageKey based on tenantSlug if provided, otherwise use custom key or default
+    if (config.tenantSlug !== undefined) {
+      this.storageKey = config.tenantSlug ? `auth_tokens_${config.tenantSlug}` : 'auth_tokens';
+    } else {
+      this.storageKey = config.storageKey || 'auth_tokens';
+    }
+
     this.autoRefresh = config.autoRefresh ?? true;
     this.refreshThreshold = config.refreshThreshold || 300000; // 5 minutes
     this.onRefreshFailed = config.onRefreshFailed;
     this.baseUrl = config.baseUrl || '';
 
     // Use provided tokenStorage or create default localStorage implementation
-    this.tokenStorage = config.tokenStorage || {
+    this.tokenStorage = config.tokenStorage || this.createTokenStorage(this.storageKey);
+  }
+
+  // Helper to create a TokenStorage for a specific key
+  private createTokenStorage(storageKey: string): TokenStorage {
+    return {
       get: () => {
         try {
-          const stored = localStorage.getItem(this.storageKey);
+          const stored = localStorage.getItem(storageKey);
           return stored ? JSON.parse(stored) : null;
         } catch {
           return null;
@@ -55,14 +79,14 @@ export class SessionManager {
       },
       set: (data: any) => {
         try {
-          localStorage.setItem(this.storageKey, JSON.stringify(data));
+          localStorage.setItem(storageKey, JSON.stringify(data));
         } catch {
           // Handle storage errors silently
         }
       },
       clear: () => {
         try {
-          localStorage.removeItem(this.storageKey);
+          localStorage.removeItem(storageKey);
         } catch {
           // Handle storage errors silently
         }
@@ -78,6 +102,7 @@ export class SessionManager {
         tokens.expiresAt || (tokens.expiresIn ? Date.now() + tokens.expiresIn * 1000 : undefined),
     };
 
+    // Always use this instance's tokenStorage (defined in constructor)
     this.tokenStorage.set(tokenData);
   }
 
@@ -226,6 +251,42 @@ export class SessionManager {
   clearSession(): void {
     this.clearTokens();
     this.clearUser();
+  }
+
+  /**
+   * Decode JWT token and extract payload
+   * Returns null if token is invalid or cannot be decoded
+   */
+  getTokenPayload(): JwtPayload | null {
+    try {
+      const tokens = this.getTokens();
+      if (!tokens?.accessToken) return null;
+
+      // JWT structure: header.payload.signature
+      const parts = tokens.accessToken.split('.');
+      if (parts.length !== 3) return null;
+
+      // Decode base64 payload (second part)
+      const payload = parts[1];
+      const decodedPayload = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
+      return JSON.parse(decodedPayload) as JwtPayload;
+    } catch {
+      // Silent fail - invalid token format
+      return null;
+    }
+  }
+
+  /**
+   * Get userId from token (source of truth) or fallback to stored user
+   */
+  getUserId(): string | null {
+    // Priority 1: Get from JWT token (source of truth)
+    const payload = this.getTokenPayload();
+    if (payload?.userId) return payload.userId;
+
+    // Priority 2: Fallback to stored user data
+    const user = this.getUser();
+    return user?.id || null;
   }
 
   hasValidSession(): boolean {

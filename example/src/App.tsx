@@ -17,6 +17,7 @@ import SubscriptionDemo from './pages/SubscriptionDemo';
 import RolePermissionTest from './components/RolePermissionTest';
 import MagicLink from './pages/MagicLink';
 import MagicLinkVerifyPage from './pages/MagicLinkVerifyPage';
+import TenantSwitchDemo from './pages/TenantSwitchDemo';
 
 function App() {
   return (
@@ -87,6 +88,12 @@ function App() {
                             >
                               ✨ Magic Link
                             </Link>
+                            <Link
+                              to="/tenant-switch"
+                              className="text-gray-700 hover:text-gray-900 px-3 py-2 rounded-md text-sm font-medium"
+                            >
+                              🔄 Tenant Switch
+                            </Link>
                           </div>
                         </div>
                         <div className="flex items-center space-x-3">
@@ -120,6 +127,7 @@ function App() {
                       <Route path="/roles" element={<RolePermissionTest />} />
                       <Route path="/magic-link" element={<MagicLink />} />
                       <Route path="/magic-link/verify" element={<MagicLinkVerifyPage />} />
+                      <Route path="/tenant-switch" element={<TenantSwitchDemo />} />
                     </Routes>
                   </main>
                 </div>

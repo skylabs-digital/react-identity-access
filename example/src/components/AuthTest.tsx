@@ -15,7 +15,12 @@ export default function AuthTest() {
     setLoading(true);
     setError(null);
     try {
-      const response = await login(email, password, tenantId);
+      // RFC-002: Use object parameters
+      const response = await login({
+        username: email,
+        password: password,
+        tenantSlug: tenantId || undefined, // Using tenantSlug instead of tenantId
+      });
       setLoginResponse(response);
     } catch (error) {
       setError(error instanceof Error ? error.message : 'Login failed');

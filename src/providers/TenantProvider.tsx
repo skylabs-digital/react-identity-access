@@ -12,10 +12,23 @@ import { HttpService } from '../services/HttpService';
 import { TenantApiService } from '../services/TenantApiService';
 import type { TenantSettings, JSONSchema, PublicTenantInfo } from '../types/api';
 
+// RFC-003: Cache interface for tenant info
+interface CachedTenantInfo {
+  data: PublicTenantInfo;
+  timestamp: number;
+  tenantSlug: string;
+}
+
 export interface TenantConfig {
   // Tenant configuration
   tenantMode?: 'subdomain' | 'selector';
   selectorParam?: string; // Default: 'tenant', used when tenantMode is 'selector'
+  // RFC-003: Cache configuration
+  cache?: {
+    enabled?: boolean; // Default: true
+    ttl?: number; // Time to live in milliseconds, default: 5 minutes
+    storageKey?: string; // Default: 'tenant_cache_{tenantSlug}'
+  };
   // SSR support
   initialTenant?: PublicTenantInfo;
   // Fallbacks
@@ -37,6 +50,7 @@ interface TenantContextValue {
   settingsError: Error | null;
   // Actions
   refreshSettings: () => void;
+  switchTenant: (tenantSlug: string, mode?: 'navigate' | 'reload') => void;
   // Validation
   validateSettings: (settings: TenantSettings) => { isValid: boolean; errors: string[] };
 }
@@ -100,16 +114,6 @@ const DefaultErrorFallback = ({ error, retry }: { error: Error; retry: () => voi
 export function TenantProvider({ config, children }: TenantProviderProps) {
   const { baseUrl, appInfo, appId } = useApp();
 
-  // Tenant state
-  const [tenant, setTenant] = useState<PublicTenantInfo | null>(config.initialTenant || null);
-  const [isTenantLoading, setIsTenantLoading] = useState(!config.initialTenant);
-  const [tenantError, setTenantError] = useState<Error | null>(null);
-
-  // Settings state
-  const [settings, setSettings] = useState<TenantSettings | null>(null);
-  const [isSettingsLoading, setIsSettingsLoading] = useState(false);
-  const [settingsError, setSettingsError] = useState<Error | null>(null);
-
   // Detect tenant slug from URL or config with localStorage fallback
   const detectTenantSlug = useCallback((): string | null => {
     const tenantMode = config.tenantMode || 'selector';
@@ -150,14 +154,70 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
     return null;
   }, [config.tenantMode, config.selectorParam]);
 
-  const tenantSlug = useMemo(() => detectTenantSlug(), [detectTenantSlug]);
+  // Detect tenant slug on mount and on URL changes
+  const [tenantSlug, setTenantSlug] = useState<string | null>(() => detectTenantSlug());
+
+  // RFC-003: Cache configuration with defaults
+  const cacheConfig = useMemo(
+    () => ({
+      enabled: config.cache?.enabled ?? true,
+      ttl: config.cache?.ttl ?? 5 * 60 * 1000, // 5 minutes default
+      storageKey: config.cache?.storageKey ?? `tenant_cache_${tenantSlug || 'default'}`,
+    }),
+    [config.cache, tenantSlug]
+  );
+
+  // RFC-003: Try to load from cache on initialization
+  const [tenant, setTenant] = useState<PublicTenantInfo | null>(() => {
+    if (config.initialTenant) return config.initialTenant;
+    if (!cacheConfig.enabled || !tenantSlug) return null;
+
+    try {
+      const cached = localStorage.getItem(cacheConfig.storageKey);
+      if (!cached) return null;
+
+      const parsed: CachedTenantInfo = JSON.parse(cached);
+      const now = Date.now();
+      const age = now - parsed.timestamp;
+
+      // Check if cache is still valid
+      if (age < cacheConfig.ttl && parsed.tenantSlug === tenantSlug) {
+        return parsed.data;
+      }
+
+      // Cache expired
+      localStorage.removeItem(cacheConfig.storageKey);
+      return null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [isTenantLoading, setIsTenantLoading] = useState(!tenant && !config.initialTenant);
+  const [tenantError, setTenantError] = useState<Error | null>(null);
+
+  // Settings state
+  const [settings, setSettings] = useState<TenantSettings | null>(null);
+  const [isSettingsLoading, setIsSettingsLoading] = useState(false);
+  const [settingsError, setSettingsError] = useState<Error | null>(null);
+
+  // Re-detect tenant slug when URL changes
+  useEffect(() => {
+    const detected = detectTenantSlug();
+    setTenantSlug(detected);
+  }, [detectTenantSlug]);
 
   // Get settings schema from app info
   const settingsSchema = appInfo?.settingsSchema || null;
 
-  // Load tenant info
+  // RFC-003: Load tenant info with caching
   const loadTenant = useCallback(
-    async (slug: string) => {
+    async (slug: string, bypassCache = false) => {
+      // Check cache first (unless bypassing)
+      if (!bypassCache && cacheConfig.enabled && tenant && tenant.domain === slug) {
+        return; // Already have valid cached data
+      }
+
       try {
         setIsTenantLoading(true);
         setTenantError(null);
@@ -166,6 +226,20 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
         const tenantApi = new TenantApiService(httpService, appId);
         const tenantInfo = await tenantApi.getPublicTenantInfo(slug);
         setTenant(tenantInfo);
+
+        // RFC-003: Save to cache
+        if (cacheConfig.enabled) {
+          try {
+            const cacheData: CachedTenantInfo = {
+              data: tenantInfo,
+              timestamp: Date.now(),
+              tenantSlug: slug,
+            };
+            localStorage.setItem(cacheConfig.storageKey, JSON.stringify(cacheData));
+          } catch (error) {
+            console.warn('Failed to cache tenant info:', error);
+          }
+        }
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to load tenant information');
         setTenantError(error);
@@ -174,8 +248,40 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
         setIsTenantLoading(false);
       }
     },
-    [baseUrl, appId]
+    [baseUrl, appId, cacheConfig, tenant]
   );
+
+  // RFC-003: Background refresh for stale-while-revalidate
+  const backgroundRefresh = useCallback(async () => {
+    if (!cacheConfig.enabled || !tenant || !tenantSlug) return;
+
+    try {
+      const cached = localStorage.getItem(cacheConfig.storageKey);
+      if (!cached) return;
+
+      const parsed: CachedTenantInfo = JSON.parse(cached);
+      const age = Date.now() - parsed.timestamp;
+
+      // If cache is more than 50% expired, refresh in background
+      if (age > cacheConfig.ttl * 0.5) {
+        const httpService = new HttpService(baseUrl);
+        const tenantApi = new TenantApiService(httpService, appId);
+        const tenantInfo = await tenantApi.getPublicTenantInfo(tenantSlug);
+
+        setTenant(tenantInfo);
+
+        const cacheData: CachedTenantInfo = {
+          data: tenantInfo,
+          timestamp: Date.now(),
+          tenantSlug,
+        };
+        localStorage.setItem(cacheConfig.storageKey, JSON.stringify(cacheData));
+      }
+    } catch (error) {
+      console.warn('Background tenant refresh failed:', error);
+      // Don't update error state - keep showing cached data
+    }
+  }, [baseUrl, appId, cacheConfig, tenant, tenantSlug]);
 
   // Load tenant settings
   const loadSettings = useCallback(async () => {
@@ -311,18 +417,23 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
     [settingsSchema]
   );
 
-  // Load tenant on mount (if not SSR)
+  // RFC-003: Load tenant on mount or do background refresh
   useEffect(() => {
     if (!config.initialTenant && tenantSlug) {
-      // Tenant slug found, try to load it from server
-      loadTenant(tenantSlug);
+      if (!tenant) {
+        // No cached data, fetch from server
+        loadTenant(tenantSlug);
+      } else {
+        // We have cached data, do background refresh
+        backgroundRefresh();
+      }
     } else if (!config.initialTenant && !tenantSlug) {
       // No tenant slug found - continue without tenant
       setTenant(null);
       setTenantError(null);
       setIsTenantLoading(false);
     }
-  }, [config.initialTenant, tenantSlug, loadTenant]);
+  }, [config.initialTenant, tenantSlug, tenant, loadTenant, backgroundRefresh]);
 
   // Load settings when tenant changes
   useEffect(() => {
@@ -334,6 +445,64 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
       setIsSettingsLoading(false);
     }
   }, [tenant?.id, loadSettings]);
+
+  // Switch tenant by updating URL and reloading page
+  const switchTenant = useCallback(
+    (targetTenantSlug: string, mode: 'navigate' | 'reload' = 'reload') => {
+      const tenantMode = config.tenantMode || 'selector';
+
+      console.log('[TenantProvider] Switching tenant:', {
+        targetTenantSlug,
+        currentTenantSlug: tenantSlug,
+        tenantMode,
+        mode,
+      });
+
+      // Update localStorage first
+      localStorage.setItem('tenant', targetTenantSlug);
+
+      if (tenantMode === 'subdomain') {
+        // Subdomain mode: redirect to new subdomain
+        const currentHostname = window.location.hostname;
+        const parts = currentHostname.split('.');
+
+        if (parts.length >= 2) {
+          // Replace subdomain
+          parts[0] = targetTenantSlug;
+          const newHostname = parts.join('.');
+          const newUrl = `${window.location.protocol}//${newHostname}${window.location.pathname}${window.location.search}`;
+          console.log('[TenantProvider] Redirecting to:', newUrl);
+          window.location.href = newUrl;
+        } else {
+          console.warn(
+            '[TenantProvider] Cannot switch subdomain, invalid hostname:',
+            currentHostname
+          );
+        }
+      } else if (tenantMode === 'selector') {
+        // Selector mode: update URL parameter
+        const urlParams = new URLSearchParams(window.location.search);
+        urlParams.set(config.selectorParam || 'tenant', targetTenantSlug);
+
+        if (mode === 'reload') {
+          // Full page reload with new tenant
+          const newUrl = `${window.location.pathname}?${urlParams.toString()}${window.location.hash}`;
+          console.log('[TenantProvider] Reloading with new tenant:', newUrl);
+          window.location.href = newUrl;
+        } else {
+          // Navigate without reload (requires router integration)
+          const newUrl = `${window.location.pathname}?${urlParams.toString()}${window.location.hash}`;
+          console.log('[TenantProvider] Navigating without reload:', newUrl);
+          window.history.pushState({}, '', newUrl);
+          // Update state to trigger re-render
+          setTenantSlug(targetTenantSlug);
+          // Trigger tenant reload
+          loadTenant(targetTenantSlug);
+        }
+      }
+    },
+    [config.tenantMode, config.selectorParam, loadTenant, tenantSlug]
+  );
 
   const contextValue = useMemo(() => {
     // Retry function for tenant loading
@@ -357,6 +526,7 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
       settingsError,
       // Actions
       refreshSettings,
+      switchTenant,
       // Validation
       validateSettings,
     };
@@ -370,6 +540,7 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
     isSettingsLoading,
     settingsError,
     refreshSettings,
+    switchTenant,
     validateSettings,
   ]);
 

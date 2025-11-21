@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../providers/AuthProvider';
 import { useTenantInfo } from '../providers/TenantProvider';
-import { useApp } from '../providers/AppProvider';
 
 export interface SignupFormCopy {
   title?: string;
@@ -226,7 +225,6 @@ export function SignupForm({
 
   const { signup, signupTenantAdmin } = useAuth();
   const { tenant } = useTenantInfo();
-  const { appId } = useApp();
 
   const mergedCopy = { ...defaultCopy, ...copy };
   const mergedStyles = { ...defaultStyles, ...styles };
@@ -276,25 +274,23 @@ export function SignupForm({
     try {
       let result;
       if (signupType === 'tenant') {
-        result = await signupTenantAdmin(
-          email || undefined,
-          phoneNumber || undefined,
+        result = await signupTenantAdmin({
+          email: email || undefined,
+          phoneNumber: phoneNumber || undefined,
           name,
           password,
           tenantName,
-          lastName || undefined,
-          appId
-        );
+          lastName: lastName || undefined,
+        });
       } else {
-        result = await signup(
-          email || undefined,
-          phoneNumber || undefined,
+        result = await signup({
+          email: email || undefined,
+          phoneNumber: phoneNumber || undefined,
           name,
           password,
-          tenant!.id,
-          lastName || undefined,
-          appId
-        );
+          tenantId: tenant!.id,
+          lastName: lastName || undefined,
+        });
       }
       onSuccess?.(result);
     } catch (err: any) {

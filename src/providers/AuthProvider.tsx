@@ -3,10 +3,28 @@ import { SessionManager } from '../services/SessionManager';
 import { AuthApiService } from '../services/AuthApiService';
 import { RoleApiService } from '../services/RoleApiService';
 import { UserApiService } from '../services/UserApiService';
+import { TenantApiService } from '../services/TenantApiService';
 import { HttpService } from '../services/HttpService';
 import { useApp } from './AppProvider';
-import { useTenantInfo } from './TenantProvider';
-import type { Role, Permission, User } from '../types/api';
+import { useTenant } from './TenantProvider';
+import type {
+  Role,
+  Permission,
+  User,
+  LoginResponse,
+  VerifyMagicLinkResponse,
+  MagicLinkResponse,
+} from '../types/api';
+import type {
+  LoginParams,
+  SignupParams,
+  SignupTenantAdminParams,
+  SendMagicLinkParams,
+  VerifyMagicLinkParams,
+  RequestPasswordResetParams,
+  ConfirmPasswordResetParams,
+  ChangePasswordParams,
+} from '../types/authParams';
 
 export interface AuthConfig {
   onRefreshFailed?: () => void;
@@ -14,41 +32,20 @@ export interface AuthConfig {
 }
 
 export interface AuthContextValue {
+  // RFC-003: Authentication state
+  isAuthenticated: boolean;
   sessionManager: SessionManager;
   authenticatedHttpService: HttpService; // Authenticated HttpService for protected endpoints
-  // Auth methods
-  login: (username: string, password: string, appId?: string, tenantId?: string) => Promise<any>;
-  signup: (
-    email?: string,
-    phoneNumber?: string,
-    name?: string,
-    password?: string,
-    tenantId?: string,
-    lastName?: string,
-    appId?: string
-  ) => Promise<any>;
-  signupTenantAdmin: (
-    email?: string,
-    phoneNumber?: string,
-    name?: string,
-    password?: string,
-    tenantName?: string,
-    lastName?: string,
-    appId?: string
-  ) => Promise<any>;
+  // Auth methods (RFC-002: Object parameters)
+  login: (params: LoginParams) => Promise<LoginResponse>;
+  signup: (params: SignupParams) => Promise<User>;
+  signupTenantAdmin: (params: SignupTenantAdminParams) => Promise<{ user: User; tenant: any }>;
   // Magic Link methods
-  sendMagicLink: (
-    email: string,
-    tenantId: string,
-    frontendUrl: string,
-    name?: string,
-    lastName?: string,
-    appId?: string
-  ) => Promise<any>;
-  verifyMagicLink: (token: string, email: string, appId: string, tenantId?: string) => Promise<any>;
-  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
-  requestPasswordReset: (email: string, tenantId: string) => Promise<void>;
-  confirmPasswordReset: (token: string, newPassword: string) => Promise<void>;
+  sendMagicLink: (params: SendMagicLinkParams) => Promise<MagicLinkResponse>;
+  verifyMagicLink: (params: VerifyMagicLinkParams) => Promise<VerifyMagicLinkResponse>;
+  changePassword: (params: ChangePasswordParams) => Promise<void>;
+  requestPasswordReset: (params: RequestPasswordResetParams) => Promise<void>;
+  confirmPasswordReset: (params: ConfirmPasswordResetParams) => Promise<void>;
   refreshToken: () => Promise<void>;
   logout: () => void;
   // Session methods
@@ -59,6 +56,7 @@ export interface AuthContextValue {
   currentUser: User | null;
   isUserLoading: boolean;
   userError: Error | null;
+  loadUserData: (forceRefresh?: boolean) => Promise<void>;
   refreshUser: () => Promise<void>;
   // Role and Permission methods
   userRole: Role | null;
@@ -81,45 +79,19 @@ interface AuthProviderProps {
 
 export function AuthProvider({ config = {}, children }: AuthProviderProps) {
   const { appId, baseUrl } = useApp();
-  const tenantInfo = useTenantInfo();
-  const tenantSlug = tenantInfo?.tenantSlug || null;
+  const { tenant, tenantSlug, switchTenant } = useTenant();
   const [availableRoles, setAvailableRoles] = useState<Role[]>(config.initialRoles || []);
   const [rolesLoading, setRolesLoading] = useState(!config.initialRoles);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isUserLoading, setIsUserLoading] = useState(false);
   const [userError, setUserError] = useState<Error | null>(null);
+  const [lastUserFetch, setLastUserFetch] = useState<number>(0);
 
   // Create services with stable references
   const sessionManager = useMemo(() => {
-    const storageKey = tenantSlug ? `auth_tokens_${tenantSlug}` : 'auth_tokens';
-    const tokenStorage = {
-      get: () => {
-        try {
-          const stored = localStorage.getItem(storageKey);
-          return stored ? JSON.parse(stored) : null;
-        } catch {
-          return null;
-        }
-      },
-      set: (tokens: any) => {
-        try {
-          localStorage.setItem(storageKey, JSON.stringify(tokens));
-        } catch {
-          // Handle storage errors silently
-        }
-      },
-      clear: () => {
-        try {
-          localStorage.removeItem(storageKey);
-        } catch {
-          // Handle storage errors silently
-        }
-      },
-    };
-
     return new SessionManager({
+      tenantSlug: tenantSlug, // SessionManager will generate storageKey internally
       onRefreshFailed: config.onRefreshFailed,
-      tokenStorage,
       baseUrl: baseUrl,
     });
   }, [tenantSlug, baseUrl, config.onRefreshFailed]);
@@ -157,30 +129,49 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     return permissions;
   }, [userRole]);
 
-  // Debug log only when userPermissions actually changes
-  useEffect(() => {
-    console.log('AuthProvider - userPermissions changed:', userPermissions);
-  }, [userPermissions]);
+  // RFC-003: Compute isAuthenticated from session state
+  const isAuthenticated = useMemo(() => {
+    return sessionManager.hasValidSession() && currentUser !== null;
+  }, [sessionManager, currentUser]);
+
+  // Cache configuration: refetch user data every 5 minutes
+  const USER_DATA_CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
 
   const contextValue = useMemo(() => {
-    // Load user data from API
-    const loadUserData = async () => {
+    // Load user data from API with cache control
+    const loadUserData = async (forceRefresh = false) => {
       try {
+        // 1. Check if we have a valid session
+        if (!sessionManager.hasValidSession()) {
+          return;
+        }
+
+        // 2. Check if we should use cached data
+        const now = Date.now();
+        const cacheValid = !forceRefresh && now - lastUserFetch < USER_DATA_CACHE_TTL;
+
+        if (cacheValid && currentUser) {
+          return;
+        }
+
+        // 3. Get userId from token (source of truth) or fallback to stored user
+        const userId = sessionManager.getUserId();
+        if (!userId) {
+          console.warn('[AuthProvider] No userId available in token or storage');
+          return;
+        }
+
         setIsUserLoading(true);
         setUserError(null);
 
-        const user = sessionManager.getUser();
-        if (!user?.id) {
-          throw new Error('No user ID available in session');
-        }
-
-        const userData = await userApiService.getUserById(user.id);
+        const userData = await userApiService.getUserById(userId);
         setCurrentUser(userData);
         sessionManager.setUser(userData); // Update session with fresh data
+        setLastUserFetch(Date.now()); // Update cache timestamp
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to load user data');
         setUserError(error);
-        console.error('Failed to load user data:', error);
+        console.error('[AuthProvider] Failed to load user data:', error);
       } finally {
         setIsUserLoading(false);
       }
@@ -190,16 +181,44 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       await loadUserData();
     };
 
-    // Auth methods
-    const login = async (username: string, password: string, appId?: string, tenantId?: string) => {
+    // Auth methods (RFC-002: Object parameters + RFC-001: Auto-switch)
+    const login = async (params: LoginParams): Promise<LoginResponse> => {
+      const { username, password, tenantSlug: targetSlug } = params;
+
+      // RFC-001: Get tenantId from slug if provided, otherwise use current context
+      let resolvedTenantId = tenant?.id;
+      let targetTenantSlug = tenantSlug;
+      let targetSessionManager = sessionManager;
+
+      if (targetSlug) {
+        // Get tenant ID from public endpoint using slug
+        const tenantApi = new TenantApiService(authenticatedHttpService, appId);
+        const tenantInfo = await tenantApi.getPublicTenantInfo(targetSlug);
+        resolvedTenantId = tenantInfo.id;
+        targetTenantSlug = targetSlug;
+      }
+
       const loginResponse = await authApiService.login({
         username,
         password,
         appId,
-        tenantId,
+        tenantId: resolvedTenantId,
       });
 
-      sessionManager.setTokens({
+      // Check if we need to switch
+      const shouldSwitch = targetSlug && targetSlug !== tenantSlug;
+
+      // Save tokens to the correct tenant
+
+      if (shouldSwitch) {
+        // If switching, create a new SessionManager for the target tenant
+        targetSessionManager = new SessionManager({
+          tenantSlug: targetTenantSlug,
+          baseUrl: baseUrl,
+        });
+      }
+
+      targetSessionManager.setTokens({
         accessToken: loginResponse.accessToken,
         refreshToken: loginResponse.refreshToken,
         expiresIn: loginResponse.expiresIn,
@@ -207,7 +226,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
       // Store user data if available in the response
       if (loginResponse.user) {
-        sessionManager.setUser(loginResponse.user);
+        targetSessionManager.setUser(loginResponse.user);
         setCurrentUser(loginResponse.user);
 
         // Load complete user data from API after login
@@ -218,18 +237,18 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
         }
       }
 
+      // Now perform the switch if needed
+      if (shouldSwitch && targetTenantSlug && targetTenantSlug !== tenantSlug) {
+        switchTenant(targetTenantSlug);
+        // Code after this won't execute due to page reload
+      }
+
       return loginResponse;
     };
 
-    const signup = async (
-      email?: string,
-      phoneNumber?: string,
-      name?: string,
-      password?: string,
-      tenantId?: string,
-      lastName?: string,
-      appId?: string
-    ) => {
+    const signup = async (params: SignupParams): Promise<User> => {
+      const { email, phoneNumber, name, password, lastName, tenantId } = params;
+
       if (!email && !phoneNumber) {
         throw new Error('Either email or phoneNumber is required');
       }
@@ -237,12 +256,14 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
         throw new Error('Name and password are required');
       }
 
+      const resolvedTenantId = tenantId ?? tenant?.id;
+
       const signupResponse = await authApiService.signup({
         email,
         phoneNumber,
         name,
         password,
-        tenantId,
+        tenantId: resolvedTenantId,
         lastName,
         appId,
       });
@@ -250,14 +271,10 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     };
 
     const signupTenantAdmin = async (
-      email?: string,
-      phoneNumber?: string,
-      name?: string,
-      password?: string,
-      tenantName?: string,
-      lastName?: string,
-      appId?: string
-    ) => {
+      params: SignupTenantAdminParams
+    ): Promise<{ user: User; tenant: any }> => {
+      const { email, phoneNumber, name, password, tenantName, lastName } = params;
+
       if (!email && !phoneNumber) {
         throw new Error('Either email or phoneNumber is required');
       }
@@ -277,31 +294,40 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       return signupResponse;
     };
 
-    const changePassword = async (currentPassword: string, newPassword: string) => {
+    const changePassword = async (params: ChangePasswordParams): Promise<void> => {
+      const { currentPassword, newPassword } = params;
       const authHeaders = await sessionManager.getAuthHeaders();
       await authApiService.changePassword({ currentPassword, newPassword }, authHeaders);
     };
 
-    const requestPasswordReset = async (email: string, tenantId: string) => {
-      await authApiService.requestPasswordReset({ email, tenantId });
+    const requestPasswordReset = async (params: RequestPasswordResetParams): Promise<void> => {
+      const { email, tenantId } = params;
+      const resolvedTenantId = tenantId ?? tenant?.id;
+
+      if (!resolvedTenantId) {
+        throw new Error('tenantId is required for password reset');
+      }
+
+      await authApiService.requestPasswordReset({ email, tenantId: resolvedTenantId });
     };
 
-    const confirmPasswordReset = async (token: string, newPassword: string) => {
+    const confirmPasswordReset = async (params: ConfirmPasswordResetParams): Promise<void> => {
+      const { token, newPassword } = params;
       await authApiService.confirmPasswordReset({ token, newPassword });
     };
 
     // Magic Link methods
-    const sendMagicLink = async (
-      email: string,
-      tenantId: string,
-      frontendUrl: string,
-      name?: string,
-      lastName?: string,
-      appId?: string
-    ) => {
+    const sendMagicLink = async (params: SendMagicLinkParams): Promise<MagicLinkResponse> => {
+      const { email, frontendUrl, name, lastName, tenantId } = params;
+      const resolvedTenantId = tenantId ?? tenant?.id;
+
+      if (!resolvedTenantId) {
+        throw new Error('tenantId is required for magic link authentication');
+      }
+
       const response = await authApiService.sendMagicLink({
         email,
-        tenantId,
+        tenantId: resolvedTenantId,
         frontendUrl,
         name,
         lastName,
@@ -311,20 +337,43 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     };
 
     const verifyMagicLink = async (
-      token: string,
-      email: string,
-      appId: string,
-      tenantId?: string
-    ) => {
+      params: VerifyMagicLinkParams
+    ): Promise<VerifyMagicLinkResponse> => {
+      const { token, email, tenantSlug: targetSlug } = params;
+
+      // RFC-001: Get tenantId from slug if provided, otherwise use current context
+      let resolvedTenantId = tenant?.id;
+      let targetTenantSlug = tenantSlug;
+      let targetSessionManager = sessionManager;
+
+      if (targetSlug) {
+        // Get tenant ID from public endpoint using slug
+        const tenantApi = new TenantApiService(authenticatedHttpService, appId);
+        const tenantInfo = await tenantApi.getPublicTenantInfo(targetSlug);
+        resolvedTenantId = tenantInfo.id;
+        targetTenantSlug = targetSlug;
+      }
+
       const verifyResponse = await authApiService.verifyMagicLink({
         token,
         email,
         appId,
-        tenantId,
+        tenantId: resolvedTenantId,
       });
 
-      // Set tokens from magic link verification
-      sessionManager.setTokens({
+      // Check if we need to switch
+      const shouldSwitch = targetSlug && targetSlug !== tenantSlug;
+
+      // Save tokens to the correct tenant
+
+      if (shouldSwitch) {
+        // If switching, create a new SessionManager for the target tenant
+        targetSessionManager = new SessionManager({
+          tenantSlug: targetTenantSlug,
+          baseUrl: baseUrl,
+        });
+      }
+      targetSessionManager.setTokens({
         accessToken: verifyResponse.accessToken,
         refreshToken: verifyResponse.refreshToken,
         expiresIn: verifyResponse.expiresIn,
@@ -332,7 +381,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
       // Store user data
       if (verifyResponse.user) {
-        sessionManager.setUser(verifyResponse.user);
+        targetSessionManager.setUser(verifyResponse.user);
         setCurrentUser(verifyResponse.user);
 
         // Load complete user data from API after magic link login
@@ -341,6 +390,12 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
         } catch (error) {
           console.warn('Failed to load complete user data after magic link login:', error);
         }
+      }
+
+      // Now perform the switch if needed
+      if (shouldSwitch && targetTenantSlug && targetTenantSlug !== tenantSlug) {
+        switchTenant(targetTenantSlug);
+        // Code after this won't execute due to page reload
       }
 
       return verifyResponse;
@@ -438,6 +493,8 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     };
 
     return {
+      // RFC-003: Authentication state
+      isAuthenticated,
       sessionManager,
       authenticatedHttpService,
       login,
@@ -456,6 +513,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       currentUser,
       isUserLoading,
       userError,
+      loadUserData,
       refreshUser,
       userRole,
       userPermissions,
@@ -468,18 +526,24 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       refreshRoles,
     };
   }, [
+    isAuthenticated,
     sessionManager,
     authenticatedHttpService,
     authApiService,
     userApiService,
     roleApiService,
     appId,
+    tenant,
+    tenantSlug,
+    switchTenant,
     availableRoles,
     currentUser,
     isUserLoading,
     userError,
     userRole,
     userPermissions,
+    lastUserFetch,
+    USER_DATA_CACHE_TTL,
   ]);
 
   // Fetch roles on mount if not provided via SSR
@@ -510,6 +574,31 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       setCurrentUser(user);
     }
   }, [sessionManager]);
+
+  // Auto-load user data if we have tokens but no currentUser
+  useEffect(() => {
+    // Only trigger auto-load if we don't have currentUser and not already loading
+    if (!currentUser && !isUserLoading) {
+      contextValue.loadUserData().catch(() => {
+        // Silent fail - error already logged in loadUserData
+      });
+    }
+  }, [currentUser, isUserLoading, contextValue]);
+
+  // Periodic refresh of user data (every 5 minutes)
+  useEffect(() => {
+    if (!sessionManager.hasValidSession() || !currentUser) {
+      return; // Only refresh if authenticated
+    }
+
+    const refreshInterval = setInterval(() => {
+      contextValue.loadUserData().catch(() => {
+        // Silent fail - error already logged in loadUserData
+      });
+    }, USER_DATA_CACHE_TTL);
+
+    return () => clearInterval(refreshInterval);
+  }, [sessionManager, currentUser, contextValue, USER_DATA_CACHE_TTL]);
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 }

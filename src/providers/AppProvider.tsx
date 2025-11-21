@@ -11,9 +11,22 @@ import { HttpService } from '../services/HttpService';
 import { AppApiService } from '../services/AppApiService';
 import type { PublicAppInfo } from '../types/api';
 
+// RFC-003: Cache interface for app info
+interface CachedAppInfo {
+  data: PublicAppInfo;
+  timestamp: number;
+  appId: string;
+}
+
 export interface AppConfig {
   baseUrl: string;
   appId: string;
+  // RFC-003: Cache configuration
+  cache?: {
+    enabled?: boolean; // Default: true
+    ttl?: number; // Time to live in milliseconds, default: 5 minutes
+    storageKey?: string; // Default: 'app_cache_{appId}'
+  };
   // Fallbacks
   loadingFallback?: ReactNode;
   errorFallback?: ReactNode | ((error: Error, retry: () => void) => ReactNode);
@@ -86,9 +99,42 @@ const DefaultErrorFallback = ({ error, retry }: { error: Error; retry: () => voi
 );
 
 export function AppProvider({ config, children }: AppProviderProps) {
-  // App info state
-  const [appInfo, setAppInfo] = useState<PublicAppInfo | null>(null);
-  const [isAppLoading, setIsAppLoading] = useState(true);
+  // RFC-003: Cache configuration with defaults
+  const cacheConfig = useMemo(
+    () => ({
+      enabled: config.cache?.enabled ?? true,
+      ttl: config.cache?.ttl ?? 5 * 60 * 1000, // 5 minutes default
+      storageKey: config.cache?.storageKey ?? `app_cache_${config.appId}`,
+    }),
+    [config.cache, config.appId]
+  );
+
+  // RFC-003: Try to load from cache on initialization
+  const [appInfo, setAppInfo] = useState<PublicAppInfo | null>(() => {
+    if (!cacheConfig.enabled) return null;
+
+    try {
+      const cached = localStorage.getItem(cacheConfig.storageKey);
+      if (!cached) return null;
+
+      const parsed: CachedAppInfo = JSON.parse(cached);
+      const now = Date.now();
+      const age = now - parsed.timestamp;
+
+      // Check if cache is still valid
+      if (age < cacheConfig.ttl && parsed.appId === config.appId) {
+        return parsed.data;
+      }
+
+      // Cache expired
+      localStorage.removeItem(cacheConfig.storageKey);
+      return null;
+    } catch {
+      return null;
+    }
+  });
+
+  const [isAppLoading, setIsAppLoading] = useState(!appInfo); // Don't load if we have cache
   const [appError, setAppError] = useState<Error | null>(null);
 
   const contextValue = useMemo(() => {
@@ -108,29 +154,88 @@ export function AppProvider({ config, children }: AppProviderProps) {
     };
   }, [config, appInfo, isAppLoading, appError]);
 
-  // Load app info
-  const loadApp = useCallback(async () => {
+  // RFC-003: Load app info with caching
+  const loadApp = useCallback(
+    async (bypassCache = false) => {
+      // Check cache first (unless bypassing)
+      if (!bypassCache && cacheConfig.enabled && appInfo) {
+        return; // Already have valid cached data
+      }
+
+      try {
+        setIsAppLoading(true);
+        setAppError(null);
+
+        const httpService = new HttpService(config.baseUrl);
+        const appApi = new AppApiService(httpService, {} as any); // SessionManager not needed for public endpoint
+        const appData = await appApi.getPublicAppInfo(config.appId);
+        setAppInfo(appData);
+
+        // RFC-003: Save to cache
+        if (cacheConfig.enabled) {
+          try {
+            const cacheData: CachedAppInfo = {
+              data: appData,
+              timestamp: Date.now(),
+              appId: config.appId,
+            };
+            localStorage.setItem(cacheConfig.storageKey, JSON.stringify(cacheData));
+          } catch (error) {
+            console.warn('Failed to cache app info:', error);
+          }
+        }
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error('Failed to load app information');
+        setAppError(error);
+        setAppInfo(null);
+      } finally {
+        setIsAppLoading(false);
+      }
+    },
+    [config.baseUrl, config.appId, cacheConfig, appInfo]
+  );
+
+  // RFC-003: Background refresh for stale-while-revalidate
+  const backgroundRefresh = useCallback(async () => {
+    if (!cacheConfig.enabled || !appInfo) return;
+
     try {
-      setIsAppLoading(true);
-      setAppError(null);
+      const cached = localStorage.getItem(cacheConfig.storageKey);
+      if (!cached) return;
 
-      const httpService = new HttpService(config.baseUrl);
-      const appApi = new AppApiService(httpService, {} as any); // SessionManager not needed for public endpoint
-      const appData = await appApi.getPublicAppInfo(config.appId);
-      setAppInfo(appData);
-    } catch (err) {
-      const error = err instanceof Error ? err : new Error('Failed to load app information');
-      setAppError(error);
-      setAppInfo(null);
-    } finally {
-      setIsAppLoading(false);
+      const parsed: CachedAppInfo = JSON.parse(cached);
+      const age = Date.now() - parsed.timestamp;
+
+      // If cache is more than 50% expired, refresh in background
+      if (age > cacheConfig.ttl * 0.5) {
+        const httpService = new HttpService(config.baseUrl);
+        const appApi = new AppApiService(httpService, {} as any);
+        const appData = await appApi.getPublicAppInfo(config.appId);
+
+        setAppInfo(appData);
+
+        const cacheData: CachedAppInfo = {
+          data: appData,
+          timestamp: Date.now(),
+          appId: config.appId,
+        };
+        localStorage.setItem(cacheConfig.storageKey, JSON.stringify(cacheData));
+      }
+    } catch (error) {
+      console.warn('Background app refresh failed:', error);
+      // Don't update error state - keep showing cached data
     }
-  }, [config.baseUrl, config.appId]);
+  }, [config, cacheConfig, appInfo]);
 
-  // Load app info on mount
+  // RFC-003: Load app info on mount or do background refresh
   useEffect(() => {
-    loadApp();
-  }, [loadApp]);
+    if (!appInfo) {
+      loadApp();
+    } else {
+      // We have cached data, do background refresh
+      backgroundRefresh();
+    }
+  }, []); // Only run on mount
 
   // Show loading fallback for app info
   if (isAppLoading) {

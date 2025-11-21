@@ -235,7 +235,7 @@ export function PasswordRecoveryForm({
     setSuccess('');
 
     try {
-      await requestPasswordReset(email, tenant.id);
+      await requestPasswordReset({ email, tenantId: tenant.id });
       setSuccess(mergedCopy.successMessage);
       onSuccess?.();
     } catch (err: any) {
@@ -263,7 +263,7 @@ export function PasswordRecoveryForm({
     setSuccess('');
 
     try {
-      await confirmPasswordReset(token, newPassword);
+      await confirmPasswordReset({ token, newPassword });
       setSuccess(mergedCopy.resetSuccessMessage);
       onSuccess?.();
     } catch (err: any) {

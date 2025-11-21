@@ -219,12 +219,13 @@ export interface CreateAppRequest {
 export interface Tenant {
   id: string;
   name: string;
-  domain: string | null;
+  subdomain: string;
   isActive: boolean;
   appId: string;
   settings: Record<string, any>;
   createdAt: string;
   updatedAt: string;
+  isPending?: boolean;
 }
 
 export interface CreateTenantRequest {
@@ -237,7 +238,8 @@ export interface CreateTenantRequest {
 export interface PublicTenantInfo {
   id: string;
   name: string;
-  domain: string | null;
+  subdomain: string;
+  domain?: string | null; // Legacy field
   appId: string;
 }
 

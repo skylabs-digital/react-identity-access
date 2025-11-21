@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../providers/AuthProvider';
 import { useTenantInfo } from '../providers/TenantProvider';
-import { useApp } from '../providers/AppProvider';
 
 export interface LoginFormCopy {
   title?: string;
@@ -245,7 +244,6 @@ export function LoginForm({
 
   const { login } = useAuth();
   const { tenant } = useTenantInfo();
-  const { appId } = useApp();
 
   const mergedCopy = { ...defaultCopy, ...copy };
   const mergedStyles = { ...defaultStyles, ...styles };
@@ -274,7 +272,11 @@ export function LoginForm({
     setError('');
 
     try {
-      const result = await login(username, password, appId, tenant.id);
+      const result = await login({
+        username,
+        password,
+        // tenantId inferred from context automatically
+      });
       onSuccess?.(result);
     } catch (err: any) {
       const errorMessage = err.message || mergedCopy.errorMessage;

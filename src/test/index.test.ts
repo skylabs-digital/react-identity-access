@@ -38,5 +38,15 @@ describe('react-identity-access', () => {
       expect(exports.AuthProvider).toBeDefined();
       expect(exports.FeatureFlagProvider).toBeDefined();
     });
+
+    it('should export auth parameter types (RFC-002)', async () => {
+      // TypeScript compilation validates that these types exist
+      // This test ensures the types file can be imported without errors
+      const authParamsModule = await import('../types/authParams');
+      expect(authParamsModule).toBeDefined();
+
+      // The types themselves don't have runtime values, but the module should be accessible
+      // If types are missing, TypeScript compilation would fail
+    });
   });
 });

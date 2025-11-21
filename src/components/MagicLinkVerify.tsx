@@ -43,7 +43,7 @@ export interface MagicLinkVerifyProps {
   token?: string;
   email?: string;
   appId?: string;
-  tenantId?: string;
+  tenantSlug?: string;
   // Auto-redirect after success (in milliseconds)
   autoRedirectDelay?: number;
 }
@@ -207,7 +207,7 @@ export function MagicLinkVerify({
   token: propToken,
   email: propEmail,
   appId: propAppId,
-  tenantId: propTenantId,
+  tenantSlug: propTenantSlug,
   autoRedirectDelay = 3000,
 }: MagicLinkVerifyProps) {
   const [state, setState] = useState<VerificationState>('verifying');
@@ -228,7 +228,7 @@ export function MagicLinkVerify({
       token: propToken || urlParams.get('token') || '',
       email: propEmail || urlParams.get('email') || '',
       appId: propAppId || urlParams.get('appId') || '',
-      tenantId: propTenantId || urlParams.get('tenantId') || undefined,
+      tenantSlug: propTenantSlug || urlParams.get('tenantSlug') || undefined,
     };
   };
 
@@ -239,16 +239,15 @@ export function MagicLinkVerify({
     try {
       const params = getUrlParams();
 
-      if (!params.token || !params.email || !params.appId) {
-        throw new Error('Missing required parameters: token, email, or appId');
+      if (!params.token || !params.email) {
+        throw new Error('Missing required parameters: token or email');
       }
 
-      const result = await verifyMagicLink(
-        params.token,
-        params.email,
-        params.appId,
-        params.tenantId
-      );
+      const result = await verifyMagicLink({
+        token: params.token,
+        email: params.email,
+        tenantSlug: params.tenantSlug,
+      });
 
       setState('success');
       onSuccess?.(result);
