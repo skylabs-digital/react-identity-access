@@ -52,7 +52,6 @@ export function FeatureFlag({ name, children, fallback }: FeatureFlagProps) {
     );
   }
 
-  console.log(name, isEnabled(name));
   // Show children if feature flag is enabled
   if (isEnabled(name)) {
     return <>{children}</>;

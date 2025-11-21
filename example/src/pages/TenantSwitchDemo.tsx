@@ -27,13 +27,6 @@ export default function TenantSwitchDemo() {
     setError('');
     setMessage('');
 
-    console.log('[TenantSwitchDemo] Starting login:', {
-      username,
-      targetTenantSlug,
-      currentTenantId: tenant?.id,
-      currentTenantSlug: tenantSlug,
-    });
-
     try {
       // RFC-002: Object parameters - clean and self-documenting
       const result = await login({
@@ -41,8 +34,6 @@ export default function TenantSwitchDemo() {
         password,
         tenantSlug: targetTenantSlug || undefined, // RFC-001: Target tenant slug for auto-switch
       });
-
-      console.log('[TenantSwitchDemo] Login completed:', result);
 
       // RFC-001: If tenantSlug differs from current tenant, auto-switch happens here
       // The page will reload with the new tenant, so this message may not be seen
@@ -56,10 +47,6 @@ export default function TenantSwitchDemo() {
   };
 
   const handleManualSwitch = (slug: string) => {
-    console.log('[TenantSwitchDemo] Manual switch triggered:', {
-      slug,
-      currentTenantSlug: tenantSlug,
-    });
     // Manual tenant switching
     switchTenant(slug);
   };

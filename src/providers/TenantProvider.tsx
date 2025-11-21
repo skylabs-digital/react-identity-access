@@ -451,13 +451,6 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
     (targetTenantSlug: string, mode: 'navigate' | 'reload' = 'reload') => {
       const tenantMode = config.tenantMode || 'selector';
 
-      console.log('[TenantProvider] Switching tenant:', {
-        targetTenantSlug,
-        currentTenantSlug: tenantSlug,
-        tenantMode,
-        mode,
-      });
-
       // Update localStorage first
       localStorage.setItem('tenant', targetTenantSlug);
 
@@ -471,7 +464,6 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
           parts[0] = targetTenantSlug;
           const newHostname = parts.join('.');
           const newUrl = `${window.location.protocol}//${newHostname}${window.location.pathname}${window.location.search}`;
-          console.log('[TenantProvider] Redirecting to:', newUrl);
           window.location.href = newUrl;
         } else {
           console.warn(
@@ -487,12 +479,10 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
         if (mode === 'reload') {
           // Full page reload with new tenant
           const newUrl = `${window.location.pathname}?${urlParams.toString()}${window.location.hash}`;
-          console.log('[TenantProvider] Reloading with new tenant:', newUrl);
           window.location.href = newUrl;
         } else {
           // Navigate without reload (requires router integration)
           const newUrl = `${window.location.pathname}?${urlParams.toString()}${window.location.hash}`;
-          console.log('[TenantProvider] Navigating without reload:', newUrl);
           window.history.pushState({}, '', newUrl);
           // Update state to trigger re-render
           setTenantSlug(targetTenantSlug);
