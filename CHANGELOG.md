@@ -1,3 +1,32 @@
+# [2.0.0](https://github.com/skylabs-digital/react-identity-access/compare/v1.6.0...v2.0.0) (2025-11-21)
+
+
+* feat!: refactor token handling and centralize user data logic ([6cc1fa0](https://github.com/skylabs-digital/react-identity-access/commit/6cc1fa001de065dc49d370f6ec786db5f4a43ac3))
+
+
+### BREAKING CHANGES
+
+* Complete refactor of authentication and token management
+
+- Removed tenantId parameter from LoginParams and VerifyMagicLinkParams
+- Auth methods now accept tenantSlug instead of tenantId for tenant switching
+- Tenant ID is now resolved via public API endpoint using slug
+- Centralized user data loading logic in loadUserData() method
+- Added JWT token decoding with userId extraction as source of truth
+- Exposed loadUserData(forceRefresh) in AuthContextValue for manual refresh
+- Implemented intelligent caching with 5-minute TTL and periodic auto-refresh
+- Auto-loads user data on mount when tokens exist but no userData present
+- SessionManager now provides getTokenPayload() and getUserId() methods
+- Removed manual localStorage manipulation outside SessionManager
+- Simplified tenant switching logic to use SessionManager instances
+- Updated all pre-built components to use new tenantSlug-based API
+
+Migration guide:
+- Replace tenantId with tenantSlug in login() and verifyMagicLink() calls
+- Use public tenant info endpoint to resolve tenant slugs to IDs
+- Tokens are now stored directly under correct tenant key from start
+- No manual token copying needed after tenant switch
+
 # [1.6.0](https://github.com/skylabs-digital/react-identity-access/compare/v1.5.0...v1.6.0) (2025-09-23)
 
 
