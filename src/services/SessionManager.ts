@@ -107,7 +107,20 @@ export class SessionManager {
   }
 
   getTokens(): TokenData | null {
-    return this.tokenStorage.get();
+    const { accessToken, refreshToken, expiresAt, expiresIn, tokenType } =
+      this.tokenStorage.get() || {};
+
+    if (!accessToken) {
+      return null;
+    }
+
+    return {
+      accessToken,
+      refreshToken,
+      expiresAt,
+      expiresIn,
+      tokenType,
+    };
   }
 
   clearTokens(): void {

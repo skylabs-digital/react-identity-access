@@ -2,6 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { UserType } from '../types/api';
 import { HttpService } from '../services/HttpService';
 import { ApiMappers } from '../utils/mappers';
+import { SessionManager } from '../services/SessionManager';
 
 describe('react-identity-access', () => {
   describe('UserType enum', () => {
@@ -23,6 +24,55 @@ describe('react-identity-access', () => {
     it('should exist and be accessible', () => {
       expect(ApiMappers).toBeDefined();
       expect(typeof ApiMappers).toBe('function');
+    });
+  });
+
+  describe('SessionManager.getTokens', () => {
+    const storageKey = 'test_auth_tokens';
+
+    beforeEach(() => {
+      window.localStorage.clear();
+    });
+
+    it('should return null when storage is empty', () => {
+      const sessionManager = new SessionManager({ storageKey });
+      expect(sessionManager.getTokens()).toBeNull();
+    });
+
+    it('should return null when tokenStorage contains user but no accessToken', () => {
+      window.localStorage.setItem(
+        storageKey,
+        JSON.stringify({
+          user: { id: 'user-1', email: 'a@b.com' },
+          refreshToken: 'refresh-only',
+          expiresAt: Date.now() + 1000,
+        })
+      );
+
+      const sessionManager = new SessionManager({ storageKey });
+      expect(sessionManager.getTokens()).toBeNull();
+    });
+
+    it('should return tokens when accessToken exists', () => {
+      const tokenData = {
+        accessToken: 'access',
+        refreshToken: 'refresh',
+        expiresAt: 123,
+        expiresIn: 456,
+        tokenType: 'Bearer',
+        user: { id: 'user-1' },
+      };
+
+      window.localStorage.setItem(storageKey, JSON.stringify(tokenData));
+
+      const sessionManager = new SessionManager({ storageKey });
+      expect(sessionManager.getTokens()).toEqual({
+        accessToken: 'access',
+        refreshToken: 'refresh',
+        expiresAt: 123,
+        expiresIn: 456,
+        tokenType: 'Bearer',
+      });
     });
   });
 
