@@ -1,3 +1,10 @@
+## [2.0.1](https://github.com/skylabs-digital/react-identity-access/compare/v2.0.0...v2.0.1) (2025-12-19)
+
+
+### Bug Fixes
+
+* update GitHub Actions workflow and add API documentation ([75eddbf](https://github.com/skylabs-digital/react-identity-access/commit/75eddbfcbea3c023a2d618cf2f1eec7b493762a7))
+
 # [2.0.0](https://github.com/skylabs-digital/react-identity-access/compare/v1.6.0...v2.0.0) (2025-11-21)
 
 
