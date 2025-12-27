@@ -27,9 +27,6 @@ export interface AppConfig {
     ttl?: number; // Time to live in milliseconds, default: 5 minutes
     storageKey?: string; // Default: 'app_cache_{appId}'
   };
-  // Fallbacks
-  loadingFallback?: ReactNode;
-  errorFallback?: ReactNode | ((error: Error, retry: () => void) => ReactNode);
 }
 
 interface AppContextValue {
@@ -48,55 +45,6 @@ interface AppProviderProps {
   config: AppConfig;
   children: ReactNode;
 }
-
-// Default loading component
-const DefaultLoadingFallback = () => (
-  <div
-    style={{
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      height: '100vh',
-      fontFamily: 'system-ui, sans-serif',
-    }}
-  >
-    <div>Loading application...</div>
-  </div>
-);
-
-// Default error component
-const DefaultErrorFallback = ({ error, retry }: { error: Error; retry: () => void }) => (
-  <div
-    style={{
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      alignItems: 'center',
-      height: '100vh',
-      fontFamily: 'system-ui, sans-serif',
-      textAlign: 'center',
-      padding: '20px',
-    }}
-  >
-    <h2 style={{ color: '#dc3545', marginBottom: '16px' }}>Application Error</h2>
-    <p style={{ color: '#6c757d', marginBottom: '24px' }}>
-      {error.message || 'Unable to load application'}
-    </p>
-    <button
-      onClick={retry}
-      style={{
-        padding: '8px 16px',
-        backgroundColor: '#007bff',
-        color: 'white',
-        border: 'none',
-        borderRadius: '4px',
-        cursor: 'pointer',
-      }}
-    >
-      Retry
-    </button>
-  </div>
-);
 
 export function AppProvider({ config, children }: AppProviderProps) {
   // RFC-003: Cache configuration with defaults
@@ -237,21 +185,8 @@ export function AppProvider({ config, children }: AppProviderProps) {
     }
   }, []); // Only run on mount
 
-  // Show loading fallback for app info
-  if (isAppLoading) {
-    return <>{config.loadingFallback || <DefaultLoadingFallback />}</>;
-  }
-
-  // Show error fallback for app info
-  if (appError) {
-    const ErrorComponent =
-      typeof config.errorFallback === 'function'
-        ? config.errorFallback(appError, () => loadApp())
-        : config.errorFallback || <DefaultErrorFallback error={appError} retry={() => loadApp()} />;
-
-    return <>{ErrorComponent}</>;
-  }
-
+  // No longer blocks children - loading state is exposed via context
+  // Use AppLoader component to block until ready
   return <AppContext.Provider value={contextValue}>{children}</AppContext.Provider>;
 }
 

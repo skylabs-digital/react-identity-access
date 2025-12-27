@@ -10,6 +10,7 @@ import {
 import { useApp } from './AppProvider';
 import { HttpService } from '../services/HttpService';
 import { TenantApiService } from '../services/TenantApiService';
+import { detectTenantSlug as detectTenant } from '../utils/tenantDetection';
 import type { TenantSettings, JSONSchema, PublicTenantInfo } from '../types/api';
 
 // RFC-003: Cache interface for tenant info
@@ -22,6 +23,7 @@ interface CachedTenantInfo {
 export interface TenantConfig {
   // Tenant configuration
   tenantMode?: 'subdomain' | 'selector';
+  baseDomain?: string; // Base domain for subdomain mode (e.g., 'kommi.click')
   selectorParam?: string; // Default: 'tenant', used when tenantMode is 'selector'
   // RFC-003: Cache configuration
   cache?: {
@@ -31,9 +33,6 @@ export interface TenantConfig {
   };
   // SSR support
   initialTenant?: PublicTenantInfo;
-  // Fallbacks
-  loadingFallback?: ReactNode;
-  errorFallback?: ReactNode | ((error: Error, retry: () => void) => ReactNode);
 }
 
 interface TenantContextValue {
@@ -62,97 +61,26 @@ interface TenantProviderProps {
   children: ReactNode;
 }
 
-// Default loading component
-const DefaultLoadingFallback = () => (
-  <div
-    style={{
-      display: 'flex',
-      justifyContent: 'center',
-      alignItems: 'center',
-      height: '100vh',
-      fontFamily: 'system-ui, sans-serif',
-    }}
-  >
-    <div>Loading tenant...</div>
-  </div>
-);
-
-// Default error component
-const DefaultErrorFallback = ({ error, retry }: { error: Error; retry: () => void }) => (
-  <div
-    style={{
-      display: 'flex',
-      flexDirection: 'column',
-      justifyContent: 'center',
-      alignItems: 'center',
-      height: '100vh',
-      fontFamily: 'system-ui, sans-serif',
-      textAlign: 'center',
-      padding: '20px',
-    }}
-  >
-    <h2 style={{ color: '#dc3545', marginBottom: '16px' }}>Tenant Error</h2>
-    <p style={{ color: '#6c757d', marginBottom: '24px' }}>
-      {error.message || 'Unable to load tenant'}
-    </p>
-    <button
-      onClick={retry}
-      style={{
-        padding: '8px 16px',
-        backgroundColor: '#007bff',
-        color: 'white',
-        border: 'none',
-        borderRadius: '4px',
-        cursor: 'pointer',
-      }}
-    >
-      Retry
-    </button>
-  </div>
-);
-
 export function TenantProvider({ config, children }: TenantProviderProps) {
   const { baseUrl, appInfo, appId } = useApp();
 
-  // Detect tenant slug from URL or config with localStorage fallback
+  // Detect tenant slug from URL using extracted utility
   const detectTenantSlug = useCallback((): string | null => {
-    const tenantMode = config.tenantMode || 'selector';
-    const storageKey = `tenant`;
-
     if (typeof window === 'undefined') return null;
 
-    if (tenantMode === 'subdomain') {
-      const hostname = window.location.hostname;
-      const parts = hostname.split('.');
-
-      // Extract subdomain (assuming format: subdomain.domain.com)
-      if (parts.length >= 3) {
-        const subdomain = parts[0];
-        // Save to localStorage for persistence
-        localStorage.setItem(storageKey, subdomain);
-        return subdomain;
-      }
-
-      // Fallback to localStorage if no subdomain found
-      return localStorage.getItem(storageKey);
-    } else if (tenantMode === 'selector') {
-      // tenantMode === 'selector'
-      const urlParams = new URLSearchParams(window.location.search);
-      const urlTenant = urlParams.get(config.selectorParam || 'tenant');
-
-      if (urlTenant) {
-        // Save to localStorage when found in URL
-        localStorage.setItem(storageKey, urlTenant);
-        return urlTenant;
-      }
-
-      // Fallback to localStorage if not in URL
-      return localStorage.getItem(storageKey);
-    }
-
-    // No tenant mode specified, return null
-    return null;
-  }, [config.tenantMode, config.selectorParam]);
+    return detectTenant(
+      {
+        tenantMode: config.tenantMode || 'selector',
+        baseDomain: config.baseDomain,
+        selectorParam: config.selectorParam,
+      },
+      {
+        hostname: window.location.hostname,
+        search: window.location.search,
+      },
+      window.localStorage
+    );
+  }, [config.tenantMode, config.baseDomain, config.selectorParam]);
 
   // Detect tenant slug on mount and on URL changes
   const [tenantSlug, setTenantSlug] = useState<string | null>(() => detectTenantSlug());
@@ -534,23 +462,8 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
     validateSettings,
   ]);
 
-  // Show loading fallback
-  if (isTenantLoading) {
-    return <>{config.loadingFallback || <DefaultLoadingFallback />}</>;
-  }
-
-  // Show error fallback
-  if (tenantError) {
-    const ErrorComponent =
-      typeof config.errorFallback === 'function'
-        ? config.errorFallback(tenantError, () => loadTenant(tenantSlug || ''))
-        : config.errorFallback || (
-            <DefaultErrorFallback error={tenantError} retry={() => loadTenant(tenantSlug || '')} />
-          );
-
-    return <>{ErrorComponent}</>;
-  }
-
+  // No longer blocks children - loading state is exposed via context
+  // Use AppLoader component to block until ready
   return <TenantContext.Provider value={contextValue}>{children}</TenantContext.Provider>;
 }
 
@@ -560,6 +473,11 @@ export function useTenant(): TenantContextValue {
     throw new Error('useTenant must be used within a TenantProvider');
   }
   return context;
+}
+
+// Optional hook that returns null if not inside TenantProvider
+export function useTenantOptional(): TenantContextValue | null {
+  return useContext(TenantContext);
 }
 
 // Backward compatibility
