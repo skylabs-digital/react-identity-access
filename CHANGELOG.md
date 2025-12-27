@@ -1,3 +1,10 @@
+# [2.1.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.0.1...v2.1.0) (2025-12-27)
+
+
+### Features
+
+* add AppLoader component and refactor provider loading behavior ([9786bdf](https://github.com/skylabs-digital/react-identity-access/commit/9786bdf398717cfa1d650366a5658eb910ffe58b))
+
 ## [2.0.1](https://github.com/skylabs-digital/react-identity-access/compare/v2.0.0...v2.0.1) (2025-12-19)
 
 
