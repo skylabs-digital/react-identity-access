@@ -1,3 +1,11 @@
+# [2.8.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.7.0...v2.8.0) (2025-12-29)
+
+
+### Features
+
+* format debug log message for URL token detection to improve code readability ([83533e7](https://github.com/skylabs-digital/react-identity-access/commit/83533e7ace893695f7aad0a394ee426882d2ab40))
+* initialize isLoadingAfterUrlTokens based on URL token presence to prevent race condition ([4e65d99](https://github.com/skylabs-digital/react-identity-access/commit/4e65d997685e1e9c9f6995d767ceb4ccc9672e00))
+
 # [2.7.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.6.0...v2.7.0) (2025-12-29)
 
 
