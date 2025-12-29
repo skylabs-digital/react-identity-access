@@ -53,14 +53,31 @@ export function decodeAuthTokens(encoded: string): AuthTokens | null {
  * Extract auth tokens from current URL if present
  */
 export function extractAuthTokensFromUrl(): AuthTokens | null {
-  if (typeof window === 'undefined') return null;
+  if (typeof window === 'undefined') {
+    console.log('[CrossDomainAuth] SSR environment, skipping URL token extraction');
+    return null;
+  }
 
   const urlParams = new URLSearchParams(window.location.search);
   const encoded = urlParams.get(AUTH_TRANSFER_PARAM);
 
+  console.log('[CrossDomainAuth] extractAuthTokensFromUrl called', {
+    hasAuthParam: !!encoded,
+    searchParams: window.location.search,
+    encodedLength: encoded?.length,
+  });
+
   if (!encoded) return null;
 
-  return decodeAuthTokens(encoded);
+  const decoded = decodeAuthTokens(encoded);
+  console.log('[CrossDomainAuth] Token decode result:', {
+    success: !!decoded,
+    hasAccessToken: !!decoded?.accessToken,
+    hasRefreshToken: !!decoded?.refreshToken,
+    expiresIn: decoded?.expiresIn,
+  });
+
+  return decoded;
 }
 
 /**
@@ -71,6 +88,11 @@ export function clearAuthTokensFromUrl(): void {
 
   const url = new URL(window.location.href);
   url.searchParams.delete(AUTH_TRANSFER_PARAM);
+
+  console.log('[CrossDomainAuth] Clearing auth tokens from URL', {
+    oldUrl: window.location.href,
+    newUrl: url.toString(),
+  });
 
   // Update URL without reload
   window.history.replaceState({}, '', url.toString());

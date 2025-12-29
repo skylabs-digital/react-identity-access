@@ -583,27 +583,59 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
   }, [appId, baseUrl, config.initialRoles]);
 
   // Cross-subdomain auth: Check for tokens in URL on mount
+  // Track if we've checked for URL tokens (not just if we found them)
+  // Use state (not ref) so that dependent effects re-run when this changes
+  const [urlTokensChecked, setUrlTokensChecked] = useState(false);
   const urlTokensProcessed = useRef(false);
   useEffect(() => {
-    if (urlTokensProcessed.current) return;
+    console.log('[AuthProvider] Cross-subdomain auth effect running', {
+      alreadyChecked: urlTokensChecked,
+      alreadyProcessed: urlTokensProcessed.current,
+      currentUrl: typeof window !== 'undefined' ? window.location.href : 'SSR',
+    });
+
+    if (urlTokensChecked) {
+      console.log('[AuthProvider] URL tokens already checked, skipping');
+      return;
+    }
+
+    // Mark as checked immediately to prevent race conditions
+    setUrlTokensChecked(true);
 
     const urlTokens = extractAuthTokensFromUrl();
+    console.log('[AuthProvider] URL tokens extraction result:', {
+      found: !!urlTokens,
+      hasAccessToken: !!urlTokens?.accessToken,
+    });
+
     if (urlTokens) {
       urlTokensProcessed.current = true;
+      console.log('[AuthProvider] Saving URL tokens to session...');
+
       // Save tokens from URL to session
       sessionManager.setTokens({
         accessToken: urlTokens.accessToken,
         refreshToken: urlTokens.refreshToken,
         expiresIn: urlTokens.expiresIn,
       });
+
+      console.log('[AuthProvider] Tokens saved, verifying session validity:', {
+        hasValidSession: sessionManager.hasValidSession(),
+      });
+
       // Clean up URL immediately
       clearAuthTokensFromUrl();
+
       // Trigger user data load
-      contextValue.loadUserData().catch(() => {
-        // Silent fail - error already logged in loadUserData
+      console.log('[AuthProvider] Loading user data after URL token consumption...');
+      contextValue.loadUserData().catch(error => {
+        console.error(
+          '[AuthProvider] Failed to load user data after URL token consumption:',
+          error
+        );
       });
     }
-  }, [sessionManager, contextValue]);
+  }, [sessionManager, contextValue, urlTokensChecked]);
 
   // Initialize user data from session on mount
   useEffect(() => {
@@ -615,13 +647,30 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
   // Auto-load user data if we have tokens but no currentUser
   useEffect(() => {
+    console.log('[AuthProvider] Auto-load effect running', {
+      hasCurrentUser: !!currentUser,
+      isUserLoading,
+      hasValidSession: sessionManager.hasValidSession(),
+      urlTokensChecked,
+      urlTokensProcessed: urlTokensProcessed.current,
+    });
+
+    // Wait until URL tokens have been checked before auto-loading
+    // This prevents race conditions where we try to load user data
+    // before URL tokens are processed
+    if (!urlTokensChecked) {
+      console.log('[AuthProvider] Waiting for URL tokens check before auto-load');
+      return;
+    }
+
     // Only trigger auto-load if we don't have currentUser and not already loading
     if (!currentUser && !isUserLoading) {
+      console.log('[AuthProvider] Auto-loading user data...');
       contextValue.loadUserData().catch(() => {
         // Silent fail - error already logged in loadUserData
       });
     }
-  }, [currentUser, isUserLoading, contextValue]);
+  }, [currentUser, isUserLoading, contextValue, sessionManager, urlTokensChecked]);
 
   // Periodic refresh of user data (every 5 minutes)
   useEffect(() => {
