@@ -90,6 +90,8 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
   const [isUserLoading, setIsUserLoading] = useState(false);
   const [userError, setUserError] = useState<Error | null>(null);
   const [lastUserFetch, setLastUserFetch] = useState<number>(0);
+  // Track if we're loading user after URL token consumption
+  const [isLoadingAfterUrlTokens, setIsLoadingAfterUrlTokens] = useState(false);
   // === SYNCHRONOUS INITIALIZATION ===
   // Process URL tokens and localStorage BEFORE first render completes
   // This ensures guards see valid session immediately
@@ -129,9 +131,10 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     return manager;
   }, [tenantSlug, baseUrl, config.onRefreshFailed]);
 
-  // Auth is ready once tokens are processed (sync) - no async waiting needed
-  // Guards can now use hasValidSession() safely
-  const isAuthReady = initRef.current.done;
+  // Auth is ready when:
+  // 1. Initial token check is done AND
+  // 2. If we had URL tokens, user data must be loaded (not loading)
+  const isAuthReady = initRef.current.done && !isLoadingAfterUrlTokens;
 
   const authenticatedHttpService = useMemo(() => {
     const service = new HttpService(baseUrl);
@@ -632,11 +635,19 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       console.log('[AuthProvider] EFFECT: Cleaning up URL after sync token processing');
       clearAuthTokensFromUrl();
 
-      // Load user data in background (non-blocking)
-      console.log('[AuthProvider] EFFECT: Loading user data...');
-      contextValue.loadUserData().catch(error => {
-        console.error('[AuthProvider] Failed to load user data:', error);
-      });
+      // Block auth ready until user data is loaded
+      setIsLoadingAfterUrlTokens(true);
+      console.log('[AuthProvider] EFFECT: Loading user data (blocking isAuthReady)...');
+
+      contextValue
+        .loadUserData()
+        .catch(error => {
+          console.error('[AuthProvider] Failed to load user data:', error);
+        })
+        .finally(() => {
+          console.log('[AuthProvider] EFFECT: User data loaded, releasing isAuthReady');
+          setIsLoadingAfterUrlTokens(false);
+        });
     }
   }, [contextValue, urlTokensCleanedUp]);
 
