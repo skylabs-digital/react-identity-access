@@ -198,5 +198,12 @@ export function useApp(): AppContextValue {
   return context;
 }
 
+/**
+ * Optional hook that returns AppContext if available, null otherwise.
+ */
+export function useAppOptional(): AppContextValue | null {
+  return useContext(AppContext);
+}
+
 // Backward compatibility
 export const useApi = useApp;

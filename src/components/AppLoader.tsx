@@ -1,6 +1,9 @@
 import { ReactNode } from 'react';
 import { useApp } from '../providers/AppProvider';
 import { useTenantOptional } from '../providers/TenantProvider';
+import { useAuthOptional } from '../providers/AuthProvider';
+import { useFeatureFlagsOptional } from '../providers/FeatureFlagProvider';
+import { useSubscriptionOptional } from '../providers/SubscriptionProvider';
 
 export interface AppLoaderProps {
   children: ReactNode;
@@ -95,16 +98,36 @@ export function AppLoader({
   // TenantProvider is optional
   const tenantContext = useTenantOptional();
 
+  // Optional providers
+  const authContext = useAuthOptional();
+  const featureFlagsContext = useFeatureFlagsOptional();
+  const subscriptionContext = useSubscriptionOptional();
+
   // Extract tenant state (if TenantProvider is present)
   const isTenantLoading = tenantContext?.isTenantLoading ?? false;
   const tenantError = tenantContext?.tenantError ?? null;
   const tenantSlug = tenantContext?.tenantSlug ?? null;
   const retryTenant = tenantContext?.retryTenant ?? (() => {});
 
+  // Extract ready states from optional providers (default to ready if not present)
+  const isAuthReady = authContext?.isAuthReady ?? true;
+  const isFeatureFlagsReady = featureFlagsContext?.isReady ?? true;
+  const isSubscriptionReady = subscriptionContext?.isReady ?? true;
+
   // Determine if we're still loading
   // Only wait for tenant if: requireTenant is true AND TenantProvider exists AND there's a tenantSlug
   const shouldWaitForTenant = requireTenant && tenantContext && tenantSlug;
-  const isLoading = isAppLoading || (shouldWaitForTenant && isTenantLoading);
+  // Wait for optional providers if they exist and are not ready
+  const shouldWaitForAuth = authContext && !isAuthReady;
+  const shouldWaitForFeatureFlags = featureFlagsContext && !isFeatureFlagsReady;
+  const shouldWaitForSubscription = subscriptionContext && !isSubscriptionReady;
+
+  const isLoading =
+    isAppLoading ||
+    (shouldWaitForTenant && isTenantLoading) ||
+    shouldWaitForAuth ||
+    shouldWaitForFeatureFlags ||
+    shouldWaitForSubscription;
 
   // Combine errors - app error takes priority
   const error = appError || (shouldWaitForTenant ? tenantError : null);
@@ -148,8 +171,11 @@ export function useAppLoaderState(requireTenant = true) {
   // AppProvider is required - useApp will throw if not present
   const { isAppLoading, appError, retryApp, appInfo } = useApp();
 
-  // TenantProvider is optional
+  // Optional providers
   const tenantContext = useTenantOptional();
+  const authContext = useAuthOptional();
+  const featureFlagsContext = useFeatureFlagsOptional();
+  const subscriptionContext = useSubscriptionOptional();
 
   const isTenantLoading = tenantContext?.isTenantLoading ?? false;
   const tenantError = tenantContext?.tenantError ?? null;
@@ -157,8 +183,22 @@ export function useAppLoaderState(requireTenant = true) {
   const tenantSlug = tenantContext?.tenantSlug ?? null;
   const retryTenant = tenantContext?.retryTenant ?? (() => {});
 
+  const isAuthReady = authContext?.isAuthReady ?? true;
+  const isFeatureFlagsReady = featureFlagsContext?.isReady ?? true;
+  const isSubscriptionReady = subscriptionContext?.isReady ?? true;
+
   const shouldWaitForTenant = requireTenant && tenantContext && tenantSlug;
-  const isLoading = isAppLoading || (shouldWaitForTenant && isTenantLoading);
+  const shouldWaitForAuth = authContext && !isAuthReady;
+  const shouldWaitForFeatureFlags = featureFlagsContext && !isFeatureFlagsReady;
+  const shouldWaitForSubscription = subscriptionContext && !isSubscriptionReady;
+
+  const isLoading =
+    isAppLoading ||
+    (shouldWaitForTenant && isTenantLoading) ||
+    shouldWaitForAuth ||
+    shouldWaitForFeatureFlags ||
+    shouldWaitForSubscription;
+
   const error = appError || (shouldWaitForTenant ? tenantError : null);
   const isReady =
     !isLoading && !error && appInfo !== null && (!shouldWaitForTenant || tenant !== null);
@@ -176,5 +216,8 @@ export function useAppLoaderState(requireTenant = true) {
     // Individual states
     app: { isLoading: isAppLoading, error: appError, data: appInfo },
     tenant: tenantContext ? { isLoading: isTenantLoading, error: tenantError, data: tenant } : null,
+    auth: authContext ? { isReady: isAuthReady } : null,
+    featureFlags: featureFlagsContext ? { isReady: isFeatureFlagsReady } : null,
+    subscription: subscriptionContext ? { isReady: isSubscriptionReady } : null,
   };
 }

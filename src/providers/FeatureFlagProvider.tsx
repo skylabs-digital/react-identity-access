@@ -1,8 +1,8 @@
 import { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { FeatureFlagApiService } from '../services/FeatureFlagApiService';
 import { HttpService } from '../services/HttpService';
-import { useApp } from './AppProvider';
-import { useTenantInfo } from './TenantProvider';
+import { useAppOptional } from './AppProvider';
+import { useTenantOptional } from './TenantProvider';
 import type { FeatureFlagItem } from '../types/api';
 
 export interface FeatureFlagConfig {
@@ -14,6 +14,7 @@ export interface FeatureFlagContextValue {
   featureFlags: FeatureFlagItem[];
   loading: boolean;
   error: string | null;
+  isReady: boolean;
   isEnabled: (flagName: string) => boolean;
   getFlag: (flagName: string) => FeatureFlagItem | undefined;
   refresh: () => Promise<void>;
@@ -27,11 +28,18 @@ interface FeatureFlagProviderProps {
 }
 
 export function FeatureFlagProvider({ config = {}, children }: FeatureFlagProviderProps) {
-  const { baseUrl, appId } = useApp();
-  const { tenant } = useTenantInfo();
+  // Use optional hooks - provider works even if App/Tenant not ready yet
+  const appContext = useAppOptional();
+  const tenantContext = useTenantOptional();
+
+  const baseUrl = appContext?.baseUrl ?? '';
+  const appId = appContext?.appId ?? '';
+  const tenant = tenantContext?.tenant ?? null;
+
   const [featureFlags, setFeatureFlags] = useState<FeatureFlagItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   const featureFlagService = useMemo(() => {
     const httpService = new HttpService(baseUrl);
@@ -63,13 +71,16 @@ export function FeatureFlagProvider({ config = {}, children }: FeatureFlagProvid
 
   // Initial fetch and setup refresh interval
   useEffect(() => {
-    fetchFeatureFlags();
+    // Wait for dependencies to be ready
+    if (!baseUrl || !appId) return;
+
+    fetchFeatureFlags().finally(() => setInitialLoadDone(true));
 
     const refreshInterval = config.refreshInterval || 5 * 60 * 1000; // 5 minutes default
     const interval = setInterval(fetchFeatureFlags, refreshInterval);
 
     return () => clearInterval(interval);
-  }, [tenant?.id, config.refreshInterval]);
+  }, [tenant?.id, baseUrl, appId, config.refreshInterval]);
 
   const contextValue = useMemo(() => {
     const isEnabled = (flagKey: string): boolean => {
@@ -91,16 +102,20 @@ export function FeatureFlagProvider({ config = {}, children }: FeatureFlagProvid
       await fetchFeatureFlags();
     };
 
+    // Ready when: dependencies available AND (initial load done OR no tenant needed)
+    const isReady = !!(baseUrl && appId) && (initialLoadDone || !tenant?.id);
+
     return {
       featureFlags,
       loading,
       error,
+      isReady,
       isEnabled,
       getFlag,
       getFlagState,
       refresh,
     };
-  }, [featureFlags, loading, error]);
+  }, [featureFlags, loading, error, baseUrl, appId, tenant?.id, initialLoadDone]);
 
   return <FeatureFlagContext.Provider value={contextValue}>{children}</FeatureFlagContext.Provider>;
 }
@@ -111,4 +126,11 @@ export function useFeatureFlags(): FeatureFlagContextValue {
     throw new Error('useFeatureFlags must be used within a FeatureFlagProvider');
   }
   return context;
+}
+
+/**
+ * Optional hook that returns FeatureFlagContext if available, null otherwise.
+ */
+export function useFeatureFlagsOptional(): FeatureFlagContextValue | null {
+  return useContext(FeatureFlagContext);
 }

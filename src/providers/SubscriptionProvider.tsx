@@ -1,8 +1,8 @@
 import { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
 import { SubscriptionApiService } from '../services/SubscriptionApiService';
 import { HttpService } from '../services/HttpService';
-import { useApp } from './AppProvider';
-import { useTenantInfo } from './TenantProvider';
+import { useAppOptional } from './AppProvider';
+import { useTenantOptional } from './TenantProvider';
 import type { TenantSubscriptionFeatures, PlanFeature } from '../types/api';
 
 export interface SubscriptionConfig {
@@ -15,6 +15,7 @@ export interface SubscriptionContextValue {
   features: PlanFeature[];
   loading: boolean;
   error: string | null;
+  isReady: boolean;
   isFeatureEnabled: (featureKey: string) => boolean;
   getFeature: (featureKey: string) => PlanFeature | undefined;
   getFeatureValue: <T = any>(featureKey: string, defaultValue?: T) => T;
@@ -30,11 +31,17 @@ export interface SubscriptionProviderProps {
 const SubscriptionContext = createContext<SubscriptionContextValue | undefined>(undefined);
 
 export function SubscriptionProvider({ config = {}, children }: SubscriptionProviderProps) {
-  const { baseUrl } = useApp();
-  const { tenant } = useTenantInfo();
+  // Use optional hooks - provider works even if App/Tenant not ready yet
+  const appContext = useAppOptional();
+  const tenantContext = useTenantOptional();
+
+  const baseUrl = appContext?.baseUrl ?? '';
+  const tenant = tenantContext?.tenant ?? null;
+
   const [subscription, setSubscription] = useState<TenantSubscriptionFeatures | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [initialLoadDone, setInitialLoadDone] = useState(false);
 
   // Create subscription service
   const subscriptionService = useMemo(() => {
@@ -67,7 +74,10 @@ export function SubscriptionProvider({ config = {}, children }: SubscriptionProv
 
   // Fetch subscription on mount and when tenant changes
   useEffect(() => {
-    fetchSubscription();
+    // Wait for dependencies to be ready
+    if (!baseUrl) return;
+
+    fetchSubscription().finally(() => setInitialLoadDone(true));
 
     // Set up refresh interval if configured
     if (!config.refreshInterval) return;
@@ -76,7 +86,7 @@ export function SubscriptionProvider({ config = {}, children }: SubscriptionProv
     const interval = setInterval(fetchSubscription, refreshInterval);
 
     return () => clearInterval(interval);
-  }, [tenant?.id, config.refreshInterval]);
+  }, [tenant?.id, baseUrl, config.refreshInterval]);
 
   const contextValue = useMemo(() => {
     const features = subscription?.features || [];
@@ -114,18 +124,22 @@ export function SubscriptionProvider({ config = {}, children }: SubscriptionProv
       await fetchSubscription();
     };
 
+    // Ready when: dependencies available AND (initial load done OR no tenant needed)
+    const isReady = !!baseUrl && (initialLoadDone || !tenant?.id);
+
     return {
       subscription,
       features,
       loading,
       error,
+      isReady,
       isFeatureEnabled,
       getFeature,
       getFeatureValue,
       hasAllowedPlan,
       refresh,
     };
-  }, [subscription, loading, error]);
+  }, [subscription, loading, error, baseUrl, tenant?.id, initialLoadDone]);
 
   return (
     <SubscriptionContext.Provider value={contextValue}>{children}</SubscriptionContext.Provider>
@@ -138,4 +152,11 @@ export function useSubscription(): SubscriptionContextValue {
     throw new Error('useSubscription must be used within a SubscriptionProvider');
   }
   return context;
+}
+
+/**
+ * Optional hook that returns SubscriptionContext if available, null otherwise.
+ */
+export function useSubscriptionOptional(): SubscriptionContextValue | null {
+  return useContext(SubscriptionContext) ?? null;
 }

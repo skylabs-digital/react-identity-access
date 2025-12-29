@@ -59,6 +59,9 @@ export interface AuthContextValue {
   userError: Error | null;
   loadUserData: (forceRefresh?: boolean) => Promise<void>;
   refreshUser: () => Promise<void>;
+  // Initialization state (for cross-subdomain auth)
+  isAuthInitializing: boolean;
+  isAuthReady: boolean;
   // Role and Permission methods
   userRole: Role | null;
   userPermissions: string[];
@@ -87,50 +90,48 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
   const [isUserLoading, setIsUserLoading] = useState(false);
   const [userError, setUserError] = useState<Error | null>(null);
   const [lastUserFetch, setLastUserFetch] = useState<number>(0);
+  // === SYNCHRONOUS INITIALIZATION ===
+  // Process URL tokens and localStorage BEFORE first render completes
+  // This ensures guards see valid session immediately
+  const initRef = useRef<{
+    done: boolean;
+    urlTokens: ReturnType<typeof extractAuthTokensFromUrl>;
+  }>({ done: false, urlTokens: null });
 
-  // Process URL tokens SYNCHRONOUSLY before any guards can redirect
-  // This must happen before sessionManager is used for auth checks
-  const urlTokensRef = useRef<{
-    processed: boolean;
-    tokens: ReturnType<typeof extractAuthTokensFromUrl>;
-  }>({
-    processed: false,
-    tokens: null,
-  });
-
-  if (!urlTokensRef.current.processed) {
-    urlTokensRef.current.processed = true;
-    urlTokensRef.current.tokens = extractAuthTokensFromUrl();
-    console.log('[AuthProvider] SYNC: URL tokens extracted on init', {
-      found: !!urlTokensRef.current.tokens,
-      url: typeof window !== 'undefined' ? window.location.href : 'SSR',
-    });
+  // Extract URL tokens synchronously on first render
+  if (!initRef.current.done) {
+    initRef.current.done = true;
+    initRef.current.urlTokens = extractAuthTokensFromUrl();
+    if (initRef.current.urlTokens) {
+      console.log('[AuthProvider] SYNC: URL tokens found');
+    }
   }
 
   // Create services with stable references
   const sessionManager = useMemo(() => {
     const manager = new SessionManager({
-      tenantSlug: tenantSlug, // SessionManager will generate storageKey internally
+      tenantSlug: tenantSlug,
       onRefreshFailed: config.onRefreshFailed,
       baseUrl: baseUrl,
     });
 
     // If we have URL tokens, save them immediately (sync)
-    if (urlTokensRef.current.tokens) {
+    if (initRef.current.urlTokens) {
       console.log('[AuthProvider] SYNC: Saving URL tokens to session manager');
       manager.setTokens({
-        accessToken: urlTokensRef.current.tokens.accessToken,
-        refreshToken: urlTokensRef.current.tokens.refreshToken,
-        expiresIn: urlTokensRef.current.tokens.expiresIn,
+        accessToken: initRef.current.urlTokens.accessToken,
+        refreshToken: initRef.current.urlTokens.refreshToken,
+        expiresIn: initRef.current.urlTokens.expiresIn,
       });
-      console.log(
-        '[AuthProvider] SYNC: Session valid after saving tokens:',
-        manager.hasValidSession()
-      );
+      console.log('[AuthProvider] SYNC: Session valid:', manager.hasValidSession());
     }
 
     return manager;
   }, [tenantSlug, baseUrl, config.onRefreshFailed]);
+
+  // Auth is ready once tokens are processed (sync) - no async waiting needed
+  // Guards can now use hasValidSession() safely
+  const isAuthReady = initRef.current.done;
 
   const authenticatedHttpService = useMemo(() => {
     const service = new HttpService(baseUrl);
@@ -565,6 +566,8 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       userError,
       loadUserData,
       refreshUser,
+      isAuthInitializing: !isAuthReady,
+      isAuthReady,
       userRole,
       userPermissions,
       availableRoles,
@@ -590,6 +593,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     currentUser,
     isUserLoading,
     userError,
+    isAuthReady,
     userRole,
     userPermissions,
     lastUserFetch,
@@ -620,24 +624,18 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
   // Cross-subdomain auth: Clean URL and load user data after sync token processing
   const [urlTokensCleanedUp, setUrlTokensCleanedUp] = useState(false);
   useEffect(() => {
-    // Tokens were already processed synchronously during init
-    // This effect just handles cleanup and user data loading
-    if (urlTokensCleanedUp) {
-      return;
-    }
-
+    if (urlTokensCleanedUp) return;
     setUrlTokensCleanedUp(true);
 
-    if (urlTokensRef.current.tokens) {
+    // Clean URL if we had tokens (tokens already saved to sessionManager synchronously)
+    if (initRef.current.urlTokens) {
       console.log('[AuthProvider] EFFECT: Cleaning up URL after sync token processing');
       clearAuthTokensFromUrl();
 
-      console.log('[AuthProvider] EFFECT: Loading user data after URL token consumption...');
+      // Load user data in background (non-blocking)
+      console.log('[AuthProvider] EFFECT: Loading user data...');
       contextValue.loadUserData().catch(error => {
-        console.error(
-          '[AuthProvider] Failed to load user data after URL token consumption:',
-          error
-        );
+        console.error('[AuthProvider] Failed to load user data:', error);
       });
     }
   }, [contextValue, urlTokensCleanedUp]);
@@ -652,29 +650,14 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
   // Auto-load user data if we have tokens but no currentUser
   useEffect(() => {
-    console.log('[AuthProvider] Auto-load effect running', {
-      hasCurrentUser: !!currentUser,
-      isUserLoading,
-      hasValidSession: sessionManager.hasValidSession(),
-      urlTokensCleanedUp,
-      hadUrlTokens: !!urlTokensRef.current.tokens,
-    });
-
     // Wait until URL tokens cleanup is done before auto-loading
-    // This prevents race conditions where we try to load user data twice
-    if (!urlTokensCleanedUp) {
-      console.log('[AuthProvider] Waiting for URL tokens cleanup before auto-load');
-      return;
-    }
+    if (!urlTokensCleanedUp) return;
 
     // If we had URL tokens, user data is already being loaded by the cleanup effect
-    if (urlTokensRef.current.tokens) {
-      console.log('[AuthProvider] URL tokens present, skipping auto-load (already handled)');
-      return;
-    }
+    if (initRef.current.urlTokens) return;
 
     // Only trigger auto-load if we don't have currentUser and not already loading
-    if (!currentUser && !isUserLoading) {
+    if (!currentUser && !isUserLoading && sessionManager.hasValidSession()) {
       console.log('[AuthProvider] Auto-loading user data...');
       contextValue.loadUserData().catch(() => {
         // Silent fail - error already logged in loadUserData
@@ -706,4 +689,12 @@ export function useAuth(): AuthContextValue {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
+}
+
+/**
+ * Optional hook that returns AuthContext if available, null otherwise.
+ * Useful for components that may or may not be inside an AuthProvider.
+ */
+export function useAuthOptional(): AuthContextValue | null {
+  return useContext(AuthContext);
 }
