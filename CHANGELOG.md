@@ -1,3 +1,10 @@
+# [2.7.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.6.0...v2.7.0) (2025-12-29)
+
+
+### Features
+
+* block auth ready state until user data loads after URL token consumption ([da81bd0](https://github.com/skylabs-digital/react-identity-access/commit/da81bd031b753260b2d61a774c07b6c53a6e8ba0))
+
 # [2.6.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.5.0...v2.6.0) (2025-12-29)
 
 
