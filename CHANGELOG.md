@@ -1,3 +1,10 @@
+# [2.5.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.4.0...v2.5.0) (2025-12-29)
+
+
+### Features
+
+* refactor URL token processing to run synchronously before auth guards ([45ce138](https://github.com/skylabs-digital/react-identity-access/commit/45ce138ca84f28111dcaf0b4431c905082b5a101))
+
 # [2.4.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.3.0...v2.4.0) (2025-12-29)
 
 
