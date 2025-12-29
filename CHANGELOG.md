@@ -1,3 +1,10 @@
+# [2.3.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.2.0...v2.3.0) (2025-12-29)
+
+
+### Features
+
+* implement cross-subdomain authentication token transfer ([c67e949](https://github.com/skylabs-digital/react-identity-access/commit/c67e9498ed1aae6aab9cf8fcb1db051daec607c2))
+
 # [2.2.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.1.0...v2.2.0) (2025-12-29)
 
 
