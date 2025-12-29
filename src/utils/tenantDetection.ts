@@ -106,3 +106,38 @@ export function detectTenantSlug(
 
   return null;
 }
+
+/**
+ * Build the target hostname for tenant switching in subdomain mode
+ * @param targetTenantSlug - The tenant slug to switch to
+ * @param currentHostname - The current window.location.hostname
+ * @param baseDomain - Optional configured base domain
+ * @returns The new hostname or null if unable to determine
+ */
+export function buildTenantHostname(
+  targetTenantSlug: string,
+  currentHostname: string,
+  baseDomain?: string
+): string | null {
+  // If baseDomain is configured, use it directly (recommended)
+  if (baseDomain) {
+    return `${targetTenantSlug}.${baseDomain}`;
+  }
+
+  // Fallback: try to detect from current hostname
+  const parts = currentHostname.split('.');
+
+  if (parts.length === 2) {
+    // Root domain (e.g., kommi.click) - ADD subdomain at the beginning
+    // kommi.click → test-admin.kommi.click
+    return `${targetTenantSlug}.${currentHostname}`;
+  } else if (parts.length >= 3) {
+    // Already has subdomain (e.g., old-tenant.kommi.click) - REPLACE first part
+    // old-tenant.kommi.click → test-admin.kommi.click
+    parts[0] = targetTenantSlug;
+    return parts.join('.');
+  }
+
+  // Single-part hostname (e.g., localhost) - cannot determine
+  return null;
+}

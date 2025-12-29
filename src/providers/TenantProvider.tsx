@@ -10,7 +10,7 @@ import {
 import { useApp } from './AppProvider';
 import { HttpService } from '../services/HttpService';
 import { TenantApiService } from '../services/TenantApiService';
-import { detectTenantSlug as detectTenant } from '../utils/tenantDetection';
+import { detectTenantSlug as detectTenant, buildTenantHostname } from '../utils/tenantDetection';
 import type { TenantSettings, JSONSchema, PublicTenantInfo } from '../types/api';
 
 // RFC-003: Cache interface for tenant info
@@ -385,20 +385,22 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
       if (tenantMode === 'subdomain') {
         // Subdomain mode: redirect to new subdomain
         const currentHostname = window.location.hostname;
-        const parts = currentHostname.split('.');
+        const newHostname = buildTenantHostname(
+          targetTenantSlug,
+          currentHostname,
+          config.baseDomain
+        );
 
-        if (parts.length >= 2) {
-          // Replace subdomain
-          parts[0] = targetTenantSlug;
-          const newHostname = parts.join('.');
-          const newUrl = `${window.location.protocol}//${newHostname}${window.location.pathname}${window.location.search}`;
-          window.location.href = newUrl;
-        } else {
+        if (!newHostname) {
           console.warn(
             '[TenantProvider] Cannot switch subdomain, invalid hostname:',
             currentHostname
           );
+          return;
         }
+
+        const newUrl = `${window.location.protocol}//${newHostname}${window.location.pathname}${window.location.search}`;
+        window.location.href = newUrl;
       } else if (tenantMode === 'selector') {
         // Selector mode: update URL parameter
         const urlParams = new URLSearchParams(window.location.search);

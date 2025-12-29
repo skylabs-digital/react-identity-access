@@ -3,6 +3,7 @@ import {
   detectSubdomainTenant,
   detectSelectorTenant,
   detectTenantSlug,
+  buildTenantHostname,
 } from '../utils/tenantDetection';
 
 describe('tenantDetection', () => {
@@ -208,6 +209,83 @@ describe('tenantDetection', () => {
         localStorage
       );
       expect(result).toBe('stored-tenant');
+    });
+  });
+
+  describe('buildTenantHostname', () => {
+    describe('with baseDomain configured', () => {
+      const baseDomain = 'kommi.click';
+
+      it('should build hostname from baseDomain (root to tenant)', () => {
+        // From kommi.click → test-admin.kommi.click
+        expect(buildTenantHostname('test-admin', 'kommi.click', baseDomain)).toBe(
+          'test-admin.kommi.click'
+        );
+      });
+
+      it('should build hostname from baseDomain (tenant to tenant)', () => {
+        // From old-tenant.kommi.click → new-tenant.kommi.click
+        expect(buildTenantHostname('new-tenant', 'old-tenant.kommi.click', baseDomain)).toBe(
+          'new-tenant.kommi.click'
+        );
+      });
+
+      it('should work regardless of current hostname when baseDomain is set', () => {
+        // Even from completely different domain
+        expect(buildTenantHostname('acme', 'localhost', baseDomain)).toBe('acme.kommi.click');
+        expect(buildTenantHostname('acme', 'other.domain.com', baseDomain)).toBe(
+          'acme.kommi.click'
+        );
+      });
+
+      it('should handle multi-level base domains', () => {
+        expect(buildTenantHostname('tenant1', 'kommi.click', 'app.example.com')).toBe(
+          'tenant1.app.example.com'
+        );
+      });
+    });
+
+    describe('without baseDomain (fallback detection)', () => {
+      it('should ADD subdomain for 2-part hostname (root domain)', () => {
+        // kommi.click → test-admin.kommi.click
+        expect(buildTenantHostname('test-admin', 'kommi.click')).toBe('test-admin.kommi.click');
+        expect(buildTenantHostname('acme', 'example.com')).toBe('acme.example.com');
+      });
+
+      it('should REPLACE first part for 3-part hostname (existing subdomain)', () => {
+        // old-tenant.kommi.click → new-tenant.kommi.click
+        expect(buildTenantHostname('new-tenant', 'old-tenant.kommi.click')).toBe(
+          'new-tenant.kommi.click'
+        );
+        expect(buildTenantHostname('acme', 'www.example.com')).toBe('acme.example.com');
+      });
+
+      it('should REPLACE first part for 4+ part hostname', () => {
+        // old.app.example.com → new.app.example.com
+        expect(buildTenantHostname('new', 'old.app.example.com')).toBe('new.app.example.com');
+      });
+
+      it('should return null for single-part hostname (localhost)', () => {
+        expect(buildTenantHostname('tenant', 'localhost')).toBe(null);
+      });
+    });
+
+    describe('edge cases', () => {
+      it('should handle empty tenant slug', () => {
+        expect(buildTenantHostname('', 'kommi.click', 'kommi.click')).toBe('.kommi.click');
+      });
+
+      it('should handle tenant slug with hyphens', () => {
+        expect(buildTenantHostname('my-cool-tenant', 'kommi.click', 'kommi.click')).toBe(
+          'my-cool-tenant.kommi.click'
+        );
+      });
+
+      it('should handle tenant slug with numbers', () => {
+        expect(buildTenantHostname('tenant123', 'kommi.click', 'kommi.click')).toBe(
+          'tenant123.kommi.click'
+        );
+      });
     });
   });
 });
