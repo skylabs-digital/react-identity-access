@@ -1,3 +1,10 @@
+# [2.9.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.8.0...v2.9.0) (2025-12-29)
+
+
+### Features
+
+* add optional redirectPath parameter to login flow for post-authentication navigation ([541a66e](https://github.com/skylabs-digital/react-identity-access/commit/541a66ea93492a5678dc063c32ac4047339eca21))
+
 # [2.8.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.7.0...v2.8.0) (2025-12-29)
 
 
