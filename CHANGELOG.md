@@ -1,3 +1,10 @@
+# [2.2.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.1.0...v2.2.0) (2025-12-29)
+
+
+### Features
+
+* extract tenant hostname building logic to utility function ([ec6094e](https://github.com/skylabs-digital/react-identity-access/commit/ec6094e1214ebf99a983b82c41f254eb352dd0a8))
+
 # [2.1.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.0.1...v2.1.0) (2025-12-27)
 
 
