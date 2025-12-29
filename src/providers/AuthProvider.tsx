@@ -1,4 +1,4 @@
-import { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
+import { createContext, useContext, ReactNode, useMemo, useState, useEffect, useRef } from 'react';
 import { SessionManager } from '../services/SessionManager';
 import { AuthApiService } from '../services/AuthApiService';
 import { RoleApiService } from '../services/RoleApiService';
@@ -7,6 +7,7 @@ import { TenantApiService } from '../services/TenantApiService';
 import { HttpService } from '../services/HttpService';
 import { useApp } from './AppProvider';
 import { useTenant } from './TenantProvider';
+import { extractAuthTokensFromUrl, clearAuthTokensFromUrl } from '../utils/crossDomainAuth';
 import type {
   Role,
   Permission,
@@ -239,7 +240,14 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
       // Now perform the switch if needed
       if (shouldSwitch && targetTenantSlug && targetTenantSlug !== tenantSlug) {
-        switchTenant(targetTenantSlug);
+        // Pass tokens for cross-subdomain auth
+        switchTenant(targetTenantSlug, {
+          tokens: {
+            accessToken: loginResponse.accessToken,
+            refreshToken: loginResponse.refreshToken,
+            expiresIn: loginResponse.expiresIn,
+          },
+        });
         // Code after this won't execute due to page reload
       }
 
@@ -394,7 +402,14 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
       // Now perform the switch if needed
       if (shouldSwitch && targetTenantSlug && targetTenantSlug !== tenantSlug) {
-        switchTenant(targetTenantSlug);
+        // Pass tokens for cross-subdomain auth
+        switchTenant(targetTenantSlug, {
+          tokens: {
+            accessToken: verifyResponse.accessToken,
+            refreshToken: verifyResponse.refreshToken,
+            expiresIn: verifyResponse.expiresIn,
+          },
+        });
         // Code after this won't execute due to page reload
       }
 
@@ -566,6 +581,29 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       fetchRoles();
     }
   }, [appId, baseUrl, config.initialRoles]);
+
+  // Cross-subdomain auth: Check for tokens in URL on mount
+  const urlTokensProcessed = useRef(false);
+  useEffect(() => {
+    if (urlTokensProcessed.current) return;
+
+    const urlTokens = extractAuthTokensFromUrl();
+    if (urlTokens) {
+      urlTokensProcessed.current = true;
+      // Save tokens from URL to session
+      sessionManager.setTokens({
+        accessToken: urlTokens.accessToken,
+        refreshToken: urlTokens.refreshToken,
+        expiresIn: urlTokens.expiresIn,
+      });
+      // Clean up URL immediately
+      clearAuthTokensFromUrl();
+      // Trigger user data load
+      contextValue.loadUserData().catch(() => {
+        // Silent fail - error already logged in loadUserData
+      });
+    }
+  }, [sessionManager, contextValue]);
 
   // Initialize user data from session on mount
   useEffect(() => {

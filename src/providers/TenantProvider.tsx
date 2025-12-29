@@ -11,6 +11,7 @@ import { useApp } from './AppProvider';
 import { HttpService } from '../services/HttpService';
 import { TenantApiService } from '../services/TenantApiService';
 import { detectTenantSlug as detectTenant, buildTenantHostname } from '../utils/tenantDetection';
+import { encodeAuthTokens, type AuthTokens, AUTH_TRANSFER_PARAM } from '../utils/crossDomainAuth';
 import type { TenantSettings, JSONSchema, PublicTenantInfo } from '../types/api';
 
 // RFC-003: Cache interface for tenant info
@@ -49,7 +50,10 @@ interface TenantContextValue {
   settingsError: Error | null;
   // Actions
   refreshSettings: () => void;
-  switchTenant: (tenantSlug: string, mode?: 'navigate' | 'reload') => void;
+  switchTenant: (
+    tenantSlug: string,
+    options?: { mode?: 'navigate' | 'reload'; tokens?: AuthTokens; redirectPath?: string }
+  ) => void;
   // Validation
   validateSettings: (settings: TenantSettings) => { isValid: boolean; errors: string[] };
 }
@@ -376,7 +380,11 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
 
   // Switch tenant by updating URL and reloading page
   const switchTenant = useCallback(
-    (targetTenantSlug: string, mode: 'navigate' | 'reload' = 'reload') => {
+    (
+      targetTenantSlug: string,
+      options?: { mode?: 'navigate' | 'reload'; tokens?: AuthTokens; redirectPath?: string }
+    ) => {
+      const { mode = 'reload', tokens, redirectPath } = options || {};
       const tenantMode = config.tenantMode || 'selector';
 
       // Update localStorage first
@@ -399,20 +407,37 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
           return;
         }
 
-        const newUrl = `${window.location.protocol}//${newHostname}${window.location.pathname}${window.location.search}`;
-        window.location.href = newUrl;
+        // Build the new URL
+        const targetPath = redirectPath || window.location.pathname;
+        const url = new URL(`${window.location.protocol}//${newHostname}${targetPath}`);
+
+        // Copy existing search params (except auth transfer)
+        const currentParams = new URLSearchParams(window.location.search);
+        currentParams.forEach((value, key) => {
+          if (key !== AUTH_TRANSFER_PARAM) {
+            url.searchParams.set(key, value);
+          }
+        });
+
+        // If tokens provided, encode and add to URL for cross-subdomain auth
+        if (tokens) {
+          url.searchParams.set(AUTH_TRANSFER_PARAM, encodeAuthTokens(tokens));
+        }
+
+        window.location.href = url.toString();
       } else if (tenantMode === 'selector') {
         // Selector mode: update URL parameter
+        const targetPath = redirectPath || window.location.pathname;
         const urlParams = new URLSearchParams(window.location.search);
         urlParams.set(config.selectorParam || 'tenant', targetTenantSlug);
 
         if (mode === 'reload') {
           // Full page reload with new tenant
-          const newUrl = `${window.location.pathname}?${urlParams.toString()}${window.location.hash}`;
+          const newUrl = `${targetPath}?${urlParams.toString()}${window.location.hash}`;
           window.location.href = newUrl;
         } else {
           // Navigate without reload (requires router integration)
-          const newUrl = `${window.location.pathname}?${urlParams.toString()}${window.location.hash}`;
+          const newUrl = `${targetPath}?${urlParams.toString()}${window.location.hash}`;
           window.history.pushState({}, '', newUrl);
           // Update state to trigger re-render
           setTenantSlug(targetTenantSlug);
@@ -421,7 +446,7 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
         }
       }
     },
-    [config.tenantMode, config.selectorParam, loadTenant, tenantSlug]
+    [config.tenantMode, config.selectorParam, config.baseDomain, loadTenant]
   );
 
   const contextValue = useMemo(() => {
