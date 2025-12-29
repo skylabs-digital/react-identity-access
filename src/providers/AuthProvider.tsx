@@ -232,7 +232,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
     // Auth methods (RFC-002: Object parameters + RFC-001: Auto-switch)
     const login = async (params: LoginParams): Promise<LoginResponse> => {
-      const { username, password, tenantSlug: targetSlug } = params;
+      const { username, password, tenantSlug: targetSlug, redirectPath } = params;
 
       // RFC-001: Get tenantId from slug if provided, otherwise use current context
       let resolvedTenantId = tenant?.id;
@@ -295,6 +295,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
             refreshToken: loginResponse.refreshToken,
             expiresIn: loginResponse.expiresIn,
           },
+          redirectPath,
         });
         // Code after this won't execute due to page reload
       }
