@@ -1,3 +1,10 @@
+# [2.4.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.3.0...v2.4.0) (2025-12-29)
+
+
+### Features
+
+* add debug logging and fix race condition in cross-subdomain auth ([9817bd4](https://github.com/skylabs-digital/react-identity-access/commit/9817bd40764fbe9f405671a1e1cf377379b434d3))
+
 # [2.3.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.2.0...v2.3.0) (2025-12-29)
 
 
