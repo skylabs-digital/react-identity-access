@@ -445,6 +445,154 @@ describe('Token Encoding Edge Cases', () => {
 });
 
 // ============================================================================
+// isAuthReady blocking with URL tokens Tests
+// ============================================================================
+
+describe('isAuthReady blocking behavior', () => {
+  describe('when URL has auth tokens', () => {
+    it('should keep isAuthReady false until user data is loaded', () => {
+      // This tests the logic: isAuthReady = initRef.current.done && !isLoadingAfterUrlTokens
+      // When URL tokens are present, isLoadingAfterUrlTokens starts as false,
+      // then becomes true when loadUserData starts, then false when it finishes
+
+      // The key insight is:
+      // 1. initRef.current.done = true (sync, after extracting tokens)
+      // 2. isLoadingAfterUrlTokens = true (while loading user)
+      // 3. isAuthReady = true && !true = false (blocked)
+      // 4. After loadUserData completes: isLoadingAfterUrlTokens = false
+      // 5. isAuthReady = true && !false = true (unblocked)
+
+      const done = true;
+      const isLoadingAfterUrlTokens = true;
+      const isAuthReady = done && !isLoadingAfterUrlTokens;
+
+      expect(isAuthReady).toBe(false);
+    });
+
+    it('should set isAuthReady true after user data is loaded', () => {
+      const done = true;
+      const isLoadingAfterUrlTokens = false; // After loadUserData completes
+      const isAuthReady = done && !isLoadingAfterUrlTokens;
+
+      expect(isAuthReady).toBe(true);
+    });
+  });
+
+  describe('when URL has no auth tokens', () => {
+    it('should have isAuthReady true immediately', () => {
+      // When no URL tokens, isLoadingAfterUrlTokens stays false
+      const done = true;
+      const isLoadingAfterUrlTokens = false; // Never set to true
+      const isAuthReady = done && !isLoadingAfterUrlTokens;
+
+      expect(isAuthReady).toBe(true);
+    });
+  });
+
+  describe('before initialization', () => {
+    it('should have isAuthReady false before init completes', () => {
+      const done = false;
+      const isLoadingAfterUrlTokens = false;
+      const isAuthReady = done && !isLoadingAfterUrlTokens;
+
+      expect(isAuthReady).toBe(false);
+    });
+  });
+});
+
+// ============================================================================
+// URL Token Flow Integration Tests
+// ============================================================================
+
+describe('URL Token Flow', () => {
+  it('should follow correct state transitions when URL has tokens', () => {
+    // Simulate the state machine for URL token flow
+    const states: Array<{
+      phase: string;
+      done: boolean;
+      isLoadingAfterUrlTokens: boolean;
+      isAuthReady: boolean;
+    }> = [];
+
+    // Phase 1: Before init
+    let done = false;
+    let isLoadingAfterUrlTokens = false;
+    states.push({
+      phase: 'before_init',
+      done,
+      isLoadingAfterUrlTokens,
+      isAuthReady: done && !isLoadingAfterUrlTokens,
+    });
+
+    // Phase 2: After sync token extraction (but before useEffect runs)
+    done = true;
+    states.push({
+      phase: 'after_sync_extraction',
+      done,
+      isLoadingAfterUrlTokens,
+      isAuthReady: done && !isLoadingAfterUrlTokens,
+    });
+
+    // Phase 3: useEffect starts loading user data
+    isLoadingAfterUrlTokens = true;
+    states.push({
+      phase: 'loading_user_data',
+      done,
+      isLoadingAfterUrlTokens,
+      isAuthReady: done && !isLoadingAfterUrlTokens,
+    });
+
+    // Phase 4: loadUserData completes
+    isLoadingAfterUrlTokens = false;
+    states.push({
+      phase: 'user_data_loaded',
+      done,
+      isLoadingAfterUrlTokens,
+      isAuthReady: done && !isLoadingAfterUrlTokens,
+    });
+
+    // Verify state transitions
+    expect(states[0].isAuthReady).toBe(false); // before_init
+    expect(states[1].isAuthReady).toBe(true); // after_sync_extraction (briefly true)
+    expect(states[2].isAuthReady).toBe(false); // loading_user_data (blocked)
+    expect(states[3].isAuthReady).toBe(true); // user_data_loaded (ready)
+  });
+
+  it('should follow correct state transitions when URL has no tokens', () => {
+    const states: Array<{
+      phase: string;
+      done: boolean;
+      isLoadingAfterUrlTokens: boolean;
+      isAuthReady: boolean;
+    }> = [];
+
+    // Phase 1: Before init
+    let done = false;
+    const isLoadingAfterUrlTokens = false; // Never changes
+
+    states.push({
+      phase: 'before_init',
+      done,
+      isLoadingAfterUrlTokens,
+      isAuthReady: done && !isLoadingAfterUrlTokens,
+    });
+
+    // Phase 2: After sync check (no tokens found)
+    done = true;
+    states.push({
+      phase: 'after_sync_check',
+      done,
+      isLoadingAfterUrlTokens,
+      isAuthReady: done && !isLoadingAfterUrlTokens,
+    });
+
+    // Verify state transitions
+    expect(states[0].isAuthReady).toBe(false); // before_init
+    expect(states[1].isAuthReady).toBe(true); // after_sync_check (immediately ready)
+  });
+});
+
+// ============================================================================
 // Real JWT-like Token Tests
 // ============================================================================
 

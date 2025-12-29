@@ -90,8 +90,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
   const [isUserLoading, setIsUserLoading] = useState(false);
   const [userError, setUserError] = useState<Error | null>(null);
   const [lastUserFetch, setLastUserFetch] = useState<number>(0);
-  // Track if we're loading user after URL token consumption
-  const [isLoadingAfterUrlTokens, setIsLoadingAfterUrlTokens] = useState(false);
+
   // === SYNCHRONOUS INITIALIZATION ===
   // Process URL tokens and localStorage BEFORE first render completes
   // This ensures guards see valid session immediately
@@ -105,9 +104,17 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     initRef.current.done = true;
     initRef.current.urlTokens = extractAuthTokensFromUrl();
     if (initRef.current.urlTokens) {
-      console.log('[AuthProvider] SYNC: URL tokens found');
+      console.log('[AuthProvider] SYNC: URL tokens found, will block isAuthReady until user loaded');
     }
   }
+
+  // Track if we're loading user after URL token consumption
+  // CRITICAL: Initialize to TRUE if we have URL tokens, so isAuthReady stays false until user is loaded
+  const [isLoadingAfterUrlTokens, setIsLoadingAfterUrlTokens] = useState(() => {
+    const hasUrlTokens = initRef.current.urlTokens !== null;
+    console.log('[AuthProvider] SYNC: isLoadingAfterUrlTokens initial:', hasUrlTokens);
+    return hasUrlTokens;
+  });
 
   // Create services with stable references
   const sessionManager = useMemo(() => {
