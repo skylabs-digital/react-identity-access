@@ -104,7 +104,9 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     initRef.current.done = true;
     initRef.current.urlTokens = extractAuthTokensFromUrl();
     if (initRef.current.urlTokens) {
-      console.log('[AuthProvider] SYNC: URL tokens found, will block isAuthReady until user loaded');
+      console.log(
+        '[AuthProvider] SYNC: URL tokens found, will block isAuthReady until user loaded'
+      );
     }
   }
 
