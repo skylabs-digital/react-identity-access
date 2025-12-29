@@ -1,3 +1,10 @@
+# [2.6.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.5.0...v2.6.0) (2025-12-29)
+
+
+### Features
+
+* add optional provider hooks and integrate ready states into AppLoader ([b4e34dc](https://github.com/skylabs-digital/react-identity-access/commit/b4e34dc1f0ed5666e7e85f64506dee006ceef9e8))
+
 # [2.5.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.4.0...v2.5.0) (2025-12-29)
 
 
