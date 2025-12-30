@@ -1,3 +1,10 @@
+# [2.10.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.9.0...v2.10.0) (2025-12-30)
+
+
+### Features
+
+* add comprehensive multi-tenant authentication documentation and RFC ([c39e40e](https://github.com/skylabs-digital/react-identity-access/commit/c39e40e9a1095504bf5a2db9483b9f46cd29682e))
+
 # [2.9.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.8.0...v2.9.0) (2025-12-29)
 
 
