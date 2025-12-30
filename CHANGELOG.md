@@ -1,3 +1,10 @@
+## [2.10.1](https://github.com/skylabs-digital/react-identity-access/compare/v2.10.0...v2.10.1) (2025-12-30)
+
+
+### Bug Fixes
+
+* replace minUserType with requiredUserType for exact user type matching in ProtectedRoute ([7ec91b5](https://github.com/skylabs-digital/react-identity-access/commit/7ec91b542924f59f52c698a4dc5cb9ec92b32464))
+
 # [2.10.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.9.0...v2.10.0) (2025-12-30)
 
 
