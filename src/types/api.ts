@@ -39,8 +39,9 @@ export interface User {
   lastName?: string;
   isActive: boolean;
   userType: UserType;
-  tenantId: string;
+  tenantId: string | null; // null for global token, present for tenant-scoped token
   roleId: string | null;
+  role?: string | null; // User's role name in current tenant context
   createdAt: string;
   updatedAt: string;
 }
@@ -64,11 +65,32 @@ export interface LoginRequest {
   tenantId?: string;
 }
 
+// Tenant membership info returned from login
+export interface UserTenantMembership {
+  id: string; // Tenant ID
+  name: string; // Tenant name
+  subdomain: string; // Tenant subdomain
+  role: string | null; // User's role in this tenant
+}
+
 export interface LoginResponse {
   user: User;
-  accessToken: string;
-  refreshToken: string;
+  accessToken: string; // Global OR tenant-scoped (depends on request)
+  refreshToken: string; // Valid for switch-tenant calls
   expiresIn: number;
+  tenants: UserTenantMembership[]; // User's available tenants
+}
+
+// Switch tenant types
+export interface SwitchTenantRequest {
+  refreshToken: string;
+  tenantId: string;
+}
+
+export interface SwitchTenantResponse {
+  accessToken: string; // Tenant-scoped token
+  expiresIn: number;
+  user: User; // User WITH tenantId and role
 }
 
 export interface SignupRequest {

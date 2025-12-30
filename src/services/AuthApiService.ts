@@ -12,6 +12,9 @@ import type {
   VerifyMagicLinkResponse,
   ApiResponse,
   User,
+  SwitchTenantRequest,
+  SwitchTenantResponse,
+  UserTenantMembership,
 } from '../types/api';
 
 export class AuthApiService {
@@ -46,6 +49,21 @@ export class AuthApiService {
 
   async refreshToken(request: RefreshTokenRequest): Promise<RefreshTokenResponse> {
     const response = await this.httpService.post<RefreshTokenResponse>('/auth/refresh', request);
+    return response;
+  }
+
+  async switchTenant(request: SwitchTenantRequest): Promise<SwitchTenantResponse> {
+    const response = await this.httpService.post<SwitchTenantResponse>(
+      '/auth/switch-tenant',
+      request
+    );
+    return response;
+  }
+
+  async getUserTenants(authHeaders: Record<string, string>): Promise<UserTenantMembership[]> {
+    const response = await this.httpService.get<UserTenantMembership[]>('/auth/tenants', {
+      headers: authHeaders,
+    });
     return response;
   }
 

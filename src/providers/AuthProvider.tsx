@@ -15,6 +15,7 @@ import type {
   LoginResponse,
   VerifyMagicLinkResponse,
   MagicLinkResponse,
+  UserTenantMembership,
 } from '../types/api';
 import type {
   LoginParams,
@@ -30,6 +31,9 @@ import type {
 export interface AuthConfig {
   onRefreshFailed?: () => void;
   initialRoles?: Role[]; // For SSR injection
+  // Multi-tenant options (RFC-004)
+  autoSwitchSingleTenant?: boolean; // Auto-switch if user has only one tenant (default: true)
+  onTenantSelectionRequired?: (tenants: UserTenantMembership[]) => void; // Callback when user needs to select tenant
 }
 
 export interface AuthContextValue {
@@ -72,6 +76,11 @@ export interface AuthContextValue {
   hasAllPermissions: (permissions: (string | Permission)[]) => boolean;
   getUserPermissionStrings: () => string[];
   refreshRoles: () => Promise<void>;
+  // RFC-004: Multi-tenant user membership
+  userTenants: UserTenantMembership[];
+  hasTenantContext: boolean;
+  switchToTenant: (tenantId: string, options?: { redirectPath?: string }) => Promise<void>;
+  refreshUserTenants: () => Promise<UserTenantMembership[]>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -90,6 +99,18 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
   const [isUserLoading, setIsUserLoading] = useState(false);
   const [userError, setUserError] = useState<Error | null>(null);
   const [lastUserFetch, setLastUserFetch] = useState<number>(0);
+
+  // RFC-004: Multi-tenant user membership state
+  const [userTenants, setUserTenants] = useState<UserTenantMembership[]>(() => {
+    // Try to load cached tenants from localStorage
+    try {
+      const cached = localStorage.getItem('userTenants');
+      return cached ? JSON.parse(cached) : [];
+    } catch {
+      return [];
+    }
+  });
+  const [hasTenantContext, setHasTenantContext] = useState<boolean>(false);
 
   // === SYNCHRONOUS INITIALIZATION ===
   // Process URL tokens and localStorage BEFORE first render completes
@@ -230,7 +251,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       await loadUserData();
     };
 
-    // Auth methods (RFC-002: Object parameters + RFC-001: Auto-switch)
+    // Auth methods (RFC-002: Object parameters + RFC-001: Auto-switch + RFC-004: Multi-tenant)
     const login = async (params: LoginParams): Promise<LoginResponse> => {
       const { username, password, tenantSlug: targetSlug, redirectPath } = params;
 
@@ -286,6 +307,21 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
         }
       }
 
+      // RFC-004: Store user tenants from login response
+      if (loginResponse.tenants && loginResponse.tenants.length > 0) {
+        setUserTenants(loginResponse.tenants);
+        // Cache in localStorage
+        try {
+          localStorage.setItem('userTenants', JSON.stringify(loginResponse.tenants));
+        } catch {
+          // Ignore localStorage errors
+        }
+      }
+
+      // RFC-004: Determine if we have tenant context
+      const hasTenant = loginResponse.user?.tenantId !== null;
+      setHasTenantContext(hasTenant);
+
       // Now perform the switch if needed
       if (shouldSwitch && targetTenantSlug && targetTenantSlug !== tenantSlug) {
         // Pass tokens for cross-subdomain auth
@@ -298,6 +334,28 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
           redirectPath,
         });
         // Code after this won't execute due to page reload
+      }
+
+      // RFC-004: Handle global login (no tenantId) - auto-switch or callback
+      if (!hasTenant && loginResponse.tenants && loginResponse.tenants.length > 0) {
+        const autoSwitch = config.autoSwitchSingleTenant !== false; // default true
+
+        if (loginResponse.tenants.length === 1 && autoSwitch) {
+          // Auto-switch to the only tenant
+          const singleTenant = loginResponse.tenants[0];
+          // Note: This will cause a page reload/redirect
+          switchTenant(singleTenant.subdomain, {
+            tokens: {
+              accessToken: loginResponse.accessToken,
+              refreshToken: loginResponse.refreshToken,
+              expiresIn: loginResponse.expiresIn,
+            },
+            redirectPath,
+          });
+        } else if (loginResponse.tenants.length > 1 && config.onTenantSelectionRequired) {
+          // Multiple tenants - trigger callback for tenant selection
+          config.onTenantSelectionRequired(loginResponse.tenants);
+        }
       }
 
       return loginResponse;
@@ -486,6 +544,14 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       sessionManager.clearSession();
       setCurrentUser(null);
       setUserError(null);
+      // RFC-004: Clear multi-tenant state
+      setUserTenants([]);
+      setHasTenantContext(false);
+      try {
+        localStorage.removeItem('userTenants');
+      } catch {
+        // Ignore localStorage errors
+      }
     };
 
     const setTokens = (tokens: {
@@ -556,6 +622,68 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       return userPermissions;
     };
 
+    // RFC-004: Switch to a different tenant without re-authentication
+    const switchToTenant = async (
+      tenantId: string,
+      options?: { redirectPath?: string }
+    ): Promise<void> => {
+      const { redirectPath } = options || {};
+
+      // Get refresh token from session
+      const tokens = sessionManager.getTokens();
+      if (!tokens?.refreshToken) {
+        throw new Error('No refresh token available for tenant switch');
+      }
+
+      // Call switch-tenant endpoint
+      const response = await authApiService.switchTenant({
+        refreshToken: tokens.refreshToken,
+        tenantId,
+      });
+
+      // Update tokens with tenant-scoped token
+      sessionManager.setTokens({
+        accessToken: response.accessToken,
+        refreshToken: tokens.refreshToken, // Keep the same refresh token
+        expiresIn: response.expiresIn,
+      });
+
+      // Update user with tenant context
+      setCurrentUser(response.user);
+      sessionManager.setUser(response.user);
+      setHasTenantContext(true);
+
+      // Find target tenant info from userTenants
+      const targetTenant = userTenants.find(t => t.id === tenantId);
+
+      if (targetTenant) {
+        // Use TenantProvider's switchTenant for URL handling
+        switchTenant(targetTenant.subdomain, {
+          tokens: {
+            accessToken: response.accessToken,
+            refreshToken: tokens.refreshToken,
+            expiresIn: response.expiresIn,
+          },
+          redirectPath,
+        });
+        // Code after this won't execute due to page reload
+      }
+    };
+
+    // RFC-004: Refresh user tenants from backend
+    const refreshUserTenants = async (): Promise<UserTenantMembership[]> => {
+      const authHeaders = await sessionManager.getAuthHeaders();
+      const tenants = await authApiService.getUserTenants(authHeaders);
+      setUserTenants(tenants);
+      // Cache in localStorage
+      try {
+        localStorage.setItem('userTenants', JSON.stringify(tenants));
+      } catch {
+        // Ignore localStorage errors
+      }
+      return tenants;
+    };
+
     return {
       // RFC-003: Authentication state
       isAuthenticated,
@@ -590,6 +718,11 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       hasAllPermissions,
       getUserPermissionStrings,
       refreshRoles,
+      // RFC-004: Multi-tenant user membership
+      userTenants,
+      hasTenantContext,
+      switchToTenant,
+      refreshUserTenants,
     };
   }, [
     isAuthenticated,
@@ -606,6 +739,8 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     currentUser,
     isUserLoading,
     userError,
+    userTenants,
+    hasTenantContext,
     isAuthReady,
     userRole,
     userPermissions,

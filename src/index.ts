@@ -34,6 +34,7 @@ export { MagicLinkForm } from './components/MagicLinkForm';
 export { MagicLinkVerify } from './components/MagicLinkVerify';
 export { PasswordRecoveryForm } from './components/PasswordRecoveryForm';
 export { AppLoader, useAppLoaderState } from './components/AppLoader';
+export { TenantSelector } from './components/TenantSelector';
 
 // Export component types
 export type { ProtectedProps } from './components/Protected';
@@ -59,6 +60,7 @@ export type {
   PasswordRecoveryFormStyles,
 } from './components/PasswordRecoveryForm';
 export type { AppLoaderProps } from './components/AppLoader';
+export type { TenantSelectorProps } from './components/TenantSelector';
 
 // Export types
 export { UserType } from './types/api';

@@ -9,6 +9,7 @@ import {
   clearAuthTokensFromUrl,
   AUTH_TRANSFER_PARAM,
 } from '../utils/crossDomainAuth';
+import type { LoginParams } from '../types/authParams';
 
 // ============================================================================
 // Cross-Domain Auth Utilities Tests
@@ -634,5 +635,66 @@ describe('Real JWT-like Token Handling', () => {
     // Should be usable in a URL
     const url = new URL(`https://example.com/?_auth=${encoded}`);
     expect(url.searchParams.get('_auth')).toBe(encoded);
+  });
+});
+
+// ============================================================================
+// LoginParams redirectPath Tests
+// ============================================================================
+
+describe('LoginParams redirectPath', () => {
+  it('should accept redirectPath as optional parameter', () => {
+    // Test that LoginParams interface accepts redirectPath
+    const paramsWithRedirect: LoginParams = {
+      username: 'user@example.com',
+      password: 'password123',
+      tenantSlug: 'new-tenant',
+      redirectPath: '/dashboard',
+    };
+
+    expect(paramsWithRedirect.redirectPath).toBe('/dashboard');
+  });
+
+  it('should work without redirectPath', () => {
+    const paramsWithoutRedirect: LoginParams = {
+      username: 'user@example.com',
+      password: 'password123',
+    };
+
+    expect(paramsWithoutRedirect.redirectPath).toBeUndefined();
+  });
+
+  it('should accept various path formats', () => {
+    const testPaths = [
+      '/dashboard',
+      '/onboarding',
+      '/settings/profile',
+      '/app?query=test',
+      '/app#section',
+      '/',
+    ];
+
+    testPaths.forEach(path => {
+      const params: LoginParams = {
+        username: 'user@example.com',
+        password: 'password123',
+        tenantSlug: 'tenant',
+        redirectPath: path,
+      };
+      expect(params.redirectPath).toBe(path);
+    });
+  });
+
+  it('should combine with tenantSlug for cross-tenant redirect', () => {
+    const params: LoginParams = {
+      username: 'user@example.com',
+      password: 'password123',
+      tenantSlug: 'other-tenant',
+      redirectPath: '/onboarding',
+    };
+
+    // Verify all params are set correctly
+    expect(params.tenantSlug).toBe('other-tenant');
+    expect(params.redirectPath).toBe('/onboarding');
   });
 });
