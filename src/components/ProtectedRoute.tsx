@@ -6,7 +6,7 @@ import { UserType, Permission } from '../types/api';
 export interface ProtectedRouteProps {
   children: ReactNode;
   redirectTo?: string;
-  minUserType?: UserType;
+  requiredUserType?: UserType; // If set, only users with this exact user type can access
   requiredPermissions?: (string | Permission)[];
   requireAllPermissions?: boolean; // If true, user must have ALL permissions. If false, user needs ANY permission
   fallback?: ReactNode;
@@ -46,11 +46,11 @@ const DefaultFallback = ({ redirectPath }: { redirectPath: string }) => (
 
 const InsufficientPermissionsFallback = ({
   userType,
-  minUserType,
+  requiredUserType,
   missingPermissions,
 }: {
   userType?: UserType;
-  minUserType?: UserType;
+  requiredUserType?: UserType;
   missingPermissions?: string[];
 }) => (
   <div
@@ -76,13 +76,13 @@ const InsufficientPermissionsFallback = ({
     >
       <div style={{ fontSize: '3rem', marginBottom: '1rem' }}>⚠️</div>
       <h2 style={{ color: '#374151', marginBottom: '1rem' }}>Insufficient Permissions</h2>
-      {minUserType && userType ? (
+      {requiredUserType && userType ? (
         <>
           <p style={{ color: '#6b7280', marginBottom: '1rem' }}>
-            This page requires <strong>{minUserType}</strong> access level or higher.
+            This page requires <strong>{requiredUserType}</strong> access.
           </p>
           <p style={{ color: '#9ca3af', fontSize: '0.875rem' }}>
-            Your current access level: <strong>{userType}</strong>
+            Your current user type: <strong>{userType}</strong>
           </p>
         </>
       ) : (
@@ -101,21 +101,15 @@ const InsufficientPermissionsFallback = ({
   </div>
 );
 
-// Helper function to check if user type meets minimum requirement
-const hasMinimumUserType = (userType: UserType, minUserType: UserType): boolean => {
-  const hierarchy = {
-    [UserType.USER]: 1,
-    [UserType.TENANT_ADMIN]: 2,
-    [UserType.SUPERUSER]: 3,
-  };
-
-  return hierarchy[userType] >= hierarchy[minUserType];
+// Helper function to check if user type matches the required type
+const hasRequiredUserType = (userType: UserType, requiredUserType: UserType): boolean => {
+  return userType === requiredUserType;
 };
 
 export function ProtectedRoute({
   children,
   redirectTo = '/login',
-  minUserType,
+  requiredUserType,
   requiredPermissions,
   requireAllPermissions = false,
   fallback,
@@ -145,9 +139,14 @@ export function ProtectedRoute({
     return <Navigate to={redirectTo} state={{ from: location.pathname }} replace />;
   }
 
-  // Check user type permissions if specified
-  if (minUserType && !hasMinimumUserType(user.userType, minUserType)) {
-    return <InsufficientPermissionsFallback userType={user.userType} minUserType={minUserType} />;
+  // Check user type if specified
+  if (requiredUserType && !hasRequiredUserType(user.userType, requiredUserType)) {
+    return (
+      <InsufficientPermissionsFallback
+        userType={user.userType}
+        requiredUserType={requiredUserType}
+      />
+    );
   }
 
   // Check specific permissions if specified
