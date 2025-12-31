@@ -338,7 +338,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
       // RFC-004: Handle global login (no tenantId) - auto-switch or callback
       if (!hasTenant && loginResponse.tenants && loginResponse.tenants.length > 0) {
-        const autoSwitch = config.autoSwitchSingleTenant !== false; // default true
+        const autoSwitch = params.autoSwitch !== false && config.autoSwitchSingleTenant !== false; // default true
 
         if (loginResponse.tenants.length === 1 && autoSwitch) {
           // Auto-switch to the only tenant

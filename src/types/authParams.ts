@@ -7,6 +7,7 @@ export interface LoginParams {
   password: string;
   tenantSlug?: string; // Target tenant slug for auto-switch (RFC-001)
   redirectPath?: string; // Path to redirect after login (used with tenant switch)
+  autoSwitch?: boolean;
 }
 
 export interface SignupParams {
