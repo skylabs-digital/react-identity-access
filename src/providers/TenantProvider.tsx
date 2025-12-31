@@ -431,6 +431,14 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
         const urlParams = new URLSearchParams(window.location.search);
         urlParams.set(config.selectorParam || 'tenant', targetTenantSlug);
 
+        // Remove existing auth transfer param if present
+        urlParams.delete(AUTH_TRANSFER_PARAM);
+
+        // If tokens provided, encode and add to URL (same as subdomain mode)
+        if (tokens) {
+          urlParams.set(AUTH_TRANSFER_PARAM, encodeAuthTokens(tokens));
+        }
+
         if (mode === 'reload') {
           // Full page reload with new tenant
           const newUrl = `${targetPath}?${urlParams.toString()}${window.location.hash}`;
