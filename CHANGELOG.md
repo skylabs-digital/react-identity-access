@@ -1,3 +1,10 @@
+# [2.12.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.11.0...v2.12.0) (2025-12-31)
+
+
+### Features
+
+* add token transfer support to path-based tenant switching ([e441157](https://github.com/skylabs-digital/react-identity-access/commit/e441157da680a871f18858994c1fd4593107d51e))
+
 # [2.11.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.10.1...v2.11.0) (2025-12-31)
 
 
