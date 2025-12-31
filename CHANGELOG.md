@@ -1,3 +1,10 @@
+# [2.11.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.10.1...v2.11.0) (2025-12-31)
+
+
+### Features
+
+* add autoSwitch parameter to LoginParams to override global autoSwitchSingleTenant config ([76cadc6](https://github.com/skylabs-digital/react-identity-access/commit/76cadc69f2ff675b2ce9e1c51f0c2be57ff3eda9))
+
 ## [2.10.1](https://github.com/skylabs-digital/react-identity-access/compare/v2.10.0...v2.10.1) (2025-12-30)
 
 
