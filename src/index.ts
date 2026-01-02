@@ -20,6 +20,9 @@ export {
   useTenantInfo,
 } from './providers/TenantProvider';
 export type { TenantConfig } from './providers/TenantProvider';
+// Zone routing provider (RFC-005)
+export { RoutingProvider, useRouting, useRoutingOptional } from './providers/RoutingProvider';
+export type { RoutingContextValue, RoutingProviderProps } from './providers/RoutingProvider';
 
 // Export components
 export { Protected } from './components/Protected';

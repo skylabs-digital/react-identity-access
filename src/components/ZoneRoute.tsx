@@ -2,6 +2,7 @@ import { FC, useEffect, useMemo } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider';
 import { useTenant } from '../providers/TenantProvider';
+import { useRoutingOptional } from '../providers/RoutingProvider';
 import { UserType } from '../types/api';
 import {
   AccessMode,
@@ -9,13 +10,9 @@ import {
   AccessDeniedType,
   ZoneRouteProps,
   ZonePresetConfig,
-  DEFAULT_ZONE_PRESETS,
-  DEFAULT_ZONE_ROOTS,
   ZoneRoots,
   ReturnToStorage,
 } from '../types/zoneRouting';
-
-const DEFAULT_RETURN_TO_PARAM = 'returnTo';
 
 interface ZoneState {
   hasTenant: boolean;
@@ -184,11 +181,14 @@ export const ZoneRoute: FC<ZoneRouteProps> = ({
   const { isAuthenticated, isAuthInitializing, currentUser, userPermissions } = useAuth();
   const { tenant, isTenantLoading } = useTenant();
 
-  // Resolve preset configuration
+  // Get global routing config (works with or without RoutingProvider)
+  const routingConfig = useRoutingOptional();
+
+  // Resolve preset configuration from global config
   const presetConfig: ZonePresetConfig | undefined = useMemo(() => {
     if (!preset) return undefined;
-    return DEFAULT_ZONE_PRESETS[preset as keyof typeof DEFAULT_ZONE_PRESETS];
-  }, [preset]);
+    return routingConfig.presets[preset as keyof typeof routingConfig.presets];
+  }, [preset, routingConfig.presets]);
 
   // Merge preset with explicit props (explicit props take precedence)
   const requirements = useMemo(
@@ -227,12 +227,11 @@ export const ZoneRoute: FC<ZoneRouteProps> = ({
     return getAccessDeniedType(requirements, state);
   }, [requirements, state]);
 
-  // Calculate redirect target
-  const zoneRoots: Required<ZoneRoots> = DEFAULT_ZONE_ROOTS;
+  // Calculate redirect target using global config
   const redirectTarget = useMemo(() => {
     if (!accessDeniedType) return null;
-    return redirectTo || getSmartRedirect(state, zoneRoots);
-  }, [accessDeniedType, redirectTo, state, zoneRoots]);
+    return redirectTo || getSmartRedirect(state, routingConfig.zoneRoots);
+  }, [accessDeniedType, redirectTo, state, routingConfig.zoneRoots]);
 
   // Build access denied reason
   const accessDeniedReason: AccessDeniedReason | null = useMemo(() => {
@@ -255,30 +254,42 @@ export const ZoneRoute: FC<ZoneRouteProps> = ({
     };
   }, [accessDeniedType, redirectTarget, requirements, state]);
 
-  // Call onAccessDenied callback
+  // Call onAccessDenied callback (local or global)
   useEffect(() => {
-    if (accessDeniedReason && onAccessDenied) {
-      onAccessDenied(accessDeniedReason);
+    if (accessDeniedReason) {
+      // Local callback takes precedence
+      if (onAccessDenied) {
+        onAccessDenied(accessDeniedReason);
+      } else if (routingConfig.onAccessDenied) {
+        routingConfig.onAccessDenied(accessDeniedReason);
+      }
     }
-  }, [accessDeniedReason, onAccessDenied]);
+  }, [accessDeniedReason, onAccessDenied, routingConfig]);
 
   // Handle return URL storage for non-URL storage modes
   useEffect(() => {
     if (accessDeniedReason && returnTo) {
-      storeReturnUrl(returnTo, location.pathname + location.search, 'session');
+      storeReturnUrl(returnTo, location.pathname + location.search, routingConfig.returnToStorage);
     }
-  }, [accessDeniedReason, returnTo, location.pathname, location.search]);
+  }, [
+    accessDeniedReason,
+    returnTo,
+    location.pathname,
+    location.search,
+    routingConfig.returnToStorage,
+  ]);
 
-  // Loading state
+  // Loading state (local fallback takes precedence over global)
   if (state.isLoading) {
-    return <>{loadingFallback || null}</>;
+    return <>{loadingFallback ?? routingConfig.loadingFallback ?? null}</>;
   }
 
   // Access denied - redirect
   if (accessDeniedReason && redirectTarget) {
-    // Show access denied fallback briefly before redirect (optional)
-    if (accessDeniedFallback) {
-      return <>{accessDeniedFallback}</>;
+    // Show access denied fallback briefly before redirect (local or global)
+    const fallback = accessDeniedFallback ?? routingConfig.accessDeniedFallback;
+    if (fallback) {
+      return <>{fallback}</>;
     }
 
     // Build final redirect URL with return path if needed
@@ -286,8 +297,8 @@ export const ZoneRoute: FC<ZoneRouteProps> = ({
       redirectTarget,
       returnTo,
       location.pathname + location.search,
-      DEFAULT_RETURN_TO_PARAM,
-      'url'
+      routingConfig.returnToParam,
+      routingConfig.returnToStorage
     );
 
     return <Navigate to={finalRedirect} replace />;
