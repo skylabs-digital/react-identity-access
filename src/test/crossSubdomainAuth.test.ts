@@ -250,26 +250,149 @@ describe('Cross-Subdomain Auth Flow', () => {
       expect(storedTokens.accessToken).toBe(authResponse.accessToken);
     });
 
-    it('should handle selector mode without token URL transfer', () => {
-      // In selector mode, localStorage is shared, so tokens don't need URL transfer
+    it('should handle selector mode WITH token URL transfer (unified behavior)', () => {
+      // Selector mode now uses URL token transfer for tenant-specific storage
       const config = {
         tenantMode: 'selector' as const,
         selectorParam: 'tenant',
       };
 
-      // Tokens are already in localStorage from login
+      const targetTenantSlug = 'new-tenant';
+
+      // Build URL with tenant param and tokens (simulating TenantProvider.switchTenant)
+      const urlParams = new URLSearchParams();
+      urlParams.set(config.selectorParam, targetTenantSlug);
+      urlParams.set(AUTH_TRANSFER_PARAM, encodeAuthTokens(sampleTokens));
+
+      // Verify both params are present
+      expect(urlParams.get(config.selectorParam)).toBe(targetTenantSlug);
+      expect(urlParams.has(AUTH_TRANSFER_PARAM)).toBe(true);
+
+      // Tokens can be extracted from URL
+      const extractedTokens = decodeAuthTokens(urlParams.get(AUTH_TRANSFER_PARAM)!);
+      expect(extractedTokens).toEqual(sampleTokens);
+    });
+  });
+
+  describe('Selector Mode Token Transfer', () => {
+    it('should build correct URL for selector mode with tokens', () => {
+      const config = {
+        tenantMode: 'selector' as const,
+        selectorParam: 'tenant',
+      };
+      const targetTenantSlug = 'acme-corp';
+      const targetPath = '/dashboard';
+
+      // Simulate TenantProvider.switchTenant logic for selector mode
+      const urlParams = new URLSearchParams();
+      urlParams.set(config.selectorParam, targetTenantSlug);
+      urlParams.delete(AUTH_TRANSFER_PARAM); // Remove existing if present
+      urlParams.set(AUTH_TRANSFER_PARAM, encodeAuthTokens(sampleTokens));
+
+      const newUrl = `${targetPath}?${urlParams.toString()}`;
+
+      // Verify URL structure
+      expect(newUrl).toContain('tenant=acme-corp');
+      expect(newUrl).toContain(`${AUTH_TRANSFER_PARAM}=`);
+      expect(newUrl.startsWith('/dashboard?')).toBe(true);
+    });
+
+    it('should allow tokens to be stored in tenant-specific key after extraction', () => {
+      const targetTenantSlug = 'my-company';
+
+      // Simulate URL with tokens
+      const urlParams = new URLSearchParams();
+      urlParams.set('tenant', targetTenantSlug);
+      urlParams.set(AUTH_TRANSFER_PARAM, encodeAuthTokens(sampleTokens));
+
+      // Extract tokens (as AuthProvider does)
+      const extractedTokens = decodeAuthTokens(urlParams.get(AUTH_TRANSFER_PARAM)!);
+      expect(extractedTokens).not.toBeNull();
+
+      // Store in tenant-specific key (as SessionManager does)
+      const storageKey = `auth_tokens_${targetTenantSlug}`;
+      localStorage.setItem(storageKey, JSON.stringify(extractedTokens));
+
+      // Verify stored correctly
+      const storedTokens = JSON.parse(localStorage.getItem(storageKey)!);
+      expect(storedTokens.accessToken).toBe(sampleTokens.accessToken);
+      expect(storedTokens.refreshToken).toBe(sampleTokens.refreshToken);
+    });
+
+    it('should preserve existing URL params when switching tenants', () => {
+      const existingParams = new URLSearchParams();
+      existingParams.set('page', '2');
+      existingParams.set('filter', 'active');
+
+      // Switch tenant - add tenant and tokens
+      existingParams.set('tenant', 'new-tenant');
+      existingParams.delete(AUTH_TRANSFER_PARAM);
+      existingParams.set(AUTH_TRANSFER_PARAM, encodeAuthTokens(sampleTokens));
+
+      // Verify all params preserved
+      expect(existingParams.get('page')).toBe('2');
+      expect(existingParams.get('filter')).toBe('active');
+      expect(existingParams.get('tenant')).toBe('new-tenant');
+      expect(existingParams.has(AUTH_TRANSFER_PARAM)).toBe(true);
+    });
+
+    it('should replace existing auth tokens when switching tenants again', () => {
+      const newTokens: AuthTokens = {
+        accessToken: 'brand-new-access-token',
+        refreshToken: 'brand-new-refresh-token',
+        expiresIn: 7200,
+      };
+
+      const urlParams = new URLSearchParams();
+      urlParams.set('tenant', 'first-tenant');
+      urlParams.set(AUTH_TRANSFER_PARAM, encodeAuthTokens(sampleTokens));
+
+      // Switch to another tenant
+      urlParams.set('tenant', 'second-tenant');
+      urlParams.delete(AUTH_TRANSFER_PARAM);
+      urlParams.set(AUTH_TRANSFER_PARAM, encodeAuthTokens(newTokens));
+
+      // Verify new tokens are in URL
+      const extractedTokens = decodeAuthTokens(urlParams.get(AUTH_TRANSFER_PARAM)!);
+      expect(extractedTokens?.accessToken).toBe(newTokens.accessToken);
+      expect(extractedTokens?.refreshToken).toBe(newTokens.refreshToken);
+    });
+
+    it('should complete full selector mode switch flow', () => {
+      // 1. User is authenticated with global token
       localStorage.setItem('auth_tokens', JSON.stringify(sampleTokens));
 
-      // Switch tenant just changes URL param
+      // 2. User calls switchToTenant which gets new tenant-scoped tokens
+      const tenantScopedTokens: AuthTokens = {
+        accessToken: 'tenant-scoped-access-token',
+        refreshToken: sampleTokens.refreshToken, // Same refresh token
+        expiresIn: 3600,
+      };
+
+      const targetTenantSlug = 'acme-corp';
+
+      // 3. TenantProvider.switchTenant builds URL with tokens
       const urlParams = new URLSearchParams();
-      urlParams.set(config.selectorParam, 'new-tenant');
+      urlParams.set('tenant', targetTenantSlug);
+      urlParams.set(AUTH_TRANSFER_PARAM, encodeAuthTokens(tenantScopedTokens));
 
-      // Tokens should still be accessible
-      const storedTokens = JSON.parse(localStorage.getItem('auth_tokens')!);
-      expect(storedTokens).toEqual(sampleTokens);
+      const redirectUrl = `/dashboard?${urlParams.toString()}`;
 
-      // No need for _auth param in selector mode
-      expect(urlParams.has(AUTH_TRANSFER_PARAM)).toBe(false);
+      // 4. Verify URL has both tenant and tokens
+      expect(redirectUrl).toContain(`tenant=${targetTenantSlug}`);
+      expect(redirectUrl).toContain(AUTH_TRANSFER_PARAM);
+
+      // 5. On page load, AuthProvider extracts tokens from URL
+      const extractedTokens = decodeAuthTokens(urlParams.get(AUTH_TRANSFER_PARAM)!);
+
+      // 6. SessionManager stores in tenant-specific key
+      const tenantStorageKey = `auth_tokens_${targetTenantSlug}`;
+      localStorage.setItem(tenantStorageKey, JSON.stringify(extractedTokens));
+
+      // 7. Verify correct storage
+      expect(localStorage.getItem(tenantStorageKey)).not.toBeNull();
+      const stored = JSON.parse(localStorage.getItem(tenantStorageKey)!);
+      expect(stored.accessToken).toBe('tenant-scoped-access-token');
     });
   });
 });

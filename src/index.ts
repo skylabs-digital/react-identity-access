@@ -26,6 +26,20 @@ export { Protected } from './components/Protected';
 export { ProtectedRoute } from './components/ProtectedRoute';
 export { TenantRoute } from './components/TenantRoute';
 export { LandingRoute } from './components/LandingRoute';
+// Zone-based routing (RFC-005) - replaces TenantRoute, LandingRoute, ProtectedRoute
+export {
+  ZoneRoute,
+  TenantZone,
+  PublicZone,
+  AuthenticatedZone,
+  GuestZone,
+  AdminZone,
+  UserZone,
+  OpenZone,
+  TenantAuthenticatedZone,
+  TenantOpenZone,
+  TenantGuestZone,
+} from './components/ZoneRoute';
 export { SubscriptionGuard } from './components/SubscriptionGuard';
 export { FeatureFlag } from './components/FeatureFlag';
 export { LoginForm } from './components/LoginForm';
@@ -41,6 +55,7 @@ export type { ProtectedProps } from './components/Protected';
 export type { ProtectedRouteProps } from './components/ProtectedRoute';
 export type { TenantRouteProps } from './components/TenantRoute';
 export type { LandingRouteProps } from './components/LandingRoute';
+export type { ZoneRouteProps } from './types/zoneRouting';
 export type { SubscriptionGuardProps } from './components/SubscriptionGuard';
 export type { LoginFormProps, LoginFormCopy, LoginFormStyles } from './components/LoginForm';
 export type { SignupFormProps, SignupFormCopy, SignupFormStyles } from './components/SignupForm';
@@ -104,3 +119,18 @@ export type {
 
 // Utilities
 export { ApiMappers } from './utils/mappers';
+
+// Zone routing hooks and types (RFC-005)
+export { useZoneNavigation, buildRedirectUrl } from './hooks/useZoneNavigation';
+export type {
+  AccessMode,
+  AccessDeniedReason,
+  AccessDeniedType,
+  ZoneRoots,
+  ZonePresets,
+  ZonePresetConfig,
+  RoutingConfig,
+  ReturnToStorage,
+  UseZoneNavigationReturn,
+} from './types/zoneRouting';
+export { DEFAULT_ZONE_ROOTS, DEFAULT_ZONE_PRESETS } from './types/zoneRouting';

@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useTenantInfo } from '../providers/TenantProvider';
 
@@ -40,9 +40,30 @@ const DefaultTenantDetectedFallback = ({ redirectPath }: { redirectPath: string 
   </div>
 );
 
+/**
+ * @deprecated Use `PublicZone` from './ZoneRoute' instead.
+ * LandingRoute will be removed in a future version.
+ *
+ * Migration:
+ * ```tsx
+ * // Before
+ * <LandingRoute redirectTo="/dashboard"><Page /></LandingRoute>
+ *
+ * // After
+ * <PublicZone redirectTo="/dashboard"><Page /></PublicZone>
+ * ```
+ */
 export function LandingRoute({ children, redirectTo = '/dashboard', fallback }: LandingRouteProps) {
   const { tenant, isLoading, error } = useTenantInfo();
   const location = useLocation();
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(
+        '[react-identity-access] LandingRoute is deprecated. Use PublicZone from ZoneRoute instead.'
+      );
+    }
+  }, []);
 
   // Show loading state while tenant is being detected/loaded
   if (isLoading) {

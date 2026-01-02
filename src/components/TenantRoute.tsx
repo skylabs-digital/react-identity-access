@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useTenantInfo } from '../providers/TenantProvider';
 
@@ -40,9 +40,30 @@ const DefaultTenantRequiredFallback = ({ redirectPath }: { redirectPath: string 
   </div>
 );
 
+/**
+ * @deprecated Use `TenantZone` from './ZoneRoute' instead.
+ * TenantRoute will be removed in a future version.
+ *
+ * Migration:
+ * ```tsx
+ * // Before
+ * <TenantRoute redirectTo="/"><Page /></TenantRoute>
+ *
+ * // After
+ * <TenantZone redirectTo="/"><Page /></TenantZone>
+ * ```
+ */
 export function TenantRoute({ children, redirectTo = '/', fallback }: TenantRouteProps) {
   const { tenant, isLoading, error } = useTenantInfo();
   const location = useLocation();
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(
+        '[react-identity-access] TenantRoute is deprecated. Use TenantZone from ZoneRoute instead.'
+      );
+    }
+  }, []);
 
   // Show loading state while tenant is being detected/loaded
   if (isLoading) {

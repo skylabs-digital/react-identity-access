@@ -1,4 +1,4 @@
-import { ReactNode } from 'react';
+import { ReactNode, useEffect } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider';
 import { UserType, Permission } from '../types/api';
@@ -106,6 +106,26 @@ const hasRequiredUserType = (userType: UserType, requiredUserType: UserType): bo
   return userType === requiredUserType;
 };
 
+/**
+ * @deprecated Use `AuthenticatedZone` or `AdminZone` from './ZoneRoute' instead.
+ * ProtectedRoute will be removed in a future version.
+ *
+ * Migration:
+ * ```tsx
+ * // Before
+ * <ProtectedRoute redirectTo="/login"><Page /></ProtectedRoute>
+ *
+ * // After
+ * <AuthenticatedZone redirectTo="/login"><Page /></AuthenticatedZone>
+ *
+ * // For admin routes:
+ * // Before
+ * <ProtectedRoute requiredUserType="TENANT_ADMIN"><Admin /></ProtectedRoute>
+ *
+ * // After
+ * <AdminZone><Admin /></AdminZone>
+ * ```
+ */
 export function ProtectedRoute({
   children,
   redirectTo = '/login',
@@ -117,6 +137,14 @@ export function ProtectedRoute({
   const { hasValidSession, sessionManager, hasPermission, hasAnyPermission, hasAllPermissions } =
     useAuth();
   const location = useLocation();
+
+  useEffect(() => {
+    if (process.env.NODE_ENV === 'development') {
+      console.warn(
+        '[react-identity-access] ProtectedRoute is deprecated. Use AuthenticatedZone or AdminZone from ZoneRoute instead.'
+      );
+    }
+  }, []);
 
   // Check if user has a valid session
   if (!hasValidSession()) {
