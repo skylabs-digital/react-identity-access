@@ -1,3 +1,10 @@
+# [2.14.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.13.0...v2.14.0) (2026-01-02)
+
+
+### Features
+
+* add comprehensive zone-based routing system documentation ([dba0c6e](https://github.com/skylabs-digital/react-identity-access/commit/dba0c6e40d58a654b12113894b99cd77fa4829c2))
+
 # [2.13.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.12.0...v2.13.0) (2026-01-02)
 
 
