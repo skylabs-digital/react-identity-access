@@ -1,3 +1,10 @@
+# [2.13.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.12.0...v2.13.0) (2026-01-02)
+
+
+### Features
+
+* add RFC 0005 for zone-based routing system to simplify multi-tenant route protection ([0c312ac](https://github.com/skylabs-digital/react-identity-access/commit/0c312ac7103cd237c4f643b309d053547109bb8a))
+
 # [2.12.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.11.0...v2.12.0) (2025-12-31)
 
 
