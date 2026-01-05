@@ -322,18 +322,25 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       const hasTenant = loginResponse.user?.tenantId !== null;
       setHasTenantContext(hasTenant);
 
-      // Now perform the switch if needed
-      if (shouldSwitch && targetTenantSlug && targetTenantSlug !== tenantSlug) {
-        // Pass tokens for cross-subdomain auth
-        switchTenant(targetTenantSlug, {
-          tokens: {
-            accessToken: loginResponse.accessToken,
-            refreshToken: loginResponse.refreshToken,
-            expiresIn: loginResponse.expiresIn,
-          },
-          redirectPath,
-        });
-        // Code after this won't execute due to page reload
+      // Build tokens object for redirect
+      const tokens = {
+        accessToken: loginResponse.accessToken,
+        refreshToken: loginResponse.refreshToken,
+        expiresIn: loginResponse.expiresIn,
+      };
+
+      // Handle navigation after login
+      if (shouldSwitch && targetTenantSlug) {
+        // Switching to different tenant - use switchTenant for cross-subdomain auth
+        switchTenant(targetTenantSlug, { tokens, redirectPath });
+        return loginResponse; // Code after this won't execute due to page reload
+      }
+
+      // Same tenant or no tenant switch - navigate to redirectPath if provided
+      if (redirectPath && redirectPath !== window.location.pathname) {
+        // Use switchTenant even for same tenant to handle redirect consistently
+        switchTenant(targetTenantSlug || tenantSlug || '', { tokens, redirectPath });
+        return loginResponse;
       }
 
       // RFC-004: Handle global login (no tenantId) - auto-switch or callback
@@ -343,15 +350,8 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
         if (loginResponse.tenants.length === 1 && autoSwitch) {
           // Auto-switch to the only tenant
           const singleTenant = loginResponse.tenants[0];
-          // Note: This will cause a page reload/redirect
-          switchTenant(singleTenant.subdomain, {
-            tokens: {
-              accessToken: loginResponse.accessToken,
-              refreshToken: loginResponse.refreshToken,
-              expiresIn: loginResponse.expiresIn,
-            },
-            redirectPath,
-          });
+          switchTenant(singleTenant.subdomain, { tokens, redirectPath });
+          return loginResponse;
         } else if (loginResponse.tenants.length > 1 && config.onTenantSelectionRequired) {
           // Multiple tenants - trigger callback for tenant selection
           config.onTenantSelectionRequired(loginResponse.tenants);
