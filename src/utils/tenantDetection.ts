@@ -4,9 +4,10 @@
  */
 
 export interface TenantDetectionConfig {
-  tenantMode: 'subdomain' | 'selector';
+  tenantMode: 'subdomain' | 'selector' | 'fixed';
   baseDomain?: string;
   selectorParam?: string;
+  fixedTenantSlug?: string;
 }
 
 export interface LocationInfo {
@@ -94,7 +95,11 @@ export function detectTenantSlug(
   location: LocationInfo,
   localStorage?: Storage | null
 ): string | null {
-  const { tenantMode, baseDomain, selectorParam } = config;
+  const { tenantMode, baseDomain, selectorParam, fixedTenantSlug } = config;
+
+  if (tenantMode === 'fixed') {
+    return fixedTenantSlug || null;
+  }
 
   if (tenantMode === 'subdomain') {
     return detectSubdomainTenant(location.hostname, baseDomain);

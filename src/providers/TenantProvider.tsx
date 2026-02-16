@@ -23,7 +23,8 @@ interface CachedTenantInfo {
 
 export interface TenantConfig {
   // Tenant configuration
-  tenantMode?: 'subdomain' | 'selector';
+  tenantMode?: 'subdomain' | 'selector' | 'fixed';
+  fixedTenantSlug?: string; // Required when tenantMode is 'fixed' — always uses this slug
   baseDomain?: string; // Base domain for subdomain mode (e.g., 'kommi.click')
   selectorParam?: string; // Default: 'tenant', used when tenantMode is 'selector'
   // RFC-003: Cache configuration
@@ -77,6 +78,7 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
         tenantMode: config.tenantMode || 'selector',
         baseDomain: config.baseDomain,
         selectorParam: config.selectorParam,
+        fixedTenantSlug: config.fixedTenantSlug,
       },
       {
         hostname: window.location.hostname,
@@ -84,7 +86,7 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
       },
       window.localStorage
     );
-  }, [config.tenantMode, config.baseDomain, config.selectorParam]);
+  }, [config.tenantMode, config.baseDomain, config.selectorParam, config.fixedTenantSlug]);
 
   // Detect tenant slug on mount and on URL changes
   const [tenantSlug, setTenantSlug] = useState<string | null>(() => detectTenantSlug());
@@ -133,11 +135,12 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
   const [isSettingsLoading, setIsSettingsLoading] = useState(false);
   const [settingsError, setSettingsError] = useState<Error | null>(null);
 
-  // Re-detect tenant slug when URL changes
+  // Re-detect tenant slug when URL changes (skip in fixed mode — slug never changes)
   useEffect(() => {
+    if (config.tenantMode === 'fixed') return;
     const detected = detectTenantSlug();
     setTenantSlug(detected);
-  }, [detectTenantSlug]);
+  }, [detectTenantSlug, config.tenantMode]);
 
   // Get settings schema from app info
   const settingsSchema = appInfo?.settingsSchema || null;
@@ -386,6 +389,19 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
     ) => {
       const { mode = 'reload', tokens, redirectPath } = options || {};
       const tenantMode = config.tenantMode || 'selector';
+
+      // Fixed mode: switching tenants is not supported
+      if (tenantMode === 'fixed') {
+        console.warn(
+          '[TenantProvider] switchTenant is a no-op in fixed mode. Tenant is always:',
+          config.fixedTenantSlug
+        );
+        // Still navigate to redirectPath if provided
+        if (redirectPath) {
+          window.location.href = redirectPath;
+        }
+        return;
+      }
 
       // Update localStorage first
       localStorage.setItem('tenant', targetTenantSlug);
