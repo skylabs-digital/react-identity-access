@@ -1,3 +1,10 @@
+# [2.16.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.15.0...v2.16.0) (2026-02-16)
+
+
+### Features
+
+* add fixed tenant mode for single-tenant applications ([4d5a9ef](https://github.com/skylabs-digital/react-identity-access/commit/4d5a9ef9166a67282e12e025e38c18fc25df13cc))
+
 # [2.15.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.14.0...v2.15.0) (2026-01-05)
 
 
