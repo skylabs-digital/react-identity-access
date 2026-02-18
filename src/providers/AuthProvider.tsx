@@ -161,10 +161,19 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     return manager;
   }, [tenantSlug, baseUrl, config.onRefreshFailed]);
 
+  // Track if we're restoring an existing session (tokens in localStorage but user not loaded yet)
+  // CRITICAL: Initialize to TRUE if there's a valid session without URL tokens,
+  // so isAuthReady stays false until user data is loaded from cache or API
+  const [isRestoringSession, setIsRestoringSession] = useState(() => {
+    if (initRef.current.urlTokens) return false; // URL tokens path handles its own blocking
+    return sessionManager.hasValidSession();
+  });
+
   // Auth is ready when:
   // 1. Initial token check is done AND
-  // 2. If we had URL tokens, user data must be loaded (not loading)
-  const isAuthReady = initRef.current.done && !isLoadingAfterUrlTokens;
+  // 2. If we had URL tokens, user data must be loaded (not loading) AND
+  // 3. If we had an existing session, user data must be restored
+  const isAuthReady = initRef.current.done && !isLoadingAfterUrlTokens && !isRestoringSession;
 
   const authenticatedHttpService = useMemo(() => {
     const service = new HttpService(baseUrl);
@@ -801,7 +810,12 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     const user = sessionManager.getUser();
     if (user && sessionManager.hasValidSession()) {
       setCurrentUser(user);
+      setIsRestoringSession(false);
+    } else if (!sessionManager.hasValidSession()) {
+      setIsRestoringSession(false);
     }
+    // If hasValidSession() but no cached user, keep isRestoringSession=true
+    // — the auto-load effect below will handle it
   }, [sessionManager]);
 
   // Auto-load user data if we have tokens but no currentUser
@@ -815,9 +829,16 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     // Only trigger auto-load if we don't have currentUser and not already loading
     if (!currentUser && !isUserLoading && sessionManager.hasValidSession()) {
       console.log('[AuthProvider] Auto-loading user data...');
-      contextValue.loadUserData().catch(() => {
-        // Silent fail - error already logged in loadUserData
-      });
+      contextValue
+        .loadUserData()
+        .catch(() => {
+          // Silent fail - error already logged in loadUserData
+        })
+        .finally(() => {
+          setIsRestoringSession(false);
+        });
+    } else if (currentUser) {
+      setIsRestoringSession(false);
     }
   }, [currentUser, isUserLoading, contextValue, sessionManager, urlTokensCleanedUp]);
 
