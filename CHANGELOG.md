@@ -1,3 +1,10 @@
+# [2.17.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.16.0...v2.17.0) (2026-02-18)
+
+
+### Features
+
+* add session restoration tracking to prevent premature auth ready state ([d0b23fd](https://github.com/skylabs-digital/react-identity-access/commit/d0b23fd31e22bcafe9ff2fce3735419e5042e895))
+
 # [2.16.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.15.0...v2.16.0) (2026-02-16)
 
 
