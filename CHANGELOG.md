@@ -1,3 +1,10 @@
+# [2.18.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.17.0...v2.18.0) (2026-02-19)
+
+
+### Features
+
+* add interactive playground application for testing library features ([d2150f1](https://github.com/skylabs-digital/react-identity-access/commit/d2150f1142881406b0996069f276244ff98d1b6d))
+
 # [2.17.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.16.0...v2.17.0) (2026-02-18)
 
 
