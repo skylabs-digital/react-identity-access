@@ -8,6 +8,7 @@ import { HttpService } from '../services/HttpService';
 import { useApp } from './AppProvider';
 import { useTenant } from './TenantProvider';
 import { extractAuthTokensFromUrl, clearAuthTokensFromUrl } from '../utils/crossDomainAuth';
+import { SessionExpiredError } from '../errors/SessionErrors';
 import type {
   Role,
   Permission,
@@ -29,8 +30,13 @@ import type {
 } from '../types/authParams';
 
 export interface AuthConfig {
+  /** @deprecated Use onSessionExpired instead */
   onRefreshFailed?: () => void;
+  onSessionExpired?: (error: SessionExpiredError) => void;
   initialRoles?: Role[]; // For SSR injection
+  // Session config
+  refreshQueueTimeout?: number; // ms before queued requests timeout (default: 10000)
+  proactiveRefreshMargin?: number; // ms before expiry to trigger proactive refresh (default: 60000)
   // Multi-tenant options (RFC-004)
   autoSwitchSingleTenant?: boolean; // Auto-switch if user has only one tenant (default: true)
   onTenantSelectionRequired?: (tenants: UserTenantMembership[]) => void; // Callback when user needs to select tenant
@@ -143,8 +149,27 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
   const sessionManager = useMemo(() => {
     const manager = new SessionManager({
       tenantSlug: tenantSlug,
-      onRefreshFailed: config.onRefreshFailed,
       baseUrl: baseUrl,
+      refreshQueueTimeout: config.refreshQueueTimeout,
+      proactiveRefreshMargin: config.proactiveRefreshMargin,
+      onSessionExpired: (error: SessionExpiredError) => {
+        // Clear React auth state when session expires
+        setCurrentUser(null);
+        setUserError(null);
+        setUserTenants([]);
+        setHasTenantContext(false);
+        try {
+          localStorage.removeItem('userTenants');
+        } catch {
+          // Ignore localStorage errors
+        }
+        // Call user callbacks
+        if (config.onSessionExpired) {
+          config.onSessionExpired(error);
+        } else if (config.onRefreshFailed) {
+          config.onRefreshFailed();
+        }
+      },
     });
 
     // If we have URL tokens, save them immediately (sync)
@@ -159,7 +184,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     }
 
     return manager;
-  }, [tenantSlug, baseUrl, config.onRefreshFailed]);
+  }, [tenantSlug, baseUrl, config.refreshQueueTimeout, config.proactiveRefreshMargin]);
 
   // Track if we're restoring an existing session (tokens in localStorage but user not loaded yet)
   // CRITICAL: Initialize to TRUE if there's a valid session without URL tokens,

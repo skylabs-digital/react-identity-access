@@ -84,6 +84,14 @@ export type { TenantSelectorProps } from './components/TenantSelector';
 export { UserType } from './types/api';
 export type { User, PlanFeature, TenantSubscriptionFeatures } from './types/api';
 
+// Session error classes
+export {
+  SessionExpiredError,
+  TokenRefreshTimeoutError,
+  TokenRefreshError,
+} from './errors/SessionErrors';
+export type { SessionExpiredReason } from './errors/SessionErrors';
+
 // Base Services
 export { HttpService } from './services/HttpService';
 export type { RequestOptions } from './services/HttpService';
