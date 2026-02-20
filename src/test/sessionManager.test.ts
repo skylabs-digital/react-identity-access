@@ -33,6 +33,13 @@ function makeTokens(expiresInSec: number, refreshToken = 'refresh-abc') {
   };
 }
 
+// Helper to create a fake JWT with a specific `exp` claim (seconds since epoch)
+function makeJwt(expSec: number): string {
+  const header = btoa(JSON.stringify({ alg: 'none', typ: 'JWT' }));
+  const payload = btoa(JSON.stringify({ userId: 'u1', email: 'a@b.com', exp: expSec }));
+  return `${header}.${payload}.fakesig`;
+}
+
 describe('SessionManager', () => {
   let storage: ReturnType<typeof createMemoryStorage>;
 
@@ -848,6 +855,136 @@ describe('SessionManager', () => {
       expect(e1).toBeInstanceOf(SessionExpiredError);
       expect(e2).toBeInstanceOf(SessionExpiredError);
       expect(fetchMock).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  // ─── JWT exp fallback ───
+
+  describe('JWT exp fallback when expiresAt is missing', () => {
+    it('getTokens() derives expiresAt from JWT exp when not stored', () => {
+      const expSec = Math.floor(Date.now() / 1000) + 3600; // 1hr from now
+      storage.set({
+        accessToken: makeJwt(expSec),
+        refreshToken: 'rt',
+        // no expiresAt
+      });
+
+      const sm = new SessionManager({ tokenStorage: storage, autoRefresh: false });
+      const tokens = sm.getTokens();
+
+      expect(tokens).not.toBeNull();
+      expect(tokens!.expiresAt).toBe(expSec * 1000);
+    });
+
+    it('isTokenExpired() returns true for expired JWT when expiresAt not stored', () => {
+      const expSec = Math.floor(Date.now() / 1000) - 60; // expired 1 min ago
+      storage.set({
+        accessToken: makeJwt(expSec),
+        refreshToken: 'rt',
+      });
+
+      const sm = new SessionManager({ tokenStorage: storage, autoRefresh: false });
+      expect(sm.isTokenExpired()).toBe(true);
+    });
+
+    it('isTokenExpired() returns false for valid JWT when expiresAt not stored', () => {
+      const expSec = Math.floor(Date.now() / 1000) + 3600;
+      storage.set({
+        accessToken: makeJwt(expSec),
+        refreshToken: 'rt',
+      });
+
+      const sm = new SessionManager({ tokenStorage: storage, autoRefresh: false });
+      expect(sm.isTokenExpired()).toBe(false);
+    });
+
+    it('hasValidSession() returns false when JWT is expired and expiresAt not stored', () => {
+      const expSec = Math.floor(Date.now() / 1000) - 60;
+      storage.set({
+        accessToken: makeJwt(expSec),
+        refreshToken: 'rt',
+      });
+
+      const sm = new SessionManager({ tokenStorage: storage, autoRefresh: false });
+      expect(sm.hasValidSession()).toBe(false);
+    });
+
+    it('setTokens() persists expiresAt derived from JWT exp when neither expiresAt nor expiresIn provided', () => {
+      const expSec = Math.floor(Date.now() / 1000) + 7200;
+      const sm = new SessionManager({ tokenStorage: storage, autoRefresh: false });
+
+      sm.setTokens({ accessToken: makeJwt(expSec), refreshToken: 'rt' });
+
+      // Read raw stored data — expiresAt should be persisted
+      const raw = storage.get();
+      expect(raw.expiresAt).toBe(expSec * 1000);
+    });
+
+    it('triggers backgroundRefresh on init when JWT is expired and expiresAt not stored', async () => {
+      const expSec = Math.floor(Date.now() / 1000) - 60; // expired
+
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            accessToken: 'new-access',
+            refreshToken: 'new-refresh',
+            expiresIn: 3600,
+          }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      // Store tokens WITHOUT expiresAt — simulates legacy/external storage
+      storage.set({
+        accessToken: makeJwt(expSec),
+        refreshToken: 'rt',
+      });
+
+      // Constructor calls scheduleProactiveRefresh → backgroundRefresh
+      const sm = new SessionManager({
+        tokenStorage: storage,
+        autoRefresh: true,
+        proactiveRefreshMargin: 60000,
+        baseUrl: 'http://api',
+        maxRefreshRetries: 0,
+      });
+
+      // backgroundRefresh should have been triggered
+      await vi.advanceTimersByTimeAsync(10);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      sm.destroy();
+    });
+
+    it('getValidAccessToken() refreshes when JWT is expired and expiresAt not stored', async () => {
+      const expSec = Math.floor(Date.now() / 1000) - 60; // expired
+
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            accessToken: 'refreshed-token',
+            refreshToken: 'new-rt',
+            expiresIn: 3600,
+          }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      storage.set({
+        accessToken: makeJwt(expSec),
+        refreshToken: 'rt',
+      });
+
+      const sm = new SessionManager({
+        tokenStorage: storage,
+        autoRefresh: true,
+        refreshThreshold: 300000,
+        baseUrl: 'http://api',
+        maxRefreshRetries: 0,
+      });
+
+      const token = await sm.getValidAccessToken();
+      expect(token).toBe('refreshed-token');
+      sm.destroy();
     });
   });
 

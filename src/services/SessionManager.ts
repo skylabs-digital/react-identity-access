@@ -131,11 +131,33 @@ export class SessionManager {
 
   // --- Token CRUD ---
 
+  /**
+   * Extract the `exp` claim from a JWT and convert to milliseconds.
+   * Returns undefined if the token cannot be decoded or has no exp.
+   */
+  private static extractJwtExpiry(accessToken: string): number | undefined {
+    try {
+      const parts = accessToken.split('.');
+      if (parts.length !== 3) return undefined;
+      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+      if (typeof payload.exp === 'number') {
+        return payload.exp * 1000; // JWT exp is in seconds
+      }
+      return undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   setTokens(tokens: TokenData): void {
+    const expiresAt =
+      tokens.expiresAt ||
+      (tokens.expiresIn ? Date.now() + tokens.expiresIn * 1000 : undefined) ||
+      SessionManager.extractJwtExpiry(tokens.accessToken);
+
     const tokenData: TokenData = {
       ...tokens,
-      expiresAt:
-        tokens.expiresAt || (tokens.expiresIn ? Date.now() + tokens.expiresIn * 1000 : undefined),
+      expiresAt,
     };
 
     this.tokenStorage.set(tokenData);
@@ -152,10 +174,13 @@ export class SessionManager {
       return null;
     }
 
+    // Fallback: derive expiresAt from JWT exp claim when not stored
+    const resolvedExpiresAt = expiresAt || SessionManager.extractJwtExpiry(accessToken);
+
     return {
       accessToken,
       refreshToken,
-      expiresAt,
+      expiresAt: resolvedExpiresAt,
       expiresIn,
       tokenType,
     };
