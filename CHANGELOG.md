@@ -1,3 +1,10 @@
+# [2.19.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.18.0...v2.19.0) (2026-02-20)
+
+
+### Features
+
+* add JWT exp claim fallback for token expiry detection ([fe46e8c](https://github.com/skylabs-digital/react-identity-access/commit/fe46e8cc12c5ba8a0b0aa8ebced70300f1ca7c5a))
+
 # [2.18.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.17.0...v2.18.0) (2026-02-19)
 
 
