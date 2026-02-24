@@ -651,7 +651,7 @@ describe('SessionManager', () => {
   // ─── backgroundRefresh + getValidAccessToken coordination ───
 
   describe('backgroundRefresh shares refreshPromise with getValidAccessToken', () => {
-    it('only makes 1 fetch when setTokens triggers immediate backgroundRefresh and concurrent getValidAccessToken calls follow', async () => {
+    it('only makes 1 fetch when setTokens triggers deferred backgroundRefresh and concurrent getValidAccessToken calls follow', async () => {
       let resolveRefresh: () => void;
       const refreshGate = new Promise<void>(r => {
         resolveRefresh = r;
@@ -681,13 +681,19 @@ describe('SessionManager', () => {
         refreshQueueTimeout: 5000,
       });
 
-      // Set tokens that are already expired → scheduleProactiveRefresh fires
-      // backgroundRefresh immediately (delay <= 0), which sets refreshPromise
+      // Set tokens that are already expired → scheduleProactiveRefresh defers
+      // backgroundRefresh via setTimeout(0)
       sm.setTokens({
         accessToken: 'old-access',
         refreshToken: 'old-refresh',
         expiresAt: Date.now() - 5000,
       });
+
+      // backgroundRefresh is deferred — no fetch yet
+      expect(fetchMock).toHaveBeenCalledTimes(0);
+
+      // Advance timer to fire the deferred backgroundRefresh
+      await vi.advanceTimersByTimeAsync(1);
 
       // backgroundRefresh started → 1 fetch call in progress
       expect(fetchMock).toHaveBeenCalledTimes(1);
@@ -991,6 +997,61 @@ describe('SessionManager', () => {
   // ─── destroy ───
 
   describe('destroy', () => {
+    it('cancels deferred backgroundRefresh (React Strict Mode double-mount scenario)', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            accessToken: 'new-access',
+            refreshToken: 'new-refresh',
+            expiresIn: 3600,
+          }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      // Simulate React Strict Mode: mount → unmount → remount
+
+      // Mount #1: creates SM1 with expired token → deferred backgroundRefresh
+      const sm1 = new SessionManager({
+        tokenStorage: storage,
+        autoRefresh: true,
+        proactiveRefreshMargin: 60000,
+        baseUrl: 'http://api',
+        maxRefreshRetries: 0,
+      });
+      storage.set(makeTokens(-60)); // expired
+
+      sm1.setTokens({
+        accessToken: 'old',
+        refreshToken: 'old-r',
+        expiresAt: Date.now() - 5000,
+      });
+
+      // Strict Mode unmount → cleanup destroys SM1, cancelling deferred timer
+      sm1.destroy();
+
+      // Mount #2: creates SM2 with same expired tokens
+      const sm2 = new SessionManager({
+        tokenStorage: storage,
+        autoRefresh: true,
+        proactiveRefreshMargin: 60000,
+        baseUrl: 'http://api',
+        maxRefreshRetries: 0,
+      });
+      sm2.setTokens({
+        accessToken: 'old',
+        refreshToken: 'old-r',
+        expiresAt: Date.now() - 5000,
+      });
+
+      // Advance timer — only SM2's deferred backgroundRefresh should fire
+      await vi.advanceTimersByTimeAsync(10);
+
+      // Exactly 1 fetch call — SM1's was cancelled
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      sm2.destroy();
+    });
+
     it('rejects pending queue and prevents future background refresh', async () => {
       vi.stubGlobal('fetch', vi.fn().mockReturnValue(new Promise(() => {})));
 

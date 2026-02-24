@@ -782,6 +782,14 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     USER_DATA_CACHE_TTL,
   ]);
 
+  // Cleanup: destroy previous SessionManager on unmount or when deps change.
+  // Prevents double-refresh in React Strict Mode (double-mount) and re-mount scenarios.
+  useEffect(() => {
+    return () => {
+      sessionManager.destroy();
+    };
+  }, [sessionManager]);
+
   // Fetch roles on mount if not provided via SSR
   useEffect(() => {
     if (!config.initialRoles && appId) {

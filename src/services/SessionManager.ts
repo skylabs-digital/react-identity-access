@@ -220,8 +220,11 @@ export class SessionManager {
     const delay = refreshAt - Date.now();
 
     if (delay <= 0) {
-      // Already past the proactive refresh point — refresh now
-      this.backgroundRefresh();
+      // Already past the proactive refresh point — defer to next tick so
+      // destroy()/cancelProactiveTimer() can cancel it (e.g. React Strict Mode unmount).
+      this.proactiveTimerId = setTimeout(() => {
+        this.backgroundRefresh();
+      }, 0);
       return;
     }
 
