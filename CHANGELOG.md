@@ -1,3 +1,10 @@
+# [2.20.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.19.0...v2.20.0) (2026-02-24)
+
+
+### Features
+
+* prevent double token refresh in React Strict Mode by deferring immediate backgroundRefresh ([5b30097](https://github.com/skylabs-digital/react-identity-access/commit/5b30097a879a39bf88184c77960e0bb448c676b1))
+
 # [2.19.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.18.0...v2.19.0) (2026-02-20)
 
 
