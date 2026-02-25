@@ -54,6 +54,42 @@ interface QueueEntry {
 }
 
 export class SessionManager {
+  // --- Singleton registry (keyed by storageKey) ---
+  private static instances = new Map<string, SessionManager>();
+
+  /**
+   * Get or create a SessionManager instance for the given config.
+   * Returns the same instance when called with the same storageKey/tenantSlug.
+   * Mutable config (callbacks, baseUrl) is updated on the existing instance.
+   */
+  static getInstance(config: SessionConfig = {}): SessionManager {
+    const key = SessionManager.resolveStorageKey(config);
+    const existing = SessionManager.instances.get(key);
+    if (existing) {
+      existing.updateConfig(config);
+      return existing;
+    }
+    const instance = new SessionManager(config);
+    SessionManager.instances.set(key, instance);
+    return instance;
+  }
+
+  /** Reset all singleton instances. For testing only. */
+  static resetAllInstances(): void {
+    for (const instance of SessionManager.instances.values()) {
+      instance.destroy();
+    }
+    SessionManager.instances.clear();
+  }
+
+  private static resolveStorageKey(config: SessionConfig): string {
+    if (config.storageKey) return config.storageKey;
+    if (config.tenantSlug !== undefined) {
+      return config.tenantSlug ? `auth_tokens_${config.tenantSlug}` : 'auth_tokens';
+    }
+    return 'auth_tokens';
+  }
+
   private storageKey: string;
   private autoRefresh: boolean;
   private refreshThreshold: number;
@@ -98,6 +134,13 @@ export class SessionManager {
 
     // Schedule proactive refresh if we already have tokens
     this.scheduleProactiveRefresh();
+  }
+
+  /** Update mutable config (callbacks, baseUrl) on an existing instance. */
+  private updateConfig(config: SessionConfig): void {
+    if (config.onSessionExpired !== undefined) this.onSessionExpired = config.onSessionExpired;
+    if (config.onRefreshFailed !== undefined) this.onRefreshFailed = config.onRefreshFailed;
+    if (config.baseUrl) this.baseUrl = config.baseUrl;
   }
 
   // --- Storage helpers ---
@@ -220,11 +263,8 @@ export class SessionManager {
     const delay = refreshAt - Date.now();
 
     if (delay <= 0) {
-      // Already past the proactive refresh point — defer to next tick so
-      // destroy()/cancelProactiveTimer() can cancel it (e.g. React Strict Mode unmount).
-      this.proactiveTimerId = setTimeout(() => {
-        this.backgroundRefresh();
-      }, 0);
+      // Already past the proactive refresh point — refresh now
+      this.backgroundRefresh();
       return;
     }
 
@@ -553,6 +593,8 @@ export class SessionManager {
    */
   destroy(): void {
     this.isDestroyed = true;
+    // Remove from singleton registry
+    SessionManager.instances.delete(this.storageKey);
     this.cancelProactiveTimer();
     const error = new SessionExpiredError('token_invalid', 'SessionManager destroyed');
     this.rejectQueue(error);

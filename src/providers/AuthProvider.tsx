@@ -145,9 +145,9 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     return hasUrlTokens;
   });
 
-  // Create services with stable references
+  // Create services with stable references — singleton per tenantSlug
   const sessionManager = useMemo(() => {
-    const manager = new SessionManager({
+    const manager = SessionManager.getInstance({
       tenantSlug: tenantSlug,
       baseUrl: baseUrl,
       refreshQueueTimeout: config.refreshQueueTimeout,
@@ -781,14 +781,6 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     lastUserFetch,
     USER_DATA_CACHE_TTL,
   ]);
-
-  // Cleanup: destroy previous SessionManager on unmount or when deps change.
-  // Prevents double-refresh in React Strict Mode (double-mount) and re-mount scenarios.
-  useEffect(() => {
-    return () => {
-      sessionManager.destroy();
-    };
-  }, [sessionManager]);
 
   // Fetch roles on mount if not provided via SSR
   useEffect(() => {
