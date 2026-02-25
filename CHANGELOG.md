@@ -1,3 +1,10 @@
+# [2.23.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.22.0...v2.23.0) (2026-02-25)
+
+
+### Features
+
+* fix session restoration and token refresh race conditions ([b62e8af](https://github.com/skylabs-digital/react-identity-access/commit/b62e8af66bbafce3179c64ace59096ada53cd47b))
+
 # [2.22.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.21.0...v2.22.0) (2026-02-25)
 
 
