@@ -104,7 +104,6 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isUserLoading, setIsUserLoading] = useState(false);
   const [userError, setUserError] = useState<Error | null>(null);
-  const [lastUserFetch, setLastUserFetch] = useState<number>(0);
 
   // RFC-004: Multi-tenant user membership state
   const [userTenants, setUserTenants] = useState<UserTenantMembership[]>(() => {
@@ -242,8 +241,8 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     return sessionManager.hasValidSession() && currentUser !== null;
   }, [sessionManager, currentUser]);
 
-  // Cache configuration: refetch user data every 5 minutes
-  const USER_DATA_CACHE_TTL = 5 * 60 * 1000; // 5 minutes in milliseconds
+  // Stable ref so effects can call loadUserData without depending on contextValue
+  const loadUserDataRef = useRef<(forceRefresh?: boolean) => Promise<void>>(async () => {});
 
   const contextValue = useMemo(() => {
     // Load user data from API with cache control
@@ -254,11 +253,8 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
           return;
         }
 
-        // 2. Check if we should use cached data
-        const now = Date.now();
-        const cacheValid = !forceRefresh && now - lastUserFetch < USER_DATA_CACHE_TTL;
-
-        if (cacheValid && currentUser) {
+        // 2. Skip if we already have user data (unless forced)
+        if (!forceRefresh && currentUser) {
           return;
         }
 
@@ -275,7 +271,6 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
         const userData = await userApiService.getUserById(userId);
         setCurrentUser(userData);
         sessionManager.setUser(userData); // Update session with fresh data
-        setLastUserFetch(Date.now()); // Update cache timestamp
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to load user data');
         setUserError(error);
@@ -782,9 +777,10 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     isAuthReady,
     userRole,
     userPermissions,
-    lastUserFetch,
-    USER_DATA_CACHE_TTL,
   ]);
+
+  // Keep loadUserDataRef in sync with the latest contextValue.loadUserData
+  loadUserDataRef.current = contextValue.loadUserData;
 
   // Fetch roles on mount if not provided via SSR
   useEffect(() => {
@@ -871,10 +867,10 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     if (initRef.current.urlTokens) return;
 
     // Only trigger auto-load if we don't have currentUser and not already loading
-    if (!currentUser && !isUserLoading && sessionManager.hasValidSession()) {
+    if (!currentUser && !isUserLoading && !userError && sessionManager.hasValidSession()) {
       console.log('[AuthProvider] Auto-loading user data...');
-      contextValue
-        .loadUserData()
+      loadUserDataRef
+        .current()
         .catch(() => {
           // Silent fail - error already logged in loadUserData
         })
@@ -883,23 +879,11 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
         });
     } else if (currentUser) {
       setIsRestoringSession(false);
+    } else {
+      // No valid session or error — release
+      setIsRestoringSession(false);
     }
-  }, [currentUser, isUserLoading, contextValue, sessionManager, urlTokensCleanedUp]);
-
-  // Periodic refresh of user data (every 5 minutes)
-  useEffect(() => {
-    if (!sessionManager.hasValidSession() || !currentUser) {
-      return; // Only refresh if authenticated
-    }
-
-    const refreshInterval = setInterval(() => {
-      contextValue.loadUserData().catch(() => {
-        // Silent fail - error already logged in loadUserData
-      });
-    }, USER_DATA_CACHE_TTL);
-
-    return () => clearInterval(refreshInterval);
-  }, [sessionManager, currentUser, contextValue, USER_DATA_CACHE_TTL]);
+  }, [currentUser, isUserLoading, userError, sessionManager, urlTokensCleanedUp]);
 
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 }
