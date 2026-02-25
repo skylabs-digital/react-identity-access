@@ -1,3 +1,10 @@
+# [2.22.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.21.0...v2.22.0) (2026-02-25)
+
+
+### Features
+
+* add session generation tracking to prevent stale refresh attempts after logout ([db5396e](https://github.com/skylabs-digital/react-identity-access/commit/db5396e5e5cc08cf78af7b150e7f6e27f3c19bfc))
+
 # [2.21.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.20.0...v2.21.0) (2026-02-25)
 
 
