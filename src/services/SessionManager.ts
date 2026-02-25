@@ -204,7 +204,9 @@ export class SessionManager {
       expiresAt,
     };
 
-    this.tokenStorage.set(tokenData);
+    // Merge with existing storage to preserve non-token data (e.g. user)
+    const currentData = this.tokenStorage.get() || {};
+    this.tokenStorage.set({ ...currentData, ...tokenData });
 
     // Reschedule proactive refresh with new expiry
     this.scheduleProactiveRefresh();
@@ -473,7 +475,7 @@ export class SessionManager {
       }
 
       try {
-        await this.performTokenRefresh(refreshToken);
+        await this.performTokenRefresh(refreshToken, gen);
         return; // Success
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
@@ -502,7 +504,7 @@ export class SessionManager {
    * Throws SessionExpiredError for fatal errors (no retry).
    * Throws generic Error for transient errors (will be retried).
    */
-  private async performTokenRefresh(refreshToken: string): Promise<void> {
+  private async performTokenRefresh(refreshToken: string, gen: number): Promise<void> {
     if (!this.baseUrl) {
       throw new Error('Base URL not configured for token refresh');
     }
@@ -534,6 +536,7 @@ export class SessionManager {
       }
 
       // Classify the error based on status + message
+      // All 401s are fatal — no retry
       if (response.status === 401) {
         if (errorMessage.includes('expired')) {
           throw new SessionExpiredError('token_expired');
@@ -549,12 +552,22 @@ export class SessionManager {
         if (errorMessage.includes('inactive')) {
           throw new SessionExpiredError('user_inactive');
         }
+        // Expired/invalid tokens returned as 400 — also fatal
+        if (errorMessage.includes('expired') || errorMessage.includes('invalid')) {
+          throw new SessionExpiredError('token_invalid', errorMessage);
+        }
         // Other 400s — transient ("User not found", "Token refresh failed: ...")
         throw new Error(`Token refresh failed (400): ${errorMessage}`);
       }
 
       // 5xx or other — transient
       throw new Error(`Token refresh failed: ${response.status} ${errorMessage}`);
+    }
+
+    // Session may have been cleared (logout) while the fetch was in-flight.
+    // Do NOT write tokens back to storage if that happened.
+    if (this.sessionGeneration !== gen) {
+      throw new SessionExpiredError('token_invalid', 'Session cleared during refresh');
     }
 
     const refreshResponse = await response.json();
@@ -603,8 +616,8 @@ export class SessionManager {
   clearSession(): void {
     this.sessionGeneration++;
     this.cancelProactiveTimer();
+    // clearTokens removes the entire storage entry (tokens + user data)
     this.clearTokens();
-    this.clearUser();
 
     // Reject any pending queue entries
     const expiredError = new SessionExpiredError('token_invalid', 'Session cleared');

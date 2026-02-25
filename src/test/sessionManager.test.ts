@@ -84,6 +84,18 @@ describe('SessionManager', () => {
       storage.set({ accessToken: 'a', expiresAt: Date.now() - 1000 });
       expect(sm.hasValidSession()).toBe(false);
     });
+
+    it('setTokens preserves existing user data in storage', () => {
+      const sm = new SessionManager({ tokenStorage: storage, autoRefresh: false });
+      sm.setTokens({ accessToken: 'a', refreshToken: 'r', expiresIn: 3600 });
+      sm.setUser({ id: 'u1', name: 'Test' });
+
+      // Refresh tokens — should NOT erase user data
+      sm.setTokens({ accessToken: 'b', refreshToken: 'r2', expiresIn: 7200 });
+
+      expect(sm.getTokens()?.accessToken).toBe('b');
+      expect(sm.getUser()).toEqual({ id: 'u1', name: 'Test' });
+    });
   });
 
   // ─── getValidAccessToken ───
@@ -1162,6 +1174,106 @@ describe('SessionManager', () => {
 
       // No additional fetch calls
       expect(fetchMock).toHaveBeenCalledTimes(countAfterFirst);
+      sm.destroy();
+    });
+
+    it('clearSession fully removes storage entry (no leftover empty object)', () => {
+      const sm = new SessionManager({
+        tokenStorage: storage,
+        autoRefresh: false,
+      });
+      sm.setTokens({ accessToken: 'a', refreshToken: 'r', expiresIn: 3600 });
+      sm.setUser({ id: 'u1', name: 'Test' });
+
+      sm.clearSession();
+
+      // Storage must be completely empty — no leftover {} from clearUser
+      expect(storage.get()).toBeNull();
+    });
+
+    it('clearSession during in-flight fetch prevents tokens from being written back', async () => {
+      let resolveRefresh: () => void;
+      const refreshGate = new Promise<void>(r => {
+        resolveRefresh = r;
+      });
+
+      const fetchMock = vi.fn().mockImplementation(async () => {
+        await refreshGate;
+        return {
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              accessToken: 'new-access',
+              refreshToken: 'new-refresh',
+              expiresIn: 3600,
+            }),
+        };
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const sm = new SessionManager({
+        tokenStorage: storage,
+        autoRefresh: true,
+        proactiveRefreshMargin: 60000,
+        baseUrl: 'http://api',
+        maxRefreshRetries: 0,
+      });
+
+      sm.setTokens({
+        accessToken: 'old',
+        refreshToken: 'old-r',
+        expiresAt: Date.now() - 5000,
+      });
+
+      // Fetch is in-flight
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      // Logout while fetch is pending
+      sm.clearSession();
+      expect(storage.get()).toBeNull();
+
+      // Let the fetch resolve
+      resolveRefresh!();
+      await vi.advanceTimersByTimeAsync(10);
+
+      // Tokens must NOT be written back after clearSession
+      expect(storage.get()).toBeNull();
+      sm.destroy();
+    });
+
+    it('401 with expired/invalid message is fatal — no retry', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 401,
+        json: () => Promise.resolve({ message: 'Refresh token expired' }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const onSessionExpired = vi.fn();
+      const sm = new SessionManager({
+        tokenStorage: storage,
+        autoRefresh: true,
+        proactiveRefreshMargin: 60000,
+        baseUrl: 'http://api',
+        maxRefreshRetries: 3,
+        onSessionExpired,
+      });
+
+      sm.setTokens({
+        accessToken: 'old',
+        refreshToken: 'old-r',
+        expiresAt: Date.now() - 5000,
+      });
+
+      // Wait for background refresh to complete
+      await vi.advanceTimersByTimeAsync(100);
+
+      // Only 1 fetch — no retries for 401
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      // Session expired callback fired
+      expect(onSessionExpired).toHaveBeenCalledTimes(1);
+      // Storage cleared
+      expect(storage.get()).toBeNull();
       sm.destroy();
     });
 

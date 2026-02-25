@@ -850,12 +850,10 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       const user = sessionManager.getUser();
       if (user && sessionManager.hasValidSession()) {
         setCurrentUser(user);
-        setIsRestoringSession(false);
-      } else if (!sessionManager.hasValidSession()) {
-        setIsRestoringSession(false);
       }
-      // If hasValidSession() but no cached user, keep isRestoringSession=true
-      // — the auto-load effect below will handle it
+      // Always release — valid session with no cached user will be handled
+      // by the auto-load effect (triggered via contextValue change when isAuthReady flips)
+      setIsRestoringSession(false);
     };
     init();
 
