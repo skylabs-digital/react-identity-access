@@ -1,3 +1,10 @@
+# [2.21.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.20.0...v2.21.0) (2026-02-25)
+
+
+### Features
+
+* convert SessionManager to singleton pattern to prevent duplicate instances per tenant ([3c40152](https://github.com/skylabs-digital/react-identity-access/commit/3c4015298ebc2b0c289dc8a6c4902a8134e93209))
+
 # [2.20.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.19.0...v2.20.0) (2026-02-24)
 
 
