@@ -1,3 +1,10 @@
+# [2.24.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.23.0...v2.24.0) (2026-02-25)
+
+
+### Features
+
+* remove periodic user data refresh and time-based caching in favor of on-demand loading ([aa2ec3f](https://github.com/skylabs-digital/react-identity-access/commit/aa2ec3f475fd42b147de0d3997d3a8b7e6ed826a))
+
 # [2.23.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.22.0...v2.23.0) (2026-02-25)
 
 
