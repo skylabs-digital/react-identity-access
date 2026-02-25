@@ -110,6 +110,7 @@ export class SessionManager {
   private proactiveTimerId: ReturnType<typeof setTimeout> | null = null;
   private backgroundRetryTimerId: ReturnType<typeof setTimeout> | null = null;
   private isDestroyed = false;
+  private sessionGeneration = 0;
 
   constructor(config: SessionConfig = {}) {
     if (config.tenantSlug !== undefined) {
@@ -293,6 +294,8 @@ export class SessionManager {
     // If a refresh is already in progress (e.g. from getValidAccessToken), skip
     if (this.refreshPromise) return;
 
+    const gen = this.sessionGeneration;
+
     // Use the shared refresh mechanism so refreshPromise is set.
     // This ensures concurrent getValidAccessToken() calls queue behind
     // this refresh instead of starting a duplicate one.
@@ -303,8 +306,8 @@ export class SessionManager {
       .catch(error => {
         if (error instanceof SessionExpiredError) {
           // Fatal — already handled by startRefreshAndResolveQueue
-        } else {
-          // Transient — schedule background retry in 30s
+        } else if (this.sessionGeneration === gen) {
+          // Transient — schedule background retry in 30s (only if session wasn't cleared)
           console.warn(
             '[SessionManager] Background refresh failed, retrying in 30s:',
             error.message
@@ -314,6 +317,20 @@ export class SessionManager {
           }, 30000);
         }
       });
+  }
+
+  /**
+   * Wait for any in-progress token refresh to settle.
+   * Returns true if refresh succeeded, false if it failed or no refresh was pending.
+   */
+  async waitForPendingRefresh(): Promise<boolean> {
+    if (!this.refreshPromise) return false;
+    try {
+      await this.refreshPromise;
+      return true;
+    } catch {
+      return false;
+    }
   }
 
   // --- Core: getValidAccessToken with queue + timeout ---
@@ -447,8 +464,14 @@ export class SessionManager {
 
   private async executeRefreshWithRetry(refreshToken: string): Promise<void> {
     let lastError: Error | undefined;
+    const gen = this.sessionGeneration;
 
     for (let attempt = 0; attempt <= this.maxRefreshRetries; attempt++) {
+      // Bail out if session was cleared during retry (logout, session expired, etc.)
+      if (this.sessionGeneration !== gen) {
+        throw new SessionExpiredError('token_invalid', 'Session cleared during refresh');
+      }
+
       try {
         await this.performTokenRefresh(refreshToken);
         return; // Success
@@ -578,6 +601,7 @@ export class SessionManager {
   // --- Session lifecycle ---
 
   clearSession(): void {
+    this.sessionGeneration++;
     this.cancelProactiveTimer();
     this.clearTokens();
     this.clearUser();

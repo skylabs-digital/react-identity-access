@@ -1031,6 +1031,140 @@ describe('SessionManager', () => {
       sm1.destroy();
     });
 
+    it('waitForPendingRefresh resolves true after successful background refresh', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            accessToken: 'new-access',
+            refreshToken: 'new-refresh',
+            expiresIn: 3600,
+          }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      storage.set({
+        accessToken: 'old',
+        refreshToken: 'old-r',
+        expiresAt: Date.now() - 5000,
+      });
+
+      const sm = new SessionManager({
+        tokenStorage: storage,
+        autoRefresh: true,
+        proactiveRefreshMargin: 60000,
+        baseUrl: 'http://api',
+        maxRefreshRetries: 0,
+      });
+
+      // backgroundRefresh is in progress
+      const result = await sm.waitForPendingRefresh();
+      expect(result).toBe(true);
+      expect(sm.hasValidSession()).toBe(true);
+      sm.destroy();
+    });
+
+    it('waitForPendingRefresh resolves false when refresh fails', async () => {
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: false,
+          status: 401,
+          json: () => Promise.resolve({ message: 'Token expired' }),
+        })
+      );
+
+      storage.set({
+        accessToken: 'old',
+        refreshToken: 'old-r',
+        expiresAt: Date.now() - 5000,
+      });
+
+      const sm = new SessionManager({
+        tokenStorage: storage,
+        autoRefresh: true,
+        proactiveRefreshMargin: 60000,
+        baseUrl: 'http://api',
+        maxRefreshRetries: 0,
+      });
+
+      const result = await sm.waitForPendingRefresh();
+      expect(result).toBe(false);
+      sm.destroy();
+    });
+
+    it('clearSession aborts in-flight retry loop via sessionGeneration', async () => {
+      let callCount = 0;
+      const fetchMock = vi.fn().mockImplementation(async () => {
+        callCount++;
+        throw new Error('network error');
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const sm = new SessionManager({
+        tokenStorage: storage,
+        autoRefresh: true,
+        proactiveRefreshMargin: 60000,
+        baseUrl: 'http://api',
+        maxRefreshRetries: 5,
+        retryBackoffBase: 100,
+      });
+
+      sm.setTokens({
+        accessToken: 'old',
+        refreshToken: 'old-r',
+        expiresAt: Date.now() - 5000,
+      });
+
+      // First attempt fails, starts retrying
+      // Advance past first backoff
+      await vi.advanceTimersByTimeAsync(150);
+      const countBeforeClear = callCount;
+
+      // Clear session mid-retry
+      sm.clearSession();
+
+      // Advance well past remaining retries
+      await vi.advanceTimersByTimeAsync(10000);
+
+      // Should not have made more attempts after clearSession
+      expect(callCount).toBeLessThanOrEqual(countBeforeClear + 1);
+      sm.destroy();
+    });
+
+    it('clearSession prevents 30s background retry reschedule', async () => {
+      const fetchMock = vi.fn().mockRejectedValue(new Error('transient'));
+      vi.stubGlobal('fetch', fetchMock);
+
+      const sm = new SessionManager({
+        tokenStorage: storage,
+        autoRefresh: true,
+        proactiveRefreshMargin: 60000,
+        baseUrl: 'http://api',
+        maxRefreshRetries: 0,
+      });
+
+      sm.setTokens({
+        accessToken: 'old',
+        refreshToken: 'old-r',
+        expiresAt: Date.now() - 5000,
+      });
+
+      // Wait for first background refresh attempt to fail
+      await vi.advanceTimersByTimeAsync(100);
+      const countAfterFirst = fetchMock.mock.calls.length;
+
+      // Clear session — should prevent 30s retry
+      sm.clearSession();
+
+      // Advance past the 30s retry point
+      await vi.advanceTimersByTimeAsync(60000);
+
+      // No additional fetch calls
+      expect(fetchMock).toHaveBeenCalledTimes(countAfterFirst);
+      sm.destroy();
+    });
+
     it('rejects pending queue and prevents future background refresh', async () => {
       vi.stubGlobal('fetch', vi.fn().mockReturnValue(new Promise(() => {})));
 

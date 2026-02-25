@@ -187,11 +187,15 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
   }, [tenantSlug, baseUrl, config.refreshQueueTimeout, config.proactiveRefreshMargin]);
 
   // Track if we're restoring an existing session (tokens in localStorage but user not loaded yet)
-  // CRITICAL: Initialize to TRUE if there's a valid session without URL tokens,
-  // so isAuthReady stays false until user data is loaded from cache or API
+  // CRITICAL: Initialize to TRUE if there's a valid session OR if tokens are expired but
+  // refreshable (backgroundRefresh is pending). This keeps isAuthReady false until
+  // the refresh attempt settles, preventing premature redirects to login.
   const [isRestoringSession, setIsRestoringSession] = useState(() => {
     if (initRef.current.urlTokens) return false; // URL tokens path handles its own blocking
-    return sessionManager.hasValidSession();
+    const tokens = sessionManager.getTokens();
+    if (!tokens) return false;
+    // Valid session (need to load user) OR expired but has refreshToken (refresh pending)
+    return sessionManager.hasValidSession() || !!tokens.refreshToken;
   });
 
   // Auth is ready when:
@@ -830,17 +834,34 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     }
   }, [contextValue, urlTokensCleanedUp]);
 
-  // Initialize user data from session on mount
+  // Initialize user data from session on mount.
+  // If a background refresh is in progress (expired token being renewed), wait for it
+  // before checking session validity — prevents premature redirect to login.
   useEffect(() => {
-    const user = sessionManager.getUser();
-    if (user && sessionManager.hasValidSession()) {
-      setCurrentUser(user);
-      setIsRestoringSession(false);
-    } else if (!sessionManager.hasValidSession()) {
-      setIsRestoringSession(false);
-    }
-    // If hasValidSession() but no cached user, keep isRestoringSession=true
-    // — the auto-load effect below will handle it
+    let cancelled = false;
+
+    const init = async () => {
+      // If token is expired but a refresh is pending, wait for it
+      if (!sessionManager.hasValidSession() && sessionManager.getTokens()?.refreshToken) {
+        await sessionManager.waitForPendingRefresh();
+      }
+      if (cancelled) return;
+
+      const user = sessionManager.getUser();
+      if (user && sessionManager.hasValidSession()) {
+        setCurrentUser(user);
+        setIsRestoringSession(false);
+      } else if (!sessionManager.hasValidSession()) {
+        setIsRestoringSession(false);
+      }
+      // If hasValidSession() but no cached user, keep isRestoringSession=true
+      // — the auto-load effect below will handle it
+    };
+    init();
+
+    return () => {
+      cancelled = true;
+    };
   }, [sessionManager]);
 
   // Auto-load user data if we have tokens but no currentUser
