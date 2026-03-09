@@ -1,3 +1,10 @@
+# [2.25.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.24.0...v2.25.0) (2026-03-09)
+
+
+### Features
+
+* update documentation to reflect new API signatures and add comprehensive component customization reference ([4549af4](https://github.com/skylabs-digital/react-identity-access/commit/4549af4b9b33ce7e8fbc550112b8690191dba8eb))
+
 # [2.24.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.23.0...v2.24.0) (2026-02-25)
 
 
