@@ -28,6 +28,9 @@ export interface SignupFormCopy {
   passwordMismatchError?: string;
   isAdminLabel?: string;
   isAdminDescription?: string;
+  contactMethodHint?: string;
+  tenantNotFoundError?: string;
+  dividerBullet?: string;
 }
 
 export interface SignupFormStyles {
@@ -48,6 +51,7 @@ export interface SignupFormStyles {
   linkContainer?: React.CSSProperties;
   link?: React.CSSProperties;
   divider?: React.CSSProperties;
+  hintText?: React.CSSProperties;
 }
 
 export type SignupType = 'user' | 'tenant';
@@ -91,6 +95,9 @@ const defaultCopy: Required<SignupFormCopy> = {
   passwordMismatchError: 'Passwords do not match',
   isAdminLabel: 'Create new organization',
   isAdminDescription: 'Check this if you want to create a new organization',
+  contactMethodHint: 'At least one contact method (email or phone) is required',
+  tenantNotFoundError: 'Tenant not found',
+  dividerBullet: '•',
 };
 
 const defaultStyles: Required<SignupFormStyles> = {
@@ -191,6 +198,12 @@ const defaultStyles: Required<SignupFormStyles> = {
     color: '#6b7280',
     fontSize: '0.875rem',
   },
+  hintText: {
+    fontSize: '0.875rem',
+    color: '#6b7280',
+    textAlign: 'center',
+    margin: '0.5rem 0',
+  },
 };
 
 export function SignupForm({
@@ -264,7 +277,7 @@ export function SignupForm({
     }
 
     if (signupType === 'user' && !tenant?.id) {
-      setError('Tenant not found');
+      setError(mergedCopy.tenantNotFoundError);
       return;
     }
 
@@ -403,16 +416,7 @@ export function SignupForm({
           />
         </div>
 
-        <div
-          style={{
-            fontSize: '0.875rem',
-            color: '#6b7280',
-            textAlign: 'center',
-            margin: '0.5rem 0',
-          }}
-        >
-          At least one contact method (email or phone) is required
-        </div>
+        <div style={mergedStyles.hintText}>{mergedCopy.contactMethodHint}</div>
 
         <div style={mergedStyles.fieldGroup}>
           <label style={mergedStyles.label}>{mergedCopy.passwordLabel}</label>
@@ -494,7 +498,9 @@ export function SignupForm({
             </div>
           )}
 
-          {showMagicLinkOption && showLoginLink && <div style={mergedStyles.divider}>•</div>}
+          {showMagicLinkOption && showLoginLink && (
+            <div style={mergedStyles.divider}>{mergedCopy.dividerBullet}</div>
+          )}
 
           {showLoginLink && (
             <div>

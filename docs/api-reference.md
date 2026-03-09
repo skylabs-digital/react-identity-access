@@ -15,41 +15,89 @@ Complete API reference for React Identity Access library.
 
 ### AppProvider
 
-Root provider that configures the application context.
+Root provider that configures the application context. Loads public app info from the backend.
 
 ```tsx
 interface AppConfig {
   baseUrl: string;           // Backend API URL
-  appId: string;            // Application identifier
-  tenantMode: 'subdomain' | 'path' | 'header';
-  selectorParam: string;    // Tenant selector parameter
-  apiTimeout?: number;      // Request timeout (default: 30000ms)
-  retryAttempts?: number;   // Retry attempts (default: 3)
+  appId: string;             // Application identifier
+  cache?: {
+    enabled?: boolean;       // Default: true
+    ttl?: number;            // Cache TTL in ms (default: 5 minutes)
+    storageKey?: string;     // Default: 'app_cache_{appId}'
+  };
 }
 
-interface AppProviderProps {
-  config: AppConfig;
-  children: React.ReactNode;
+interface AppContextValue {
+  appId: string;
+  baseUrl: string;
+  appInfo: PublicAppInfo | null;
+  isAppLoading: boolean;
+  appError: Error | null;
+  retryApp: () => void;
 }
 
-<AppProvider config={appConfig}>
+<AppProvider config={{ baseUrl: 'https://api.example.com', appId: 'my-app' }}>
   {children}
 </AppProvider>
 ```
 
+### TenantProvider
+
+Handles multi-tenant detection, info loading, settings, and tenant switching.
+
+```tsx
+interface TenantConfig {
+  tenantMode?: 'subdomain' | 'selector' | 'fixed'; // Default: 'selector'
+  fixedTenantSlug?: string;  // Required when tenantMode is 'fixed'
+  baseDomain?: string;       // Base domain for subdomain mode (e.g., 'myapp.com')
+  selectorParam?: string;    // Default: 'tenant', for 'selector' mode
+  cache?: {
+    enabled?: boolean;       // Default: true
+    ttl?: number;            // Cache TTL in ms (default: 5 minutes)
+    storageKey?: string;     // Default: 'tenant_cache_{tenantSlug}'
+  };
+  initialTenant?: PublicTenantInfo; // SSR pre-loaded tenant
+}
+
+interface TenantContextValue {
+  tenant: PublicTenantInfo | null;
+  tenantSlug: string | null;
+  isTenantLoading: boolean;
+  tenantError: Error | null;
+  retryTenant: () => void;
+  settings: TenantSettings | null;
+  settingsSchema: JSONSchema | null;
+  isSettingsLoading: boolean;
+  settingsError: Error | null;
+  refreshSettings: () => void;
+  switchTenant: (tenantSlug: string, options?: {
+    mode?: 'navigate' | 'reload';
+    tokens?: AuthTokens;
+    redirectPath?: string;
+  }) => void;
+  validateSettings: (settings: TenantSettings) => { isValid: boolean; errors: string[] };
+}
+
+<TenantProvider config={{ tenantMode: 'subdomain', baseDomain: 'myapp.com' }}>
+  {children}
+</TenantProvider>
+```
+
 ### AuthProvider
 
-Handles authentication and session management.
+Handles authentication, session management, user data, roles, permissions, and multi-tenant membership.
 
 ```tsx
 interface AuthConfig {
-  onRefreshFailed?: () => void;  // Callback when token refresh fails
-  initialRoles?: Role[];         // SSR role injection
-}
-
-interface AuthProviderProps {
-  config?: AuthConfig;
-  children: React.ReactNode;
+  onSessionExpired?: (error: SessionExpiredError) => void;
+  /** @deprecated Use onSessionExpired instead */
+  onRefreshFailed?: () => void;
+  initialRoles?: Role[];                   // SSR role injection
+  refreshQueueTimeout?: number;            // ms before queued requests timeout (default: 10000)
+  proactiveRefreshMargin?: number;         // ms before expiry to proactively refresh (default: 60000)
+  autoSwitchSingleTenant?: boolean;        // Auto-switch if user has only one tenant (default: true)
+  onTenantSelectionRequired?: (tenants: UserTenantMembership[]) => void;
 }
 
 <AuthProvider config={authConfig}>
@@ -62,10 +110,6 @@ interface AuthProviderProps {
 Manages feature flags for the application.
 
 ```tsx
-interface FeatureFlagProviderProps {
-  children: React.ReactNode;
-}
-
 <FeatureFlagProvider>
   {children}
 </FeatureFlagProvider>
@@ -76,10 +120,6 @@ interface FeatureFlagProviderProps {
 Handles billing and subscription management.
 
 ```tsx
-interface SubscriptionProviderProps {
-  children: React.ReactNode;
-}
-
 <SubscriptionProvider>
   {children}
 </SubscriptionProvider>
@@ -93,27 +133,42 @@ Primary authentication hook providing access to auth state and methods.
 
 ```tsx
 interface AuthContextValue {
-  // Session Management
+  // Authentication state
+  isAuthenticated: boolean;
   sessionManager: SessionManager;
+  authenticatedHttpService: HttpService;
+
+  // Authentication methods (RFC-002: Object parameters)
+  login: (params: LoginParams) => Promise<LoginResponse>;
+  signup: (params: SignupParams) => Promise<User>;
+  signupTenantAdmin: (params: SignupTenantAdminParams) => Promise<{ user: User; tenant: any }>;
+  sendMagicLink: (params: SendMagicLinkParams) => Promise<MagicLinkResponse>;
+  verifyMagicLink: (params: VerifyMagicLinkParams) => Promise<VerifyMagicLinkResponse>;
+  changePassword: (params: ChangePasswordParams) => Promise<void>;
+  requestPasswordReset: (params: RequestPasswordResetParams) => Promise<void>;
+  confirmPasswordReset: (params: ConfirmPasswordResetParams) => Promise<void>;
+  refreshToken: () => Promise<void>;
+  logout: () => void;
+
+  // Session methods
+  setTokens: (tokens: { accessToken: string; refreshToken: string; expiresIn: number }) => void;
   hasValidSession: () => boolean;
-  setTokens: (tokens: TokenSet) => void;
   clearSession: () => void;
 
-  // Authentication Methods
-  login: (email: string, password: string, tenantId: string) => Promise<any>;
-  signup: (email: string, name: string, password: string, tenantId: string) => Promise<any>;
-  signupTenantAdmin: (email: string, name: string, password: string, tenantName: string) => Promise<any>;
-  logout: () => void;
-  
-  // Password Management
-  changePassword: (currentPassword: string, newPassword: string) => Promise<void>;
-  requestPasswordReset: (email: string, tenantId: string) => Promise<void>;
-  confirmPasswordReset: (token: string, newPassword: string) => Promise<void>;
-  refreshToken: () => Promise<void>;
+  // User data
+  currentUser: User | null;
+  isUserLoading: boolean;
+  userError: Error | null;
+  loadUserData: (forceRefresh?: boolean) => Promise<void>;
+  refreshUser: () => Promise<void>;
 
-  // Role and Permission Management
+  // Initialization state (cross-subdomain auth)
+  isAuthInitializing: boolean;
+  isAuthReady: boolean;
+
+  // Role and Permission management
   userRole: Role | null;
-  userPermissions: Permission[];
+  userPermissions: string[];
   availableRoles: Role[];
   rolesLoading: boolean;
   hasPermission: (permission: string | Permission) => boolean;
@@ -122,28 +177,37 @@ interface AuthContextValue {
   getUserPermissionStrings: () => string[];
   refreshRoles: () => Promise<void>;
 
-  // HTTP Service
-  authenticatedHttpService: HttpService;
+  // Multi-tenant user membership (RFC-004)
+  userTenants: UserTenantMembership[];
+  hasTenantContext: boolean;
+  switchToTenant: (tenantId: string, options?: { redirectPath?: string }) => Promise<void>;
+  refreshUserTenants: () => Promise<UserTenantMembership[]>;
 }
 
 const auth = useAuth();
 ```
 
-#### Methods
+#### Key Methods
 
-**login(email, password, tenantId)**
-- Authenticates user with email/password
+**login(params)**
+- Authenticates user with email/phone + password
+- `params: { username: string; password: string }`
 - Returns: `Promise<LoginResponse>`
-- Throws: `AuthError` on failure
 
-**signup(email, name, password, tenantId)**
+**signup(params)**
 - Creates new user account
-- Returns: `Promise<SignupResponse>`
-- Throws: `AuthError` on failure
+- `params: { email?: string; phoneNumber?: string; name: string; lastName?: string; password: string }`
+- Returns: `Promise<User>`
 
-**logout()**
-- Clears session and redirects to login
-- Returns: `void`
+**sendMagicLink(params)**
+- Sends a magic link email for passwordless auth
+- `params: { email: string; frontendUrl: string; name?: string; lastName?: string }`
+- Returns: `Promise<MagicLinkResponse>`
+
+**verifyMagicLink(params)**
+- Verifies a magic link token
+- `params: { token: string; email: string; appId: string; tenantSlug?: string }`
+- Returns: `Promise<VerifyMagicLinkResponse>`
 
 **hasPermission(permission)**
 - Checks if user has specific permission
@@ -152,27 +216,45 @@ const auth = useAuth();
 
 **hasAnyPermission(permissions)**
 - Checks if user has any of the specified permissions
-- Parameters: `(string | Permission)[]`
 - Returns: `boolean`
 
 **hasAllPermissions(permissions)**
 - Checks if user has all specified permissions
-- Parameters: `(string | Permission)[]`
 - Returns: `boolean`
+
+**switchToTenant(tenantId, options?)**
+- Switches the user's active tenant and optionally navigates
+- Returns: `Promise<void>`
 
 ### useApp
 
-Provides access to application configuration and context.
+Provides access to application configuration and loaded app info.
 
 ```tsx
 interface AppContextValue {
   appId: string;
-  tenantSlug: string;
   baseUrl: string;
-  config: AppConfig;
+  appInfo: PublicAppInfo | null;
+  isAppLoading: boolean;
+  appError: Error | null;
+  retryApp: () => void;
 }
 
-const app = useApp();
+const { appId, baseUrl, appInfo } = useApp();
+```
+
+### useTenant / useTenantInfo
+
+Provides access to tenant data, settings, and actions.
+
+```tsx
+const {
+  tenant,           // PublicTenantInfo | null
+  tenantSlug,       // string | null
+  isTenantLoading,  // boolean
+  settings,         // TenantSettings | null
+  switchTenant,     // (slug, options?) => void
+} = useTenant();
 ```
 
 ### useFeatureFlag
@@ -188,20 +270,8 @@ interface FeatureFlagContextValue {
   refreshFlags: () => Promise<void>;
 }
 
-const featureFlags = useFeatureFlag();
+const { isEnabled, getValue } = useFeatureFlag();
 ```
-
-#### Methods
-
-**isEnabled(flagName)**
-- Checks if feature flag is enabled
-- Parameters: `string`
-- Returns: `boolean`
-
-**getValue(flagName, defaultValue)**
-- Gets feature flag value with fallback
-- Parameters: `string, T`
-- Returns: `T`
 
 ### useSubscription
 
@@ -217,20 +287,8 @@ interface SubscriptionContextValue {
   refreshSubscription: () => Promise<void>;
 }
 
-const subscription = useSubscription();
+const { hasFeature, getLimit } = useSubscription();
 ```
-
-#### Methods
-
-**hasFeature(feature)**
-- Checks if subscription includes feature
-- Parameters: `string`
-- Returns: `boolean`
-
-**getLimit(limitName, defaultValue)**
-- Gets subscription limit value
-- Parameters: `string, number`
-- Returns: `number`
 
 ## Components
 
@@ -243,7 +301,7 @@ interface ProtectedProps {
   children: React.ReactNode;
   requiredPermissions?: string[];
   requiredRole?: string;
-  requireAll?: boolean;
+  requireAll?: boolean;        // Default: true
   fallback?: React.ReactNode;
   onUnauthorized?: () => void;
 }
@@ -252,56 +310,140 @@ interface ProtectedProps {
   requiredPermissions={['users:read', 'users:write']}
   requireAll={true}
   fallback={<div>Access denied</div>}
-  onUnauthorized={() => console.log('Unauthorized access attempt')}
 >
   <AdminPanel />
 </Protected>
 ```
 
-#### Props
-
-- **requiredPermissions**: Array of required permissions
-- **requiredRole**: Required user role
-- **requireAll**: Whether all permissions are required (default: true)
-- **fallback**: Component to render when access is denied
-- **onUnauthorized**: Callback when access is denied
-
 ### LoginForm
 
-Pre-built login form component.
+Pre-built login form with email/phone + password authentication, password toggle, and optional Magic Link / Signup / Forgot Password links.
+
+See [README Component Reference](../README.md#loginform) for the full `LoginFormCopy`, `LoginFormStyles`, and `LoginFormIcons` tables.
 
 ```tsx
 interface LoginFormProps {
-  onSuccess?: (user: User) => void;
-  onError?: (error: Error) => void;
+  copy?: LoginFormCopy;
+  styles?: LoginFormStyles;
+  icons?: LoginFormIcons;
+  onSuccess?: (data: any) => void;
+  onError?: (error: string) => void;
+  onForgotPassword?: () => void;
+  onSignupClick?: () => void;
+  onMagicLinkClick?: () => void;
+  showForgotPassword?: boolean;   // Default: true
+  showSignupLink?: boolean;       // Default: true
+  showMagicLinkOption?: boolean;  // Default: false
   className?: string;
-  showSignupLink?: boolean;
-  showForgotPassword?: boolean;
 }
+```
 
-<LoginForm
-  onSuccess={(user) => navigate('/dashboard')}
-  onError={(error) => setError(error.message)}
-  showSignupLink={true}
-  showForgotPassword={true}
-/>
+### SignupForm
+
+Pre-built signup form with email/phone, name, password, and optional tenant creation.
+
+See [README Component Reference](../README.md#signupform) for the full `SignupFormCopy` and `SignupFormStyles` tables.
+
+```tsx
+interface SignupFormProps {
+  copy?: SignupFormCopy;
+  styles?: SignupFormStyles;
+  signupType?: 'user' | 'tenant';  // Default: 'user'
+  onSuccess?: (data: any) => void;
+  onError?: (error: string) => void;
+  onLoginClick?: () => void;
+  onMagicLinkClick?: () => void;
+  showLoginLink?: boolean;         // Default: true
+  showMagicLinkOption?: boolean;   // Default: false
+  className?: string;
+}
+```
+
+### MagicLinkForm
+
+Passwordless Magic Link send form for both new and existing users.
+
+See [README Component Reference](../README.md#magiclinkform) for the full `MagicLinkFormCopy` and `MagicLinkFormStyles` tables.
+
+```tsx
+interface MagicLinkFormProps {
+  copy?: MagicLinkFormCopy;
+  styles?: MagicLinkFormStyles;
+  onSuccess?: (data: any) => void;
+  onError?: (error: string) => void;
+  onLoginClick?: () => void;
+  onSignupClick?: () => void;
+  showTraditionalLinks?: boolean;  // Default: true
+  className?: string;
+  verifyToken?: string;            // Auto-verify if provided
+  frontendUrl?: string;            // Default: window.location.origin
+}
+```
+
+### MagicLinkVerify
+
+Automatic Magic Link verification component. Reads token/email/appId/tenantSlug from URL params or accepts them as props.
+
+See [README Component Reference](../README.md#magiclinkverify) for the full `MagicLinkVerifyCopy`, `MagicLinkVerifyStyles`, and `MagicLinkVerifyIcons` tables.
+
+```tsx
+interface MagicLinkVerifyProps {
+  copy?: MagicLinkVerifyCopy;
+  styles?: MagicLinkVerifyStyles;
+  icons?: MagicLinkVerifyIcons;
+  onSuccess?: (data: any) => void;
+  onError?: (error: string) => void;
+  onRetry?: () => void;
+  onBackToLogin?: () => void;
+  className?: string;
+  token?: string;
+  email?: string;
+  appId?: string;
+  tenantSlug?: string;
+  autoRedirectDelay?: number;  // Default: 3000ms
+}
 ```
 
 ### PasswordRecoveryForm
 
-Pre-built password recovery form.
+Password reset flow with two modes: request (send email) and reset (set new password).
+
+See [README Component Reference](../README.md#passwordrecoveryform) for the full `PasswordRecoveryFormCopy` and `PasswordRecoveryFormStyles` tables.
 
 ```tsx
 interface PasswordRecoveryFormProps {
-  onSuccess?: () => void;
-  onError?: (error: Error) => void;
+  copy?: PasswordRecoveryFormCopy;
+  styles?: PasswordRecoveryFormStyles;
+  mode?: 'request' | 'reset';     // Default: 'request'
+  token?: string;
+  onSuccess?: (data?: any) => void;
+  onError?: (error: string) => void;
+  onBackToLogin?: () => void;
+  onModeChange?: (mode: 'request' | 'reset') => void;
   className?: string;
 }
+```
 
-<PasswordRecoveryForm
-  onSuccess={() => setMessage('Reset email sent')}
-  onError={(error) => setError(error.message)}
-/>
+### TenantSelector
+
+Dropdown component for switching between user's tenant memberships.
+
+See [README Component Reference](../README.md#tenantselector) for the full `TenantSelectorStyles` table.
+
+```tsx
+interface TenantSelectorProps {
+  tenants?: UserTenantMembership[];
+  currentTenantId?: string | null;
+  onSelect?: (tenantId: string) => void;
+  styles?: TenantSelectorStyles;
+  className?: string;
+  dropdownClassName?: string;
+  itemClassName?: string;
+  renderItem?: (tenant: UserTenantMembership, isSelected: boolean) => React.ReactNode;
+  placeholder?: string;           // Default: 'Select tenant'
+  disabled?: boolean;             // Default: false
+  showCurrentTenant?: boolean;    // Default: true
+}
 ```
 
 ### FeatureFlag

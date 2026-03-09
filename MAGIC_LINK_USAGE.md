@@ -255,12 +255,12 @@ function CustomMagicLinkComponent() {
   const handleSendMagicLink = async () => {
     try {
       setLoading(true);
-      const result = await sendMagicLink(
+      const result = await sendMagicLink({
         email,
-        'https://yourapp.com', // frontendUrl for verification link
-        'John', // optional name for new users
-        'Doe'   // optional lastName for new users
-      );
+        frontendUrl: 'https://yourapp.com',
+        name: 'John',      // optional for new users
+        lastName: 'Doe',   // optional for new users
+      });
       console.log('Magic link sent:', result);
     } catch (error) {
       console.error('Failed to send magic link:', error);
@@ -269,9 +269,9 @@ function CustomMagicLinkComponent() {
     }
   };
 
-  const handleVerifyToken = async (token: string, email: string, appId: string, tenantId?: string) => {
+  const handleVerifyToken = async (token: string, email: string, appId: string, tenantSlug?: string) => {
     try {
-      const result = await verifyMagicLink(token, email, appId, tenantId);
+      const result = await verifyMagicLink({ token, email, appId, tenantSlug });
       console.log('Verification result:', result);
       
       // User is now authenticated automatically
@@ -302,60 +302,150 @@ function CustomMagicLinkComponent() {
 
 ## Customization Options
 
-### Custom Styling
+Both `MagicLinkForm` and `MagicLinkVerify` support full customization through `copy`, `styles`, and (for `MagicLinkVerify`) `icons` props.
+
+### MagicLinkForm Copy Reference
+
+All keys are optional. Defaults are shown below:
+
+| Key | Default |
+|-----|---------|
+| `title` | `'Sign In with Magic Link'` |
+| `description` | `"Enter your email to receive a magic link..."` |
+| `emailLabel` | `'Email'` |
+| `emailPlaceholder` | `'Enter your email'` |
+| `nameLabel` | `'Name'` |
+| `namePlaceholder` | `'Enter your name'` |
+| `lastNameLabel` | `'Last Name'` |
+| `lastNamePlaceholder` | `'Enter your last name'` |
+| `submitButton` | `'Send Magic Link'` |
+| `loadingText` | `'Sending magic link...'` |
+| `successMessage` | `'Magic link sent! Check your email...'` |
+| `errorMessage` | `'Failed to send magic link. Please try again.'` |
+| `verifyingText` | `'Verifying magic link...'` |
+| `verifyingDescription` | `'Please wait while we verify your magic link...'` |
+| `showNameToggle` | `'New user? Add your name'` |
+| `hideNameToggle` | `'Existing user? Hide name fields'` |
+| `loginLink` | `'Sign in with password'` |
+| `loginText` | `'Already have an account?'` |
+| `signupLink` | `'Sign up with password'` |
+| `signupText` | `'Prefer traditional signup?'` |
+| `tenantNotFoundError` | `'Tenant not found'` |
+| `missingTenantOrEmailError` | `'Missing tenant or email'` |
+| `dividerBullet` | `'•'` |
+
+### MagicLinkForm Styles Reference
+
+| Key | Targets |
+|-----|---------|
+| `container` | Root wrapper |
+| `title` | `<h2>` heading |
+| `description` | Description paragraph |
+| `form` | `<form>` element |
+| `fieldGroup` | Each label+input group |
+| `label` | `<label>` elements |
+| `input` | `<input>` elements |
+| `inputError` | Input in error state |
+| `button` | Submit button |
+| `buttonDisabled` | Disabled state (merged on top of `button`) |
+| `buttonLoading` | Loading state (merged on top of `button`) |
+| `errorText` | Error message text |
+| `successText` | Success message text |
+| `linkContainer` | Links section wrapper |
+| `link` | `<a>` link elements |
+| `divider` | Bullet divider between links |
+| `verifyingContainer` | Verification loading wrapper |
+| `verifyingText` | Verification description text |
+| `toggleContainer` | Name fields toggle wrapper |
+| `toggleLink` | "New user? Add your name" toggle |
+
+### MagicLinkVerify Copy Reference
+
+| Key | Default |
+|-----|---------|
+| `title` | `'Verifying Magic Link'` |
+| `verifyingMessage` | `'Please wait while we verify your magic link...'` |
+| `successMessage` | `'Magic link verified successfully! You are now logged in.'` |
+| `errorMessage` | `'Failed to verify magic link. The link may be expired or invalid.'` |
+| `redirectingMessage` | `'Redirecting you to the dashboard...'` |
+| `retryButton` | `'Try Again'` |
+| `backToLoginButton` | `'Back to Login'` |
+| `missingParamsError` | `'Missing required parameters: token or email'` |
+
+### MagicLinkVerify Styles Reference
+
+| Key | Targets |
+|-----|---------|
+| `container` | Root wrapper |
+| `card` | Inner card |
+| `title` | `<h1>` heading |
+| `message` | Verifying/redirecting message |
+| `successMessage` | Success state message |
+| `errorMessage` | Error state message |
+| `spinner` | Loading spinner |
+| `buttonContainer` | Error buttons wrapper |
+| `retryButton` | "Try Again" button |
+| `retryButtonHover` | Hover state for retry button |
+| `backButton` | "Back to Login" button |
+| `backButtonHover` | Hover state for back button |
+
+### MagicLinkVerify Icons
+
+| Key | Default | Description |
+|-----|---------|-------------|
+| `loading` | Animated spinner SVG | Shown during verification |
+| `success` | Green checkmark SVG | Shown on success |
+| `error` | Red X circle SVG | Shown on error |
+
+### Custom Styling Example
 
 ```tsx
-const customStyles = {
-  container: {
-    maxWidth: '500px',
-    padding: '3rem',
-    backgroundColor: '#f8fafc',
-    borderRadius: '12px',
-  },
-  title: {
-    color: '#1e293b',
-    fontSize: '2rem',
-  },
-  button: {
-    backgroundColor: '#3b82f6',
-    padding: '1rem 2rem',
-    borderRadius: '8px',
-  },
-  successText: {
-    backgroundColor: '#dcfce7',
-    color: '#166534',
-    padding: '1rem',
-    borderRadius: '8px',
-  }
-};
-
 <MagicLinkForm
-  styles={customStyles}
+  styles={{
+    container: {
+      maxWidth: '500px',
+      padding: '3rem',
+      backgroundColor: '#f8fafc',
+      borderRadius: '12px',
+    },
+    title: { color: '#1e293b', fontSize: '2rem' },
+    button: {
+      backgroundColor: '#3b82f6',
+      padding: '1rem 2rem',
+      borderRadius: '8px',
+    },
+    successText: {
+      backgroundColor: '#dcfce7',
+      color: '#166534',
+      padding: '1rem',
+      borderRadius: '8px',
+    },
+  }}
   copy={{
     title: 'Sign in with Magic Link',
-    description: 'We\'ll send you a secure link to sign in instantly',
+    description: "We'll send you a secure link to sign in instantly",
     submitButton: 'Send Secure Link',
-    successMessage: 'Check your email! Click the link to sign in.'
+    successMessage: 'Check your email! Click the link to sign in.',
   }}
 />
 ```
 
-### Custom Copy/Text
+### i18n Example (Spanish)
 
 ```tsx
-const customCopy = {
-  title: 'Passwordless Authentication',
-  description: 'Enter your email for instant, secure access',
-  emailLabel: 'Your Email Address',
-  emailPlaceholder: 'you@company.com',
-  nameLabel: 'Your Name',
-  submitButton: 'Send Authentication Link',
-  successMessage: 'Authentication link sent! Check your inbox.',
-  loginText: 'Prefer using a password?',
-  loginLink: 'Sign in traditionally'
-};
-
-<MagicLinkForm copy={customCopy} />
+<MagicLinkForm
+  copy={{
+    title: 'Iniciar sesion con Magic Link',
+    description: 'Ingrese su email para recibir un enlace de acceso seguro.',
+    emailLabel: 'Correo electronico',
+    emailPlaceholder: 'tu@empresa.com',
+    nameLabel: 'Nombre',
+    submitButton: 'Enviar enlace de acceso',
+    successMessage: '¡Enlace enviado! Revise su correo electronico.',
+    loginText: '¿Prefiere usar contraseña?',
+    loginLink: 'Iniciar sesion con contraseña',
+  }}
+/>
 ```
 
 ## Backend Integration

@@ -2,10 +2,68 @@ import React, { useState, useRef, useEffect } from 'react';
 import { useAuthOptional } from '../providers/AuthProvider';
 import type { UserTenantMembership } from '../types/api';
 
+export interface TenantSelectorStyles {
+  wrapper?: React.CSSProperties;
+  button?: React.CSSProperties;
+  buttonDisabled?: React.CSSProperties;
+  dropdown?: React.CSSProperties;
+  item?: React.CSSProperties;
+  itemSelected?: React.CSSProperties;
+  itemHover?: React.CSSProperties;
+  itemRole?: React.CSSProperties;
+  arrow?: React.CSSProperties;
+}
+
+const defaultStyles: Required<TenantSelectorStyles> = {
+  wrapper: {
+    position: 'relative',
+  },
+  button: {
+    cursor: 'pointer',
+    opacity: 1,
+  },
+  buttonDisabled: {
+    cursor: 'not-allowed',
+    opacity: 0.6,
+  },
+  dropdown: {
+    position: 'absolute',
+    top: '100%',
+    left: 0,
+    right: 0,
+    zIndex: 1000,
+    backgroundColor: 'white',
+    border: '1px solid #ccc',
+    borderRadius: 4,
+    boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+    maxHeight: 300,
+    overflowY: 'auto',
+  },
+  item: {
+    padding: '8px 12px',
+    cursor: 'pointer',
+    backgroundColor: 'transparent',
+  },
+  itemSelected: {
+    backgroundColor: '#f0f0f0',
+  },
+  itemHover: {
+    backgroundColor: '#f5f5f5',
+  },
+  itemRole: {
+    opacity: 0.7,
+    marginLeft: 8,
+  },
+  arrow: {
+    marginLeft: 8,
+  },
+};
+
 export interface TenantSelectorProps {
   tenants?: UserTenantMembership[];
   currentTenantId?: string | null;
   onSelect?: (tenantId: string) => void;
+  styles?: TenantSelectorStyles;
   className?: string;
   dropdownClassName?: string;
   itemClassName?: string;
@@ -19,6 +77,7 @@ export function TenantSelector({
   tenants: propTenants,
   currentTenantId: propCurrentTenantId,
   onSelect: propOnSelect,
+  styles: propStyles = {},
   className = '',
   dropdownClassName = '',
   itemClassName = '',
@@ -27,6 +86,7 @@ export function TenantSelector({
   disabled = false,
   showCurrentTenant = true,
 }: TenantSelectorProps) {
+  const mergedStyles = { ...defaultStyles, ...propStyles };
   const auth = useAuthOptional();
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -76,42 +136,27 @@ export function TenantSelector({
   const defaultRenderItem = (tenant: UserTenantMembership, isSelected: boolean) => (
     <span style={{ fontWeight: isSelected ? 'bold' : 'normal' }}>
       {tenant.name}
-      {tenant.role && <span style={{ opacity: 0.7, marginLeft: 8 }}>({tenant.role})</span>}
+      {tenant.role && <span style={mergedStyles.itemRole}>({tenant.role})</span>}
     </span>
   );
 
   return (
-    <div ref={dropdownRef} className={className} style={{ position: 'relative' }}>
+    <div ref={dropdownRef} className={className} style={mergedStyles.wrapper}>
       <button
         type="button"
         onClick={() => !disabled && setIsOpen(!isOpen)}
         disabled={disabled}
         style={{
-          cursor: disabled ? 'not-allowed' : 'pointer',
-          opacity: disabled ? 0.6 : 1,
+          ...mergedStyles.button,
+          ...(disabled ? mergedStyles.buttonDisabled : {}),
         }}
       >
         {currentTenant ? currentTenant.name : placeholder}
-        <span style={{ marginLeft: 8 }}>{isOpen ? '▲' : '▼'}</span>
+        <span style={mergedStyles.arrow}>{isOpen ? '▲' : '▼'}</span>
       </button>
 
       {isOpen && (
-        <div
-          className={dropdownClassName}
-          style={{
-            position: 'absolute',
-            top: '100%',
-            left: 0,
-            right: 0,
-            zIndex: 1000,
-            backgroundColor: 'white',
-            border: '1px solid #ccc',
-            borderRadius: 4,
-            boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-            maxHeight: 300,
-            overflowY: 'auto',
-          }}
-        >
+        <div className={dropdownClassName} style={mergedStyles.dropdown}>
           {tenants.map(tenant => {
             const isSelected = tenant.id === currentTenantId;
             return (
@@ -120,18 +165,20 @@ export function TenantSelector({
                 className={itemClassName}
                 onClick={() => handleSelect(tenant.id)}
                 style={{
-                  padding: '8px 12px',
-                  cursor: 'pointer',
-                  backgroundColor: isSelected ? '#f0f0f0' : 'transparent',
+                  ...mergedStyles.item,
+                  ...(isSelected ? mergedStyles.itemSelected : {}),
                 }}
                 onMouseEnter={e => {
                   if (!isSelected) {
-                    (e.target as HTMLElement).style.backgroundColor = '#f5f5f5';
+                    Object.assign(e.currentTarget.style, mergedStyles.itemHover);
                   }
                 }}
                 onMouseLeave={e => {
                   if (!isSelected) {
-                    (e.target as HTMLElement).style.backgroundColor = 'transparent';
+                    const base = mergedStyles.item || {};
+                    Object.keys(mergedStyles.itemHover || {}).forEach(key => {
+                      (e.currentTarget.style as any)[key] = (base as any)[key] ?? '';
+                    });
                   }
                 }}
               >

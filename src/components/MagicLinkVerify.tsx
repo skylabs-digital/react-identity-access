@@ -9,6 +9,7 @@ export interface MagicLinkVerifyCopy {
   redirectingMessage?: string;
   retryButton?: string;
   backToLoginButton?: string;
+  missingParamsError?: string;
 }
 
 export interface MagicLinkVerifyStyles {
@@ -21,7 +22,9 @@ export interface MagicLinkVerifyStyles {
   spinner?: React.CSSProperties;
   buttonContainer?: React.CSSProperties;
   retryButton?: React.CSSProperties;
+  retryButtonHover?: React.CSSProperties;
   backButton?: React.CSSProperties;
+  backButtonHover?: React.CSSProperties;
 }
 
 export interface MagicLinkVerifyIcons {
@@ -56,6 +59,7 @@ const defaultCopy: Required<MagicLinkVerifyCopy> = {
   redirectingMessage: 'Redirecting you to the dashboard...',
   retryButton: 'Try Again',
   backToLoginButton: 'Back to Login',
+  missingParamsError: 'Missing required parameters: token or email',
 };
 
 const defaultStyles: Required<MagicLinkVerifyStyles> = {
@@ -144,6 +148,12 @@ const defaultStyles: Required<MagicLinkVerifyStyles> = {
     fontWeight: '500',
     cursor: 'pointer',
     transition: 'all 0.15s ease-in-out',
+  },
+  retryButtonHover: {
+    backgroundColor: '#2563eb',
+  },
+  backButtonHover: {
+    backgroundColor: '#e5e7eb',
   },
 };
 
@@ -240,7 +250,7 @@ export function MagicLinkVerify({
       const params = getUrlParams();
 
       if (!params.token || !params.email) {
-        throw new Error('Missing required parameters: token or email');
+        throw new Error(mergedCopy.missingParamsError);
       }
 
       const result = await verifyMagicLink({
@@ -316,10 +326,13 @@ export function MagicLinkVerify({
                 onClick={handleRetry}
                 style={mergedStyles.retryButton}
                 onMouseOver={e => {
-                  e.currentTarget.style.backgroundColor = '#2563eb';
+                  Object.assign(e.currentTarget.style, mergedStyles.retryButtonHover);
                 }}
                 onMouseOut={e => {
-                  e.currentTarget.style.backgroundColor = '#3b82f6';
+                  const base = mergedStyles.retryButton || {};
+                  Object.keys(mergedStyles.retryButtonHover || {}).forEach(key => {
+                    (e.currentTarget.style as any)[key] = (base as any)[key] ?? '';
+                  });
                 }}
               >
                 {mergedCopy.retryButton}
@@ -328,10 +341,13 @@ export function MagicLinkVerify({
                 onClick={handleBackToLogin}
                 style={mergedStyles.backButton}
                 onMouseOver={e => {
-                  e.currentTarget.style.backgroundColor = '#e5e7eb';
+                  Object.assign(e.currentTarget.style, mergedStyles.backButtonHover);
                 }}
                 onMouseOut={e => {
-                  e.currentTarget.style.backgroundColor = '#f3f4f6';
+                  const base = mergedStyles.backButton || {};
+                  Object.keys(mergedStyles.backButtonHover || {}).forEach(key => {
+                    (e.currentTarget.style as any)[key] = (base as any)[key] ?? '';
+                  });
                 }}
               >
                 {mergedCopy.backToLoginButton}

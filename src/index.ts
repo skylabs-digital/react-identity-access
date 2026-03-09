@@ -78,7 +78,7 @@ export type {
   PasswordRecoveryFormStyles,
 } from './components/PasswordRecoveryForm';
 export type { AppLoaderProps } from './components/AppLoader';
-export type { TenantSelectorProps } from './components/TenantSelector';
+export type { TenantSelectorProps, TenantSelectorStyles } from './components/TenantSelector';
 
 // Export types
 export { UserType } from './types/api';

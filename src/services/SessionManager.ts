@@ -310,10 +310,12 @@ export class SessionManager {
           // Fatal — already handled by startRefreshAndResolveQueue
         } else if (this.sessionGeneration === gen) {
           // Transient — schedule background retry in 30s (only if session wasn't cleared)
-          console.warn(
-            '[SessionManager] Background refresh failed, retrying in 30s:',
-            error.message
-          );
+          if (process.env.NODE_ENV === 'development') {
+            console.warn(
+              '[SessionManager] Background refresh failed, retrying in 30s:',
+              error.message
+            );
+          }
           this.backgroundRetryTimerId = setTimeout(() => {
             this.backgroundRefresh();
           }, 30000);

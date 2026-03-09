@@ -172,7 +172,9 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
             };
             localStorage.setItem(cacheConfig.storageKey, JSON.stringify(cacheData));
           } catch (error) {
-            console.warn('Failed to cache tenant info:', error);
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('[TenantProvider] Failed to cache tenant info:', error);
+            }
           }
         }
       } catch (err) {
@@ -213,7 +215,9 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
         localStorage.setItem(cacheConfig.storageKey, JSON.stringify(cacheData));
       }
     } catch (error) {
-      console.warn('Background tenant refresh failed:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[TenantProvider] Background tenant refresh failed:', error);
+      }
       // Don't update error state - keep showing cached data
     }
   }, [baseUrl, appId, cacheConfig, tenant, tenantSlug]);
@@ -392,10 +396,12 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
 
       // Fixed mode: switching tenants is not supported
       if (tenantMode === 'fixed') {
-        console.warn(
-          '[TenantProvider] switchTenant is a no-op in fixed mode. Tenant is always:',
-          config.fixedTenantSlug
-        );
+        if (process.env.NODE_ENV === 'development') {
+          console.warn(
+            '[TenantProvider] switchTenant is a no-op in fixed mode. Tenant is always:',
+            config.fixedTenantSlug
+          );
+        }
         // Still navigate to redirectPath if provided
         if (redirectPath) {
           window.location.href = redirectPath;
@@ -416,10 +422,12 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
         );
 
         if (!newHostname) {
-          console.warn(
-            '[TenantProvider] Cannot switch subdomain, invalid hostname:',
-            currentHostname
-          );
+          if (process.env.NODE_ENV === 'development') {
+            console.warn(
+              '[TenantProvider] Cannot switch subdomain, invalid hostname:',
+              currentHostname
+            );
+          }
           return;
         }
 

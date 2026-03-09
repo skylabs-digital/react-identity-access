@@ -25,6 +25,10 @@ export interface PasswordRecoveryFormCopy {
   resetLoadingText?: string;
   resetSuccessMessage?: string;
   passwordMismatchError?: string;
+  requestNewLinkLink?: string;
+  haveTokenLink?: string;
+  tenantNotFoundError?: string;
+  dividerBullet?: string;
 }
 
 export interface PasswordRecoveryFormStyles {
@@ -43,6 +47,7 @@ export interface PasswordRecoveryFormStyles {
   successText?: React.CSSProperties;
   linkContainer?: React.CSSProperties;
   link?: React.CSSProperties;
+  modeSwitchDivider?: React.CSSProperties;
 }
 
 export interface PasswordRecoveryFormProps {
@@ -79,6 +84,10 @@ const defaultCopy: Required<PasswordRecoveryFormCopy> = {
   resetLoadingText: 'Resetting...',
   resetSuccessMessage: 'Password reset successfully!',
   passwordMismatchError: 'Passwords do not match',
+  requestNewLinkLink: 'Request New Link',
+  haveTokenLink: 'I have a token',
+  tenantNotFoundError: 'Tenant not found',
+  dividerBullet: '•',
 };
 
 const defaultStyles: Required<PasswordRecoveryFormStyles> = {
@@ -172,6 +181,10 @@ const defaultStyles: Required<PasswordRecoveryFormStyles> = {
     fontSize: '0.875rem',
     cursor: 'pointer',
   },
+  modeSwitchDivider: {
+    margin: '0 0.5rem',
+    color: '#6b7280',
+  },
 };
 
 export function PasswordRecoveryForm({
@@ -226,7 +239,7 @@ export function PasswordRecoveryForm({
 
     if (!validateRequestForm()) return;
     if (!tenant?.id) {
-      setError('Tenant not found');
+      setError(mergedCopy.tenantNotFoundError);
       return;
     }
 
@@ -369,9 +382,9 @@ export function PasswordRecoveryForm({
           </a>
           {onModeChange && (
             <>
-              <span style={{ margin: '0 0.5rem', color: '#6b7280' }}>•</span>
+              <span style={mergedStyles.modeSwitchDivider}>{mergedCopy.dividerBullet}</span>
               <a onClick={() => onModeChange('request')} style={mergedStyles.link}>
-                Request New Link
+                {mergedCopy.requestNewLinkLink}
               </a>
             </>
           )}
@@ -427,9 +440,9 @@ export function PasswordRecoveryForm({
         </a>
         {onModeChange && (
           <>
-            <span style={{ margin: '0 0.5rem', color: '#6b7280' }}>•</span>
+            <span style={mergedStyles.modeSwitchDivider}>{mergedCopy.dividerBullet}</span>
             <a onClick={() => onModeChange('reset')} style={mergedStyles.link}>
-              I have a token
+              {mergedCopy.haveTokenLink}
             </a>
           </>
         )}

@@ -18,8 +18,8 @@ Real-world implementation examples for React Identity Access.
 
 ```tsx
 // App.tsx
-import { AppProvider, AuthProvider } from '@skylabs-digital/react-identity-access';
-import { BrowserRouter as Router, Routes, Route } from 'react-router';
+import { AppProvider, TenantProvider, AuthProvider } from '@skylabs-digital/react-identity-access';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Home from './pages/Home';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -31,20 +31,20 @@ function App() {
       config={{
         baseUrl: 'https://api.myblog.com',
         appId: 'blog-app-001',
-        tenantMode: 'subdomain',
-        selectorParam: 'tenant',
       }}
     >
-      <AuthProvider>
-        <Router>
-          <Routes>
-            <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
-            <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/profile" element={<Profile />} />
-          </Routes>
-        </Router>
-      </AuthProvider>
+      <TenantProvider config={{ tenantMode: 'subdomain', baseDomain: 'myblog.com' }}>
+        <AuthProvider>
+          <Router>
+            <Routes>
+              <Route path="/" element={<Home />} />
+              <Route path="/login" element={<Login />} />
+              <Route path="/dashboard" element={<Dashboard />} />
+              <Route path="/profile" element={<Profile />} />
+            </Routes>
+          </Router>
+        </AuthProvider>
+      </TenantProvider>
     </AppProvider>
   );
 }
@@ -215,23 +215,25 @@ function OrderManagement() {
 
 ```tsx
 // App.tsx - Multi-tenant setup
+import { AppProvider, TenantProvider, AuthProvider, FeatureFlagProvider, SubscriptionProvider } from '@skylabs-digital/react-identity-access';
+
 function App() {
   return (
     <AppProvider
       config={{
         baseUrl: 'https://api.saasapp.com',
         appId: 'saas-platform',
-        tenantMode: 'subdomain', // tenant1.saasapp.com
-        selectorParam: 'tenant',
       }}
     >
-      <AuthProvider>
-        <FeatureFlagProvider>
-          <SubscriptionProvider>
-            <TenantRouter />
-          </SubscriptionProvider>
-        </FeatureFlagProvider>
-      </AuthProvider>
+      <TenantProvider config={{ tenantMode: 'subdomain', baseDomain: 'saasapp.com' }}>
+        <AuthProvider>
+          <FeatureFlagProvider>
+            <SubscriptionProvider>
+              <TenantRouter />
+            </SubscriptionProvider>
+          </FeatureFlagProvider>
+        </AuthProvider>
+      </TenantProvider>
     </AppProvider>
   );
 }

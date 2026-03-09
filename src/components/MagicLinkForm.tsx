@@ -19,7 +19,13 @@ export interface MagicLinkFormCopy {
   errorMessage?: string;
   loadingText?: string;
   verifyingText?: string;
+  verifyingDescription?: string;
   description?: string;
+  showNameToggle?: string;
+  hideNameToggle?: string;
+  tenantNotFoundError?: string;
+  missingTenantOrEmailError?: string;
+  dividerBullet?: string;
 }
 
 export interface MagicLinkFormStyles {
@@ -39,6 +45,10 @@ export interface MagicLinkFormStyles {
   linkContainer?: React.CSSProperties;
   link?: React.CSSProperties;
   divider?: React.CSSProperties;
+  verifyingContainer?: React.CSSProperties;
+  verifyingText?: React.CSSProperties;
+  toggleContainer?: React.CSSProperties;
+  toggleLink?: React.CSSProperties;
 }
 
 export interface MagicLinkFormProps {
@@ -73,8 +83,14 @@ const defaultCopy: Required<MagicLinkFormCopy> = {
   errorMessage: 'Failed to send magic link. Please try again.',
   loadingText: 'Sending magic link...',
   verifyingText: 'Verifying magic link...',
+  verifyingDescription: 'Please wait while we verify your magic link...',
   description:
     "Enter your email to receive a magic link. If you don't have an account, we'll create one for you.",
+  showNameToggle: 'New user? Add your name',
+  hideNameToggle: 'Existing user? Hide name fields',
+  tenantNotFoundError: 'Tenant not found',
+  missingTenantOrEmailError: 'Missing tenant or email',
+  dividerBullet: '•',
 };
 
 const defaultStyles: Required<MagicLinkFormStyles> = {
@@ -179,6 +195,26 @@ const defaultStyles: Required<MagicLinkFormStyles> = {
     color: '#6b7280',
     fontSize: '0.875rem',
   },
+  verifyingContainer: {
+    textAlign: 'center',
+    padding: '2rem',
+  },
+  verifyingText: {
+    fontSize: '1rem',
+    color: '#6b7280',
+  },
+  toggleContainer: {
+    textAlign: 'center',
+    marginTop: '0.5rem',
+  },
+  toggleLink: {
+    background: 'none',
+    border: 'none',
+    color: '#3b82f6',
+    fontSize: '0.875rem',
+    cursor: 'pointer',
+    textDecoration: 'underline',
+  },
 };
 
 export function MagicLinkForm({
@@ -218,7 +254,7 @@ export function MagicLinkForm({
 
   const handleVerifyMagicLink = async (token: string) => {
     if (!tenant || !email) {
-      setError('Missing tenant or email');
+      setError(mergedCopy.missingTenantOrEmailError);
       return;
     }
 
@@ -256,7 +292,7 @@ export function MagicLinkForm({
 
     if (!validateForm()) return;
     if (!tenant?.id) {
-      setError('Tenant not found');
+      setError(mergedCopy.tenantNotFoundError);
       return;
     }
 
@@ -300,10 +336,8 @@ export function MagicLinkForm({
     return (
       <div className={className} style={mergedStyles.container}>
         <h2 style={mergedStyles.title}>{mergedCopy.verifyingText}</h2>
-        <div style={{ textAlign: 'center', padding: '2rem' }}>
-          <div style={{ fontSize: '1rem', color: '#6b7280' }}>
-            Please wait while we verify your magic link...
-          </div>
+        <div style={mergedStyles.verifyingContainer}>
+          <div style={mergedStyles.verifyingText}>{mergedCopy.verifyingDescription}</div>
         </div>
       </div>
     );
@@ -336,20 +370,13 @@ export function MagicLinkForm({
 
         {/* Toggle to show name fields for new users */}
         {!showNameFields && (
-          <div style={{ textAlign: 'center', marginTop: '0.5rem' }}>
+          <div style={mergedStyles.toggleContainer}>
             <button
               type="button"
               onClick={() => setShowNameFields(true)}
-              style={{
-                background: 'none',
-                border: 'none',
-                color: '#3b82f6',
-                fontSize: '0.875rem',
-                cursor: 'pointer',
-                textDecoration: 'underline',
-              }}
+              style={mergedStyles.toggleLink}
             >
-              New user? Add your name
+              {mergedCopy.showNameToggle}
             </button>
           </div>
         )}
@@ -389,7 +416,7 @@ export function MagicLinkForm({
               />
             </div>
 
-            <div style={{ textAlign: 'center', marginTop: '0.5rem' }}>
+            <div style={mergedStyles.toggleContainer}>
               <button
                 type="button"
                 onClick={() => {
@@ -397,16 +424,9 @@ export function MagicLinkForm({
                   setName('');
                   setLastName('');
                 }}
-                style={{
-                  background: 'none',
-                  border: 'none',
-                  color: '#6b7280',
-                  fontSize: '0.875rem',
-                  cursor: 'pointer',
-                  textDecoration: 'underline',
-                }}
+                style={mergedStyles.toggleLink}
               >
-                Existing user? Hide name fields
+                {mergedCopy.hideNameToggle}
               </button>
             </div>
           </>
@@ -429,7 +449,7 @@ export function MagicLinkForm({
             </a>
           </div>
 
-          <div style={mergedStyles.divider}>•</div>
+          <div style={mergedStyles.divider}>{mergedCopy.dividerBullet}</div>
 
           <div>
             <span style={mergedStyles.divider}>{mergedCopy.signupText} </span>

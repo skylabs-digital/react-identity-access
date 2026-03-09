@@ -16,6 +16,10 @@ export interface LoginFormCopy {
   magicLinkLink?: string;
   errorMessage?: string;
   loadingText?: string;
+  tenantNotFoundError?: string;
+  dividerBullet?: string;
+  showPasswordAriaLabel?: string;
+  hidePasswordAriaLabel?: string;
 }
 
 export interface LoginFormStyles {
@@ -35,6 +39,7 @@ export interface LoginFormStyles {
   linkContainer?: React.CSSProperties;
   link?: React.CSSProperties;
   divider?: React.CSSProperties;
+  inputWithIcon?: React.CSSProperties;
 }
 
 export interface LoginFormIcons {
@@ -111,6 +116,10 @@ const defaultCopy: Required<LoginFormCopy> = {
   magicLinkLink: 'Use Magic Link',
   errorMessage: 'Invalid credentials',
   loadingText: 'Signing in...',
+  tenantNotFoundError: 'Tenant not found',
+  dividerBullet: '•',
+  showPasswordAriaLabel: 'Show password',
+  hidePasswordAriaLabel: 'Hide password',
 };
 
 const defaultStyles: Required<LoginFormStyles> = {
@@ -219,6 +228,9 @@ const defaultStyles: Required<LoginFormStyles> = {
     color: '#6b7280',
     fontSize: '0.875rem',
   },
+  inputWithIcon: {
+    paddingRight: '2.5rem',
+  },
 };
 
 export function LoginForm({
@@ -264,7 +276,7 @@ export function LoginForm({
 
     if (!validateForm()) return;
     if (!tenant?.id) {
-      setError('Tenant not found');
+      setError(mergedCopy.tenantNotFoundError);
       return;
     }
 
@@ -339,7 +351,7 @@ export function LoginForm({
               placeholder={mergedCopy.passwordPlaceholder}
               style={{
                 ...getInputStyle('password'),
-                paddingRight: '2.5rem', // Make room for the icon
+                ...mergedStyles.inputWithIcon,
               }}
               disabled={loading}
             />
@@ -348,7 +360,9 @@ export function LoginForm({
               onClick={() => setShowPassword(!showPassword)}
               style={mergedStyles.passwordToggle}
               disabled={loading}
-              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              aria-label={
+                showPassword ? mergedCopy.hidePasswordAriaLabel : mergedCopy.showPasswordAriaLabel
+              }
             >
               {showPassword ? mergedIcons.hidePassword : mergedIcons.showPassword}
             </button>
@@ -374,7 +388,7 @@ export function LoginForm({
           )}
 
           {showMagicLinkOption && (showForgotPassword || showSignupLink) && (
-            <div style={mergedStyles.divider}>•</div>
+            <div style={mergedStyles.divider}>{mergedCopy.dividerBullet}</div>
           )}
 
           {showForgotPassword && (
@@ -383,7 +397,9 @@ export function LoginForm({
             </a>
           )}
 
-          {showForgotPassword && showSignupLink && <div style={mergedStyles.divider}>•</div>}
+          {showForgotPassword && showSignupLink && (
+            <div style={mergedStyles.divider}>{mergedCopy.dividerBullet}</div>
+          )}
 
           {showSignupLink && (
             <div>

@@ -21,11 +21,8 @@ This guide provides detailed instructions for implementing React Identity Access
 # Using npm
 npm install @skylabs-digital/react-identity-access
 
-# Using yarn
+# Using yarn (recommended)
 yarn add @skylabs-digital/react-identity-access
-
-# Using pnpm (recommended)
-pnpm add @skylabs-digital/react-identity-access
 ```
 
 ### Peer Dependencies
@@ -36,7 +33,7 @@ Ensure you have the required peer dependencies:
 {
   "react": "^18.0.0 || ^19.0.0",
   "react-dom": "^18.0.0 || ^19.0.0",
-  "react-router": "^7.0.0"
+  "react-router-dom": ">=6.0.0"
 }
 ```
 
@@ -49,6 +46,7 @@ The providers must be nested in the correct order:
 ```tsx
 import {
   AppProvider,
+  TenantProvider,
   AuthProvider,
   FeatureFlagProvider,
   SubscriptionProvider
@@ -57,13 +55,15 @@ import {
 function App() {
   return (
     <AppProvider config={appConfig}>
-      <AuthProvider>
-        <FeatureFlagProvider>
-          <SubscriptionProvider>
-            {/* Your app components */}
-          </SubscriptionProvider>
-        </FeatureFlagProvider>
-      </AuthProvider>
+      <TenantProvider config={tenantConfig}>
+        <AuthProvider>
+          <FeatureFlagProvider>
+            <SubscriptionProvider>
+              {/* Your app components */}
+            </SubscriptionProvider>
+          </FeatureFlagProvider>
+        </AuthProvider>
+      </TenantProvider>
     </AppProvider>
   );
 }
@@ -75,10 +75,12 @@ function App() {
 const appConfig = {
   baseUrl: process.env.REACT_APP_BASE_URL || 'http://localhost:3000',
   appId: process.env.REACT_APP_ID || 'your-app-id',
-  tenantMode: 'subdomain', // 'subdomain' | 'path' | 'header'
-  selectorParam: 'tenant',
-  apiTimeout: 30000,
-  retryAttempts: 3,
+};
+
+const tenantConfig = {
+  tenantMode: 'subdomain', // 'subdomain' | 'selector' | 'fixed'
+  baseDomain: 'yourapp.com', // For subdomain mode
+  selectorParam: 'tenant',   // For selector mode
 };
 ```
 
@@ -91,16 +93,40 @@ The root provider that configures the application context:
 ```tsx
 interface AppConfig {
   baseUrl: string;           // Backend API URL
-  appId: string;            // Unique application identifier
-  tenantMode: TenantMode;   // How tenants are identified
-  selectorParam: string;    // Parameter name for tenant selection
-  apiTimeout?: number;      // Request timeout in milliseconds
-  retryAttempts?: number;   // Number of retry attempts for failed requests
+  appId: string;             // Unique application identifier
+  cache?: {
+    enabled?: boolean;       // Default: true
+    ttl?: number;            // Cache TTL in ms (default: 5 minutes)
+    storageKey?: string;     // Default: 'app_cache_{appId}'
+  };
 }
 
 <AppProvider config={appConfig}>
   {/* children */}
 </AppProvider>
+```
+
+### TenantProvider
+
+Handles multi-tenant detection, tenant info loading, settings, and switching:
+
+```tsx
+interface TenantConfig {
+  tenantMode?: 'subdomain' | 'selector' | 'fixed';  // Default: 'selector'
+  fixedTenantSlug?: string;   // Required when tenantMode is 'fixed'
+  baseDomain?: string;        // Base domain for subdomain mode
+  selectorParam?: string;     // Default: 'tenant', for selector mode
+  cache?: {
+    enabled?: boolean;
+    ttl?: number;
+    storageKey?: string;
+  };
+  initialTenant?: PublicTenantInfo;  // For SSR
+}
+
+<TenantProvider config={tenantConfig}>
+  {/* children */}
+</TenantProvider>
 ```
 
 ### AuthProvider
@@ -363,38 +389,31 @@ function RoleBasedNavigation() {
 // tenant1.yourapp.com
 // tenant2.yourapp.com
 
-const config = {
-  baseUrl: 'https://api.yourapp.com',
-  appId: 'your-app-id',
+const tenantConfig = {
   tenantMode: 'subdomain',
-  selectorParam: 'tenant', // Not used in subdomain mode
+  baseDomain: 'yourapp.com',
 };
 ```
 
-### Path Mode
+### Selector Mode
 
 ```tsx
-// yourapp.com/tenant1
-// yourapp.com/tenant2
+// yourapp.com?tenant=tenant1
 
-const config = {
-  baseUrl: 'https://api.yourapp.com',
-  appId: 'your-app-id',
-  tenantMode: 'path',
-  selectorParam: 'tenant',
+const tenantConfig = {
+  tenantMode: 'selector',
+  selectorParam: 'tenant',  // URL search parameter name
 };
 ```
 
-### Header Mode
+### Fixed Mode
 
 ```tsx
-// Custom header: X-Tenant-ID: tenant1
+// Always use the same tenant slug
 
-const config = {
-  baseUrl: 'https://api.yourapp.com',
-  appId: 'your-app-id',
-  tenantMode: 'header',
-  selectorParam: 'X-Tenant-ID',
+const tenantConfig = {
+  tenantMode: 'fixed',
+  fixedTenantSlug: 'my-company',
 };
 ```
 

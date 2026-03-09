@@ -129,18 +129,13 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
   if (!initRef.current.done) {
     initRef.current.done = true;
     initRef.current.urlTokens = extractAuthTokensFromUrl();
-    if (initRef.current.urlTokens) {
-      console.log(
-        '[AuthProvider] SYNC: URL tokens found, will block isAuthReady until user loaded'
-      );
-    }
+    // URL tokens found — will block isAuthReady until user is loaded
   }
 
   // Track if we're loading user after URL token consumption
   // CRITICAL: Initialize to TRUE if we have URL tokens, so isAuthReady stays false until user is loaded
   const [isLoadingAfterUrlTokens, setIsLoadingAfterUrlTokens] = useState(() => {
     const hasUrlTokens = initRef.current.urlTokens !== null;
-    console.log('[AuthProvider] SYNC: isLoadingAfterUrlTokens initial:', hasUrlTokens);
     return hasUrlTokens;
   });
 
@@ -173,13 +168,11 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
     // If we have URL tokens, save them immediately (sync)
     if (initRef.current.urlTokens) {
-      console.log('[AuthProvider] SYNC: Saving URL tokens to session manager');
       manager.setTokens({
         accessToken: initRef.current.urlTokens.accessToken,
         refreshToken: initRef.current.urlTokens.refreshToken,
         expiresIn: initRef.current.urlTokens.expiresIn,
       });
-      console.log('[AuthProvider] SYNC: Session valid:', manager.hasValidSession());
     }
 
     return manager;
@@ -261,7 +254,9 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
         // 3. Get userId from token (source of truth) or fallback to stored user
         const userId = sessionManager.getUserId();
         if (!userId) {
-          console.warn('[AuthProvider] No userId available in token or storage');
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[AuthProvider] No userId available in token or storage');
+          }
           return;
         }
 
@@ -274,7 +269,9 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       } catch (err) {
         const error = err instanceof Error ? err : new Error('Failed to load user data');
         setUserError(error);
-        console.error('[AuthProvider] Failed to load user data:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[AuthProvider] Failed to load user data:', error);
+        }
       } finally {
         setIsUserLoading(false);
       }
@@ -336,7 +333,9 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
         try {
           await loadUserData();
         } catch (error) {
-          console.warn('Failed to load complete user data after login:', error);
+          if (process.env.NODE_ENV === 'development') {
+            console.warn('[AuthProvider] Failed to load complete user data after login:', error);
+          }
         }
       }
 
@@ -536,7 +535,12 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
         try {
           await loadUserData();
         } catch (error) {
-          console.warn('Failed to load complete user data after magic link login:', error);
+          if (process.env.NODE_ENV === 'development') {
+            console.warn(
+              '[AuthProvider] Failed to load complete user data after magic link:',
+              error
+            );
+          }
         }
       }
 
@@ -614,7 +618,9 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
         const { roles } = await roleApiService.getRolesByApp(appId);
         setAvailableRoles(roles);
       } catch (error) {
-        console.error('Failed to fetch roles:', error);
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[AuthProvider] Failed to fetch roles:', error);
+        }
       } finally {
         setRolesLoading(false);
       }
@@ -793,7 +799,9 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
           const { roles } = await roleApiService.getRolesByApp(appId);
           setAvailableRoles(roles);
         } catch (error) {
-          console.error('Failed to fetch roles:', error);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('[AuthProvider] Failed to fetch roles:', error);
+          }
         } finally {
           setRolesLoading(false);
         }
@@ -811,20 +819,19 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
     // Clean URL if we had tokens (tokens already saved to sessionManager synchronously)
     if (initRef.current.urlTokens) {
-      console.log('[AuthProvider] EFFECT: Cleaning up URL after sync token processing');
       clearAuthTokensFromUrl();
 
       // Block auth ready until user data is loaded
       setIsLoadingAfterUrlTokens(true);
-      console.log('[AuthProvider] EFFECT: Loading user data (blocking isAuthReady)...');
 
       contextValue
         .loadUserData()
         .catch(error => {
-          console.error('[AuthProvider] Failed to load user data:', error);
+          if (process.env.NODE_ENV === 'development') {
+            console.error('[AuthProvider] Failed to load user data after URL tokens:', error);
+          }
         })
         .finally(() => {
-          console.log('[AuthProvider] EFFECT: User data loaded, releasing isAuthReady');
           setIsLoadingAfterUrlTokens(false);
         });
     }
@@ -868,7 +875,6 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
     // Only trigger auto-load if we don't have currentUser and not already loading
     if (!currentUser && !isUserLoading && !userError && sessionManager.hasValidSession()) {
-      console.log('[AuthProvider] Auto-loading user data...');
       loadUserDataRef
         .current()
         .catch(() => {

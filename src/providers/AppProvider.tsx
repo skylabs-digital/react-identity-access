@@ -129,7 +129,9 @@ export function AppProvider({ config, children }: AppProviderProps) {
             };
             localStorage.setItem(cacheConfig.storageKey, JSON.stringify(cacheData));
           } catch (error) {
-            console.warn('Failed to cache app info:', error);
+            if (process.env.NODE_ENV === 'development') {
+              console.warn('[AppProvider] Failed to cache app info:', error);
+            }
           }
         }
       } catch (err) {
@@ -170,7 +172,9 @@ export function AppProvider({ config, children }: AppProviderProps) {
         localStorage.setItem(cacheConfig.storageKey, JSON.stringify(cacheData));
       }
     } catch (error) {
-      console.warn('Background app refresh failed:', error);
+      if (process.env.NODE_ENV === 'development') {
+        console.warn('[AppProvider] Background app refresh failed:', error);
+      }
       // Don't update error state - keep showing cached data
     }
   }, [config, cacheConfig, appInfo]);

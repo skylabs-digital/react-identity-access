@@ -556,7 +556,7 @@ function Dashboard() {
 
 ```tsx
 // pages/_app.tsx
-import { AppProvider, AuthProvider } from '@skylabs-digital/react-identity-access';
+import { AppProvider, TenantProvider, AuthProvider } from '@skylabs-digital/react-identity-access';
 import type { AppProps } from 'next/app';
 
 function MyApp({ Component, pageProps }: AppProps) {
@@ -564,12 +564,12 @@ function MyApp({ Component, pageProps }: AppProps) {
     <AppProvider config={{
       baseUrl: process.env.NEXT_PUBLIC_API_URL!,
       appId: process.env.NEXT_PUBLIC_APP_ID!,
-      tenantMode: 'subdomain',
-      selectorParam: 'tenant',
     }}>
-      <AuthProvider config={{ initialRoles: pageProps.initialRoles }}>
-        <Component {...pageProps} />
-      </AuthProvider>
+      <TenantProvider config={{ tenantMode: 'subdomain', baseDomain: 'yourapp.com' }}>
+        <AuthProvider config={{ initialRoles: pageProps.initialRoles }}>
+          <Component {...pageProps} />
+        </AuthProvider>
+      </TenantProvider>
     </AppProvider>
   );
 }
