@@ -1,3 +1,10 @@
+# [2.26.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.25.0...v2.26.0) (2026-03-09)
+
+
+### Features
+
+* add Windsurf workflows, standardization plan, and improve pre-commit hooks ([1278fb0](https://github.com/skylabs-digital/react-identity-access/commit/1278fb04e5de143ec5578fa8ac2fb067f183c847))
+
 # [2.25.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.24.0...v2.25.0) (2026-03-09)
 
 
