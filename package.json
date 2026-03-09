@@ -38,7 +38,7 @@
     "test:ui": "NODE_NO_WARNINGS=1 vitest --ui",
     "test:coverage": "NODE_NO_WARNINGS=1 vitest run --coverage",
     "ci": "NODE_NO_WARNINGS=1 sh -c 'yarn type-check && yarn test && yarn build'",
-    "prepublishOnly": "npm run build",
+    "prepublishOnly": "yarn build",
     "prepare": "husky install",
     "commit": "git-cz",
     "release": "semantic-release",
