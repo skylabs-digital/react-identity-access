@@ -1,3 +1,10 @@
+# [2.27.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.26.0...v2.27.0) (2026-03-12)
+
+
+### Features
+
+* make AuthProvider work standalone without AppProvider/TenantProvider and add magic link deduplication ([c3ce06f](https://github.com/skylabs-digital/react-identity-access/commit/c3ce06f1e0664990b5e00b01222eb5ebee23f677))
+
 # [2.26.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.25.0...v2.26.0) (2026-03-09)
 
 
