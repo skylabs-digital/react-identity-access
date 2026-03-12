@@ -13,7 +13,7 @@ import type {
 export class TenantApiService {
   constructor(
     private httpService: HttpService,
-    private appId: string,
+    private appId?: string,
     private sessionManager?: SessionManager
   ) {}
 

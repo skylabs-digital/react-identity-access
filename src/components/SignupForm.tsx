@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../providers/AuthProvider';
-import { useTenantInfo } from '../providers/TenantProvider';
+import { useTenantOptional } from '../providers/TenantProvider';
 
 export interface SignupFormCopy {
   title?: string;
@@ -237,7 +237,7 @@ export function SignupForm({
   }>({});
 
   const { signup, signupTenantAdmin } = useAuth();
-  const { tenant } = useTenantInfo();
+  const tenant = useTenantOptional()?.tenant ?? null;
 
   const mergedCopy = { ...defaultCopy, ...copy };
   const mergedStyles = { ...defaultStyles, ...styles };

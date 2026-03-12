@@ -17,6 +17,9 @@ import type {
   UserTenantMembership,
 } from '../types/api';
 
+// Module-level guard: prevents duplicate verifyMagicLink calls (React StrictMode double-mount)
+const _pendingVerifications = new Map<string, Promise<VerifyMagicLinkResponse>>();
+
 export class AuthApiService {
   constructor(private httpService: HttpService) {}
 
@@ -80,11 +83,20 @@ export class AuthApiService {
   }
 
   async verifyMagicLink(request: VerifyMagicLinkRequest): Promise<VerifyMagicLinkResponse> {
-    const response = await this.httpService.post<VerifyMagicLinkResponse>(
-      '/auth/magic-link/verify',
-      request
-    );
-    return response;
+    const key = request.token;
+
+    // If there's already an in-flight request for this token, return the same promise
+    const pending = _pendingVerifications.get(key);
+    if (pending) return pending;
+
+    const promise = this.httpService
+      .post<VerifyMagicLinkResponse>('/auth/magic-link/verify', request)
+      .finally(() => {
+        _pendingVerifications.delete(key);
+      });
+
+    _pendingVerifications.set(key, promise);
+    return promise;
   }
 
   async confirmPasswordReset(request: { token: string; newPassword: string }): Promise<void> {

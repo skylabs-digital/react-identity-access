@@ -285,7 +285,7 @@ export function MagicLinkVerify({
     onBackToLogin?.();
   };
 
-  // Auto-verify on mount
+  // Auto-verify on mount (dedup handled at service level)
   useEffect(() => {
     handleVerification();
   }, []);

@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { useAuth } from '../providers/AuthProvider';
-import { useTenantInfo } from '../providers/TenantProvider';
 
 export interface LoginFormCopy {
   title?: string;
@@ -255,7 +254,6 @@ export function LoginForm({
   const [fieldErrors, setFieldErrors] = useState<{ username?: boolean; password?: boolean }>({});
 
   const { login } = useAuth();
-  const { tenant } = useTenantInfo();
 
   const mergedCopy = { ...defaultCopy, ...copy };
   const mergedStyles = { ...defaultStyles, ...styles };
@@ -275,10 +273,6 @@ export function LoginForm({
     e.preventDefault();
 
     if (!validateForm()) return;
-    if (!tenant?.id) {
-      setError(mergedCopy.tenantNotFoundError);
-      return;
-    }
 
     setLoading(true);
     setError('');

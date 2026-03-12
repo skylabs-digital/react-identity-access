@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useAuth } from '../providers/AuthProvider';
-import { useTenantInfo } from '../providers/TenantProvider';
+import { useTenantOptional } from '../providers/TenantProvider';
 
 export interface PasswordRecoveryFormCopy {
   title?: string;
@@ -213,7 +213,7 @@ export function PasswordRecoveryForm({
   }>({});
 
   const { requestPasswordReset, confirmPasswordReset } = useAuth();
-  const { tenant } = useTenantInfo();
+  const tenant = useTenantOptional()?.tenant ?? null;
 
   const mergedCopy = { ...defaultCopy, ...copy };
   const mergedStyles = { ...defaultStyles, ...styles };

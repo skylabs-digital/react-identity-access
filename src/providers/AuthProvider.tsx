@@ -5,8 +5,8 @@ import { RoleApiService } from '../services/RoleApiService';
 import { UserApiService } from '../services/UserApiService';
 import { TenantApiService } from '../services/TenantApiService';
 import { HttpService } from '../services/HttpService';
-import { useApp } from './AppProvider';
-import { useTenant } from './TenantProvider';
+import { useAppOptional } from './AppProvider';
+import { useTenantOptional } from './TenantProvider';
 import { extractAuthTokensFromUrl, clearAuthTokensFromUrl } from '../utils/crossDomainAuth';
 import { SessionExpiredError } from '../errors/SessionErrors';
 import type {
@@ -40,6 +40,10 @@ export interface AuthConfig {
   // Multi-tenant options (RFC-004)
   autoSwitchSingleTenant?: boolean; // Auto-switch if user has only one tenant (default: true)
   onTenantSelectionRequired?: (tenants: UserTenantMembership[]) => void; // Callback when user needs to select tenant
+  // Standalone mode: use these when AuthProvider is used without AppProvider/TenantProvider
+  // (e.g., internal backoffice with system users)
+  baseUrl?: string; // Required when no AppProvider is present
+  appId?: string; // Optional, omit for system user login (no app context)
 }
 
 export interface AuthContextValue {
@@ -97,8 +101,23 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ config = {}, children }: AuthProviderProps) {
-  const { appId, baseUrl } = useApp();
-  const { tenant, tenantSlug, switchTenant } = useTenant();
+  // Use optional hooks — AuthProvider works with or without AppProvider/TenantProvider
+  const appContext = useAppOptional();
+  const tenantContext = useTenantOptional();
+
+  // Derive values: prefer provider context, fall back to config
+  const baseUrl = appContext?.baseUrl ?? config.baseUrl ?? '';
+  const appId = appContext?.appId ?? config.appId;
+  const tenant = tenantContext?.tenant ?? null;
+  const tenantSlug = tenantContext?.tenantSlug ?? null;
+  const switchTenant = tenantContext?.switchTenant ?? (() => {});
+
+  // Validate: baseUrl is required from either AppProvider or config
+  if (!baseUrl) {
+    throw new Error(
+      '[AuthProvider] baseUrl is required. Provide it via AppProvider or AuthConfig.baseUrl.'
+    );
+  }
   const [availableRoles, setAvailableRoles] = useState<Role[]>(config.initialRoles || []);
   const [rolesLoading, setRolesLoading] = useState(!config.initialRoles);
   const [currentUser, setCurrentUser] = useState<User | null>(null);

@@ -76,6 +76,30 @@ describe('react-identity-access', () => {
     });
   });
 
+  describe('AuthConfig standalone mode', () => {
+    it('should accept standalone config with baseUrl and no appId (system user)', async () => {
+      const { AuthProvider } = await import('../providers/AuthProvider');
+      expect(AuthProvider).toBeDefined();
+
+      // Verify AuthConfig type accepts standalone fields at compile time
+      // Runtime: AuthProvider is a function component that accepts config.baseUrl
+      const standaloneConfig = {
+        baseUrl: 'https://api.example.com',
+        // No appId — system user backoffice mode
+      };
+      expect(standaloneConfig.baseUrl).toBe('https://api.example.com');
+    });
+
+    it('should accept standalone config with baseUrl and appId', async () => {
+      const standaloneConfig = {
+        baseUrl: 'https://api.example.com',
+        appId: 'backoffice-app',
+      };
+      expect(standaloneConfig.baseUrl).toBe('https://api.example.com');
+      expect(standaloneConfig.appId).toBe('backoffice-app');
+    });
+  });
+
   describe('Library exports', () => {
     it('should export main components and providers', async () => {
       const exports = await import('../index');

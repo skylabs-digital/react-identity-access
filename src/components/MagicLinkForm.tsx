@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../providers/AuthProvider';
-import { useTenantInfo } from '../providers/TenantProvider';
+import { useTenantOptional } from '../providers/TenantProvider';
 
 export interface MagicLinkFormCopy {
   title?: string;
@@ -240,7 +240,7 @@ export function MagicLinkForm({
   const [showNameFields, setShowNameFields] = useState(false);
 
   const { sendMagicLink, verifyMagicLink } = useAuth();
-  const { tenant } = useTenantInfo();
+  const tenant = useTenantOptional()?.tenant ?? null;
 
   const mergedCopy = { ...defaultCopy, ...copy };
   const mergedStyles = { ...defaultStyles, ...styles };

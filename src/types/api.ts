@@ -121,7 +121,7 @@ export interface RefreshTokenResponse {
 // Magic Link Types
 export interface MagicLinkRequest {
   email: string;
-  tenantId: string;
+  tenantId?: string;
   frontendUrl: string;
   name?: string; // Required for signup, optional for login
   lastName?: string;
@@ -136,7 +136,7 @@ export interface MagicLinkResponse {
 export interface VerifyMagicLinkRequest {
   token: string;
   email: string;
-  appId: string;
+  appId?: string;
   tenantId?: string;
 }
 
