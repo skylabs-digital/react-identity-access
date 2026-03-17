@@ -1,3 +1,10 @@
+# [2.28.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.27.0...v2.28.0) (2026-03-17)
+
+
+### Features
+
+* add circuit breaker to prevent infinite background refresh loops and classify token reuse/revocation as fatal ([2c12884](https://github.com/skylabs-digital/react-identity-access/commit/2c1288406e3c3f67f5678c51df9d94dc583ecd7d))
+
 # [2.27.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.26.0...v2.27.0) (2026-03-12)
 
 
