@@ -111,6 +111,8 @@ export class SessionManager {
   private backgroundRetryTimerId: ReturnType<typeof setTimeout> | null = null;
   private isDestroyed = false;
   private sessionGeneration = 0;
+  private consecutiveBackgroundFailures = 0;
+  private static readonly MAX_BACKGROUND_FAILURES = 3;
 
   constructor(config: SessionConfig = {}) {
     if (config.tenantSlug !== undefined) {
@@ -303,12 +305,29 @@ export class SessionManager {
     // this refresh instead of starting a duplicate one.
     this.startRefreshAndResolveQueue(tokens.refreshToken)
       .then(() => {
-        // Success — scheduleProactiveRefresh is called by setTokens()
+        // Success — reset circuit breaker
+        this.consecutiveBackgroundFailures = 0;
       })
       .catch(error => {
         if (error instanceof SessionExpiredError) {
           // Fatal — already handled by startRefreshAndResolveQueue
         } else if (this.sessionGeneration === gen) {
+          // Circuit breaker: after MAX_BACKGROUND_FAILURES consecutive transient
+          // failures, treat as fatal to prevent infinite retry loops
+          this.consecutiveBackgroundFailures++;
+          if (this.consecutiveBackgroundFailures >= SessionManager.MAX_BACKGROUND_FAILURES) {
+            if (process.env.NODE_ENV === 'development') {
+              console.error(
+                `[SessionManager] Background refresh failed ${this.consecutiveBackgroundFailures} consecutive times — expiring session`
+              );
+            }
+            this.consecutiveBackgroundFailures = 0;
+            this.handleSessionExpired(
+              new SessionExpiredError('token_invalid', 'Background refresh failed repeatedly')
+            );
+            return;
+          }
+
           // Transient — schedule background retry in 30s (only if session wasn't cleared)
           if (process.env.NODE_ENV === 'development') {
             console.warn(
@@ -556,6 +575,10 @@ export class SessionManager {
         }
         // Expired/invalid tokens returned as 400 — also fatal
         if (errorMessage.includes('expired') || errorMessage.includes('invalid')) {
+          throw new SessionExpiredError('token_invalid', errorMessage);
+        }
+        // Token reuse / revocation — fatal (server revoked all sessions)
+        if (errorMessage.includes('reuse') || errorMessage.includes('revoked')) {
           throw new SessionExpiredError('token_invalid', errorMessage);
         }
         // Other 400s — transient ("User not found", "Token refresh failed: ...")

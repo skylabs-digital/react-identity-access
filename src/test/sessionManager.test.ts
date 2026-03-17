@@ -1277,6 +1277,90 @@ describe('SessionManager', () => {
       sm.destroy();
     });
 
+    it('classifies 400 "reuse detected / revoked" as fatal SessionExpiredError', async () => {
+      const onSessionExpired = vi.fn();
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: false,
+        status: 400,
+        json: () =>
+          Promise.resolve({
+            success: false,
+            error: { code: 'BAD_REQUEST' },
+            message: 'Refresh token reuse detected — all sessions revoked for security',
+          }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      storage.set(makeTokens(-10)); // expired → triggers refresh
+
+      const sm = new SessionManager({
+        tokenStorage: storage,
+        autoRefresh: true,
+        refreshThreshold: 300000,
+        baseUrl: 'http://api',
+        onSessionExpired,
+        maxRefreshRetries: 0, // no retries — fail immediately
+      });
+
+      await vi.advanceTimersByTimeAsync(50);
+
+      // Should be classified as fatal → session expired
+      expect(onSessionExpired).toHaveBeenCalledTimes(1);
+      const error = onSessionExpired.mock.calls[0][0];
+      expect(error).toBeInstanceOf(SessionExpiredError);
+      expect(error.reason).toBe('token_invalid');
+      // Storage should be cleared
+      expect(storage.get()).toBeNull();
+      sm.destroy();
+    });
+
+    it('circuit breaker expires session after MAX_BACKGROUND_FAILURES consecutive transient failures', async () => {
+      const onSessionExpired = vi.fn();
+      let callCount = 0;
+      // Return a 500 (transient) error every time
+      const fetchMock = vi.fn().mockImplementation(() => {
+        callCount++;
+        return Promise.resolve({
+          ok: false,
+          status: 500,
+          statusText: 'Internal Server Error',
+          json: () => Promise.reject(new Error('no json')),
+        });
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      storage.set(makeTokens(-10)); // expired → triggers immediate backgroundRefresh
+
+      const sm = new SessionManager({
+        tokenStorage: storage,
+        autoRefresh: true,
+        refreshThreshold: 300000,
+        baseUrl: 'http://api',
+        onSessionExpired,
+        maxRefreshRetries: 0, // no per-attempt retries, so each backgroundRefresh round = 1 fetch
+        retryBackoffBase: 100,
+      });
+
+      // 1st background refresh attempt (immediate)
+      await vi.advanceTimersByTimeAsync(50);
+      expect(callCount).toBe(1);
+      expect(onSessionExpired).not.toHaveBeenCalled(); // not yet at threshold
+
+      // 2nd attempt (after 30s retry)
+      // Re-seed tokens since they're still in storage (transient errors don't clear)
+      await vi.advanceTimersByTimeAsync(30000);
+      expect(callCount).toBe(2);
+      expect(onSessionExpired).not.toHaveBeenCalled();
+
+      // 3rd attempt (after another 30s retry) → hits MAX_BACKGROUND_FAILURES=3
+      await vi.advanceTimersByTimeAsync(30000);
+      expect(callCount).toBe(3);
+      expect(onSessionExpired).toHaveBeenCalledTimes(1);
+      // Storage should be cleared
+      expect(storage.get()).toBeNull();
+      sm.destroy();
+    });
+
     it('rejects pending queue and prevents future background refresh', async () => {
       vi.stubGlobal('fetch', vi.fn().mockReturnValue(new Promise(() => {})));
 
