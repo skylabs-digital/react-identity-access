@@ -1,3 +1,10 @@
+# [2.29.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.28.0...v2.29.0) (2026-04-07)
+
+
+### Features
+
+* fix multi-tab session loss with Web Locks API and add QA session simulator ([e462364](https://github.com/skylabs-digital/react-identity-access/commit/e46236412ddd13c8a1a6faccc72e014ec791d776))
+
 # [2.28.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.27.0...v2.28.0) (2026-03-17)
 
 
