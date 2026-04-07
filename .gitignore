@@ -101,3 +101,4 @@ src/__tests__.disabled
 
 # QA simulator output
 qa/output/
+.playwright-mcp/

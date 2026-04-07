@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Multi-Tab Session Test</title>
+  <style>
+    body { font-family: monospace; padding: 20px; background: #1a1a2e; color: #e0e0e0; }
+    #log { white-space: pre-wrap; background: #16213e; padding: 16px; border-radius: 8px; max-height: 80vh; overflow-y: auto; }
+    .ok { color: #00cc66; }
+    .fail { color: #ff4444; }
+    .info { color: #66bbff; }
+    .warn { color: #ffaa00; }
+    h1 { color: #fff; }
+  </style>
+</head>
+<body>
+  <h1>Multi-Tab Session Refresh Test</h1>
+  <div id="log"></div>
+
+  <script>
+    const BASE_URL = 'https://idachu-qa-api.skylabs.digital';
+    const APP_ID = 'e7f56da2-a1e5-476f-b645-88a28576daff';
+    const TENANT_SLUG = 'main';
+    const EMAIL = 'admin@resuelto.ar';
+    const PASSWORD = 'Test1234';
+
+    const logEl = document.getElementById('log');
+    function log(msg, cls = 'info') {
+      const line = document.createElement('div');
+      line.className = cls;
+      line.textContent = `[${new Date().toISOString().slice(11,23)}] ${msg}`;
+      logEl.appendChild(line);
+      logEl.scrollTop = logEl.scrollHeight;
+    }
+
+    // Expose results for Playwright to read
+    window.__testResults = { phase: 'init', steps: [], error: null, done: false };
+
+    function addStep(name, passed, detail) {
+      window.__testResults.steps.push({ name, passed, detail });
+      log(`${passed ? 'PASS' : 'FAIL'}: ${name} — ${detail}`, passed ? 'ok' : 'fail');
+    }
+
+    async function runTest() {
+      try {
+        // ───── Step 1: Login ─────
+        log('Step 1: Logging in...');
+        window.__testResults.phase = 'login';
+
+        const loginRes = await fetch(`${BASE_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: EMAIL,
+            password: PASSWORD,
+            appId: APP_ID,
+            tenantSlug: TENANT_SLUG,
+          }),
+        });
+
+        if (!loginRes.ok) {
+          const body = await loginRes.text();
+          addStep('login', false, `HTTP ${loginRes.status}: ${body}`);
+          throw new Error('Login failed');
+        }
+
+        const loginData = await loginRes.json();
+        const accessToken = loginData.data?.accessToken || loginData.accessToken;
+        const refreshToken = loginData.data?.refreshToken || loginData.refreshToken;
+
+        if (!accessToken || !refreshToken) {
+          addStep('login', false, `No tokens in response: ${JSON.stringify(loginData).slice(0, 200)}`);
+          throw new Error('No tokens');
+        }
+
+        addStep('login', true, `Got AT (${accessToken.slice(0,20)}...) and RT (${refreshToken.slice(0,20)}...)`);
+
+        // Store tokens for other tabs to read
+        localStorage.setItem('e2e_test_tokens', JSON.stringify({ accessToken, refreshToken }));
+
+        // ───── Step 2: Single refresh ─────
+        log('Step 2: Testing single refresh...');
+        window.__testResults.phase = 'single-refresh';
+
+        const refresh1 = await fetch(`${BASE_URL}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken }),
+        });
+
+        if (!refresh1.ok) {
+          const body = await refresh1.text();
+          addStep('single-refresh', false, `HTTP ${refresh1.status}: ${body}`);
+          throw new Error('Single refresh failed');
+        }
+
+        const refresh1Data = await refresh1.json();
+        const newRT1 = refresh1Data.data?.refreshToken || refresh1Data.refreshToken;
+        const newAT1 = refresh1Data.data?.accessToken || refresh1Data.accessToken;
+        const hasRotation = newRT1 && newRT1 !== refreshToken;
+
+        addStep('single-refresh', true, `New AT: ${newAT1?.slice(0,20)}... | RT rotated: ${hasRotation}`);
+
+        if (!hasRotation) {
+          log('Server does NOT rotate refresh tokens — multi-tab race is not an issue.', 'warn');
+          addStep('rotation-check', true, 'No rotation — multi-tab safe');
+          window.__testResults.phase = 'done';
+          window.__testResults.done = true;
+          return;
+        }
+
+        // ───── Step 3: Test reuse detection ─────
+        log('Step 3: Testing reuse detection (sending OLD refresh token again)...');
+        window.__testResults.phase = 'reuse-detection';
+
+        const refresh2 = await fetch(`${BASE_URL}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken }), // OLD token — should fail if reuse detection
+        });
+
+        const refresh2Data = await refresh2.json().catch(() => ({}));
+
+        if (refresh2.ok) {
+          addStep('reuse-detection', true, 'Server accepted old token — no reuse detection. Multi-tab safe even without Web Locks.');
+          log('Server does NOT enforce reuse detection.', 'warn');
+        } else {
+          const msg = refresh2Data.message || refresh2Data.error || '';
+          const isReuse = msg.toLowerCase().includes('reuse') || msg.toLowerCase().includes('revoked');
+          addStep('reuse-detection', true, `Server rejected old token (${refresh2.status}): ${msg}. Reuse detection: ${isReuse}`);
+
+          if (isReuse) {
+            log('CONFIRMED: Server has reuse detection. Multi-tab Web Locks fix is CRITICAL.', 'warn');
+          }
+        }
+
+        // ───── Step 4: Re-login to get fresh tokens for concurrent test ─────
+        log('Step 4: Re-login for concurrent refresh test...');
+        window.__testResults.phase = 're-login';
+
+        const login2Res = await fetch(`${BASE_URL}/auth/login`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            username: EMAIL,
+            password: PASSWORD,
+            appId: APP_ID,
+            tenantSlug: TENANT_SLUG,
+          }),
+        });
+
+        const login2Data = await login2Res.json();
+        const rt2 = login2Data.data?.refreshToken || login2Data.refreshToken;
+        addStep('re-login', !!rt2, rt2 ? `Fresh RT: ${rt2.slice(0,20)}...` : 'Failed');
+
+        // ───── Step 5: Concurrent refresh (simulate multi-tab race) ─────
+        log('Step 5: Firing 3 concurrent refresh requests with SAME token (simulates 3 tabs)...');
+        window.__testResults.phase = 'concurrent-refresh';
+
+        const concurrentResults = await Promise.allSettled([
+          fetch(`${BASE_URL}/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken: rt2 }),
+          }).then(async r => ({ status: r.status, body: await r.json().catch(() => ({})) })),
+          fetch(`${BASE_URL}/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken: rt2 }),
+          }).then(async r => ({ status: r.status, body: await r.json().catch(() => ({})) })),
+          fetch(`${BASE_URL}/auth/refresh`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ refreshToken: rt2 }),
+          }).then(async r => ({ status: r.status, body: await r.json().catch(() => ({})) })),
+        ]);
+
+        let successes = 0;
+        let reuseErrors = 0;
+        let otherErrors = 0;
+
+        for (let i = 0; i < concurrentResults.length; i++) {
+          const r = concurrentResults[i];
+          if (r.status === 'fulfilled') {
+            const { status, body } = r.value;
+            const msg = body.message || body.error || '';
+            if (status === 200) {
+              successes++;
+              log(`  Tab ${i+1}: OK (200)`, 'ok');
+            } else if (msg.toLowerCase().includes('reuse') || msg.toLowerCase().includes('revoked')) {
+              reuseErrors++;
+              log(`  Tab ${i+1}: REUSE DETECTED (${status}): ${msg}`, 'fail');
+            } else {
+              otherErrors++;
+              log(`  Tab ${i+1}: ERROR (${status}): ${msg}`, 'fail');
+            }
+          } else {
+            otherErrors++;
+            log(`  Tab ${i+1}: NETWORK ERROR: ${r.reason}`, 'fail');
+          }
+        }
+
+        addStep('concurrent-refresh', reuseErrors === 0,
+          `${successes} OK, ${reuseErrors} reuse errors, ${otherErrors} other errors`);
+
+        if (reuseErrors > 0) {
+          log('', 'info');
+          log('═══════════════════════════════════════════════════════', 'fail');
+          log('  CONFIRMED: Concurrent refresh causes session revocation!', 'fail');
+          log('  The Web Locks fix in SessionManager prevents this by', 'fail');
+          log('  serializing refresh requests across browser tabs.', 'fail');
+          log('═══════════════════════════════════════════════════════', 'fail');
+        } else {
+          log('', 'info');
+          log('═══════════════════════════════════════════════════════', 'ok');
+          log('  All concurrent refreshes succeeded.', 'ok');
+          log('  Server may allow concurrent use of same RT.', 'ok');
+          log('═══════════════════════════════════════════════════════', 'ok');
+        }
+
+        window.__testResults.phase = 'done';
+        window.__testResults.done = true;
+        log('\nTest complete.', 'info');
+
+      } catch (err) {
+        window.__testResults.error = err.message;
+        window.__testResults.done = true;
+        log(`ERROR: ${err.message}`, 'fail');
+      }
+    }
+
+    // Auto-run on load
+    runTest();
+  </script>
+</body>
+</html>

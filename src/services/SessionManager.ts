@@ -195,6 +195,21 @@ export class SessionManager {
     }
   }
 
+  /**
+   * Extract an arbitrary claim from a JWT token.
+   * Returns undefined if the token cannot be decoded or the claim is missing.
+   */
+  private static extractJwtClaim(token: string, claim: string): string | undefined {
+    try {
+      const parts = token.split('.');
+      if (parts.length !== 3) return undefined;
+      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+      return typeof payload[claim] === 'string' ? payload[claim] : undefined;
+    } catch {
+      return undefined;
+    }
+  }
+
   setTokens(tokens: TokenData): void {
     const expiresAt =
       tokens.expiresAt ||
@@ -563,12 +578,20 @@ export class SessionManager {
 
     const url = `${this.baseUrl}/auth/refresh`;
 
+    // Extract deviceId from the refresh token JWT if present.
+    // Some backends require it as a separate body field for refresh.
+    const deviceId = SessionManager.extractJwtClaim(currentRefreshToken, 'deviceId');
+    const refreshBody: Record<string, string> = { refreshToken: currentRefreshToken };
+    if (deviceId) {
+      refreshBody.deviceId = deviceId;
+    }
+
     let response: Response;
     try {
       response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken: currentRefreshToken }),
+        body: JSON.stringify(refreshBody),
       });
     } catch (networkError) {
       // Network error (e.g., TypeError: Failed to fetch) — transient
