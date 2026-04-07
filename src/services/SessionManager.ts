@@ -531,9 +531,8 @@ export class SessionManager {
     // refresh token simultaneously, triggering "reuse detected" on servers
     // that rotate refresh tokens.
     if (typeof navigator !== 'undefined' && navigator.locks) {
-      return navigator.locks.request(
-        `session-refresh:${this.storageKey}`,
-        () => this.performTokenRefreshInner(refreshToken, gen),
+      return navigator.locks.request(`session-refresh:${this.storageKey}`, () =>
+        this.performTokenRefreshInner(refreshToken, gen)
       );
     }
     return this.performTokenRefreshInner(refreshToken, gen);
@@ -547,7 +546,11 @@ export class SessionManager {
     // Re-read tokens from storage: another browser tab sharing localStorage
     // may have already refreshed while we were waiting for the lock or retrying.
     const freshTokens = this.getTokens();
-    if (freshTokens?.accessToken && !this.isTokenExpired(freshTokens) && !this.shouldRefreshToken(freshTokens)) {
+    if (
+      freshTokens?.accessToken &&
+      !this.isTokenExpired(freshTokens) &&
+      !this.shouldRefreshToken(freshTokens)
+    ) {
       // Another tab already refreshed — the access token in storage is valid.
       // Skip the fetch entirely to avoid sending a stale refresh token
       // (which would trigger "reuse detected" on servers with token rotation).
