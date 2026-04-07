@@ -1,3 +1,10 @@
+# [2.30.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.29.0...v2.30.0) (2026-04-07)
+
+
+### Features
+
+* extract deviceId from refresh token JWT for backends that require it ([672b1f8](https://github.com/skylabs-digital/react-identity-access/commit/672b1f82c0aacd5006b08ff3393d7747490b9419))
+
 # [2.29.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.28.0...v2.29.0) (2026-04-07)
 
 
