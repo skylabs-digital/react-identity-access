@@ -526,9 +526,37 @@ export class SessionManager {
    * Throws generic Error for transient errors (will be retried).
    */
   private async performTokenRefresh(refreshToken: string, gen: number): Promise<void> {
+    // Use Web Locks API to coordinate refresh across browser tabs.
+    // Without this, multiple tabs sharing localStorage can send the same
+    // refresh token simultaneously, triggering "reuse detected" on servers
+    // that rotate refresh tokens.
+    if (typeof navigator !== 'undefined' && navigator.locks) {
+      return navigator.locks.request(
+        `session-refresh:${this.storageKey}`,
+        () => this.performTokenRefreshInner(refreshToken, gen),
+      );
+    }
+    return this.performTokenRefreshInner(refreshToken, gen);
+  }
+
+  private async performTokenRefreshInner(refreshToken: string, gen: number): Promise<void> {
     if (!this.baseUrl) {
       throw new Error('Base URL not configured for token refresh');
     }
+
+    // Re-read tokens from storage: another browser tab sharing localStorage
+    // may have already refreshed while we were waiting for the lock or retrying.
+    const freshTokens = this.getTokens();
+    if (freshTokens?.accessToken && !this.isTokenExpired(freshTokens) && !this.shouldRefreshToken(freshTokens)) {
+      // Another tab already refreshed — the access token in storage is valid.
+      // Skip the fetch entirely to avoid sending a stale refresh token
+      // (which would trigger "reuse detected" on servers with token rotation).
+      return;
+    }
+
+    // Use the freshest refresh token from storage. If another tab rotated it,
+    // the old RT we received as parameter is now invalid — use the new one.
+    const currentRefreshToken = freshTokens?.refreshToken || refreshToken;
 
     const url = `${this.baseUrl}/auth/refresh`;
 
@@ -537,7 +565,7 @@ export class SessionManager {
       response = await fetch(url, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ refreshToken }),
+        body: JSON.stringify({ refreshToken: currentRefreshToken }),
       });
     } catch (networkError) {
       // Network error (e.g., TypeError: Failed to fetch) — transient
@@ -599,7 +627,7 @@ export class SessionManager {
 
     this.setTokens({
       accessToken: refreshResponse.accessToken,
-      refreshToken: refreshResponse.refreshToken || refreshToken,
+      refreshToken: refreshResponse.refreshToken || currentRefreshToken,
       expiresIn: refreshResponse.expiresIn,
     });
   }

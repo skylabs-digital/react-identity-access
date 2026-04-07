@@ -8,7 +8,7 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
-    exclude: ['**/node_modules/**', '**/dist/**', '**/__tests__.disabled/**', '**/example/**'],
+    exclude: ['**/node_modules/**', '**/dist/**', '**/__tests__.disabled/**', '**/example/**', 'qa/**'],
     watch: false, // Disable watch mode by default
     pool: 'forks',
     poolOptions: {
