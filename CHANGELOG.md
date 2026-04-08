@@ -1,3 +1,10 @@
+# [2.31.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.30.0...v2.31.0) (2026-04-08)
+
+
+### Features
+
+* add dual publish to GitHub Packages and npm publishing guide ([cb4b727](https://github.com/skylabs-digital/react-identity-access/commit/cb4b7271740b5547e7883d92b23cd86a767076aa))
+
 # [2.30.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.29.0...v2.30.0) (2026-04-07)
 
 
