@@ -1381,4 +1381,170 @@ describe('SessionManager', () => {
       await expect(p2).rejects.toThrow(SessionExpiredError);
     });
   });
+
+  // ─── Cookie Session ───
+
+  describe('Cookie Session (enableCookieSession)', () => {
+    it('should send credentials: include on refresh when enableCookieSession is true', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            accessToken: 'new-access',
+            refreshToken: 'new-refresh',
+            expiresIn: 3600,
+          }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const sm = new SessionManager({
+        tokenStorage: storage,
+        baseUrl: 'http://api',
+        enableCookieSession: true,
+      });
+      storage.set(makeTokens(-10, 'refresh-abc')); // expired token → triggers refresh
+
+      await sm.getValidAccessToken();
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://api/auth/refresh',
+        expect.objectContaining({ credentials: 'include' })
+      );
+      sm.destroy();
+    });
+
+    it('should NOT send credentials: include on refresh when enableCookieSession is false', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            accessToken: 'new-access',
+            refreshToken: 'new-refresh',
+            expiresIn: 3600,
+          }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const sm = new SessionManager({
+        tokenStorage: storage,
+        baseUrl: 'http://api',
+        enableCookieSession: false,
+      });
+      storage.set(makeTokens(-10, 'refresh-abc'));
+
+      await sm.getValidAccessToken();
+
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://api/auth/refresh',
+        expect.not.objectContaining({ credentials: 'include' })
+      );
+      sm.destroy();
+    });
+
+    describe('attemptCookieSessionRestore', () => {
+      it('should return true and store tokens on successful restore', async () => {
+        const fetchMock = vi.fn().mockResolvedValue({
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              accessToken: 'restored-access',
+              refreshToken: 'restored-refresh',
+              expiresIn: 3600,
+            }),
+        });
+        vi.stubGlobal('fetch', fetchMock);
+
+        const sm = new SessionManager({
+          tokenStorage: storage,
+          baseUrl: 'http://api',
+          enableCookieSession: true,
+        });
+
+        const result = await sm.attemptCookieSessionRestore();
+
+        expect(result).toBe(true);
+        expect(fetchMock).toHaveBeenCalledWith(
+          'http://api/auth/refresh',
+          expect.objectContaining({
+            credentials: 'include',
+            body: JSON.stringify({}),
+          })
+        );
+        const tokens = sm.getTokens();
+        expect(tokens?.accessToken).toBe('restored-access');
+        expect(tokens?.refreshToken).toBe('restored-refresh');
+        sm.destroy();
+      });
+
+      it('should return false on 401 response', async () => {
+        vi.stubGlobal(
+          'fetch',
+          vi.fn().mockResolvedValue({ ok: false, status: 401 })
+        );
+
+        const sm = new SessionManager({
+          tokenStorage: storage,
+          baseUrl: 'http://api',
+          enableCookieSession: true,
+        });
+
+        const result = await sm.attemptCookieSessionRestore();
+
+        expect(result).toBe(false);
+        expect(sm.getTokens()).toBeNull();
+        sm.destroy();
+      });
+
+      it('should return false on network error', async () => {
+        vi.stubGlobal(
+          'fetch',
+          vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
+        );
+
+        const sm = new SessionManager({
+          tokenStorage: storage,
+          baseUrl: 'http://api',
+          enableCookieSession: true,
+        });
+
+        const result = await sm.attemptCookieSessionRestore();
+
+        expect(result).toBe(false);
+        sm.destroy();
+      });
+
+      it('should return false when enableCookieSession is false', async () => {
+        const fetchMock = vi.fn();
+        vi.stubGlobal('fetch', fetchMock);
+
+        const sm = new SessionManager({
+          tokenStorage: storage,
+          baseUrl: 'http://api',
+          enableCookieSession: false,
+        });
+
+        const result = await sm.attemptCookieSessionRestore();
+
+        expect(result).toBe(false);
+        expect(fetchMock).not.toHaveBeenCalled();
+        sm.destroy();
+      });
+
+      it('should return false when baseUrl is not configured', async () => {
+        const fetchMock = vi.fn();
+        vi.stubGlobal('fetch', fetchMock);
+
+        const sm = new SessionManager({
+          tokenStorage: storage,
+          enableCookieSession: true,
+        });
+
+        const result = await sm.attemptCookieSessionRestore();
+
+        expect(result).toBe(false);
+        expect(fetchMock).not.toHaveBeenCalled();
+        sm.destroy();
+      });
+    });
+  });
 });

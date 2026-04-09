@@ -32,7 +32,6 @@ export interface TokenStorage {
 
 export interface SessionConfig {
   storageKey?: string;
-  tenantSlug?: string | null;
   autoRefresh?: boolean;
   refreshThreshold?: number;
   /** @deprecated Use onSessionExpired instead */
@@ -40,6 +39,7 @@ export interface SessionConfig {
   onSessionExpired?: (error: SessionExpiredError) => void;
   tokenStorage?: TokenStorage;
   baseUrl?: string;
+  enableCookieSession?: boolean; // When true, sends credentials: 'include' on refresh calls for cross-subdomain cookie auth
   // New: deterministic refresh config
   proactiveRefreshMargin?: number; // ms before expiry to trigger proactive refresh (default: 60000)
   refreshQueueTimeout?: number; // ms before queued requests timeout (default: 10000)
@@ -83,11 +83,7 @@ export class SessionManager {
   }
 
   private static resolveStorageKey(config: SessionConfig): string {
-    if (config.storageKey) return config.storageKey;
-    if (config.tenantSlug !== undefined) {
-      return config.tenantSlug ? `auth_tokens_${config.tenantSlug}` : 'auth_tokens';
-    }
-    return 'auth_tokens';
+    return config.storageKey || 'auth_tokens';
   }
 
   private storageKey: string;
@@ -97,6 +93,7 @@ export class SessionManager {
   private onRefreshFailed?: () => void;
   private onSessionExpired?: (error: SessionExpiredError) => void;
   private tokenStorage: TokenStorage;
+  private enableCookieSession: boolean;
 
   // New config
   private proactiveRefreshMargin: number;
@@ -115,17 +112,14 @@ export class SessionManager {
   private static readonly MAX_BACKGROUND_FAILURES = 3;
 
   constructor(config: SessionConfig = {}) {
-    if (config.tenantSlug !== undefined) {
-      this.storageKey = config.tenantSlug ? `auth_tokens_${config.tenantSlug}` : 'auth_tokens';
-    } else {
-      this.storageKey = config.storageKey || 'auth_tokens';
-    }
+    this.storageKey = config.storageKey || 'auth_tokens';
 
     this.autoRefresh = config.autoRefresh ?? true;
     this.refreshThreshold = config.refreshThreshold || 300000; // 5 minutes
     this.onRefreshFailed = config.onRefreshFailed;
     this.onSessionExpired = config.onSessionExpired;
     this.baseUrl = config.baseUrl || '';
+    this.enableCookieSession = config.enableCookieSession ?? false;
 
     // New config with defaults
     this.proactiveRefreshMargin = config.proactiveRefreshMargin ?? 60000; // 1 minute
@@ -144,6 +138,7 @@ export class SessionManager {
     if (config.onSessionExpired !== undefined) this.onSessionExpired = config.onSessionExpired;
     if (config.onRefreshFailed !== undefined) this.onRefreshFailed = config.onRefreshFailed;
     if (config.baseUrl) this.baseUrl = config.baseUrl;
+    if (config.enableCookieSession !== undefined) this.enableCookieSession = config.enableCookieSession;
   }
 
   // --- Storage helpers ---
@@ -371,6 +366,44 @@ export class SessionManager {
     }
   }
 
+  /**
+   * Attempt to restore a session using a backend-set HttpOnly cookie.
+   * Sends a refresh request with credentials: 'include' but without a refresh token in the body.
+   * If the backend responds with tokens (cookie carried the refresh token), stores them and returns true.
+   * If it fails (no cookie, expired, etc.), returns false — this is a normal outcome, not an error.
+   *
+   * Only works when enableCookieSession is true.
+   */
+  async attemptCookieSessionRestore(): Promise<boolean> {
+    if (!this.enableCookieSession || !this.baseUrl) return false;
+
+    const url = `${this.baseUrl}/auth/refresh`;
+
+    try {
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+        credentials: 'include',
+      });
+
+      if (!response.ok) return false;
+
+      const data = await response.json();
+      if (!data.accessToken) return false;
+
+      this.setTokens({
+        accessToken: data.accessToken,
+        refreshToken: data.refreshToken || '',
+        expiresIn: data.expiresIn,
+      });
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   // --- Core: getValidAccessToken with queue + timeout ---
 
   /**
@@ -592,6 +625,7 @@ export class SessionManager {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(refreshBody),
+        ...(this.enableCookieSession && { credentials: 'include' as RequestCredentials }),
       });
     } catch (networkError) {
       // Network error (e.g., TypeError: Failed to fetch) — transient

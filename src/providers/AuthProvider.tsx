@@ -40,6 +40,10 @@ export interface AuthConfig {
   // Multi-tenant options (RFC-004)
   autoSwitchSingleTenant?: boolean; // Auto-switch if user has only one tenant (default: true)
   onTenantSelectionRequired?: (tenants: UserTenantMembership[]) => void; // Callback when user needs to select tenant
+  // Cross-subdomain cookie session: when enabled, the lib attempts a speculative refresh
+  // with credentials: 'include' when no local session exists, allowing a backend-set
+  // HttpOnly cookie to restore the session across subdomains
+  enableCookieSession?: boolean;
   // Standalone mode: use these when AuthProvider is used without AppProvider/TenantProvider
   // (e.g., internal backoffice with system users)
   baseUrl?: string; // Required when no AppProvider is present
@@ -161,8 +165,8 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
   // Create services with stable references — singleton per tenantSlug
   const sessionManager = useMemo(() => {
     const manager = SessionManager.getInstance({
-      tenantSlug: tenantSlug,
       baseUrl: baseUrl,
+      enableCookieSession: config.enableCookieSession,
       refreshQueueTimeout: config.refreshQueueTimeout,
       proactiveRefreshMargin: config.proactiveRefreshMargin,
       onSessionExpired: (error: SessionExpiredError) => {
@@ -195,7 +199,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     }
 
     return manager;
-  }, [tenantSlug, baseUrl, config.refreshQueueTimeout, config.proactiveRefreshMargin]);
+  }, [baseUrl, config.enableCookieSession, config.refreshQueueTimeout, config.proactiveRefreshMargin]);
 
   // Track if we're restoring an existing session (tokens in localStorage but user not loaded yet)
   // CRITICAL: Initialize to TRUE if there's a valid session OR if tokens are expired but
@@ -204,9 +208,13 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
   const [isRestoringSession, setIsRestoringSession] = useState(() => {
     if (initRef.current.urlTokens) return false; // URL tokens path handles its own blocking
     const tokens = sessionManager.getTokens();
-    if (!tokens) return false;
-    // Valid session (need to load user) OR expired but has refreshToken (refresh pending)
-    return sessionManager.hasValidSession() || !!tokens.refreshToken;
+    if (tokens) {
+      // Valid session (need to load user) OR expired but has refreshToken (refresh pending)
+      return sessionManager.hasValidSession() || !!tokens.refreshToken;
+    }
+    // No local tokens — if cookie session is enabled, block until speculative refresh resolves
+    if (config.enableCookieSession) return true;
+    return false;
   });
 
   // Auth is ready when:
@@ -307,7 +315,6 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       // RFC-001: Get tenantId from slug if provided, otherwise use current context
       let resolvedTenantId = tenant?.id;
       let targetTenantSlug = tenantSlug;
-      let targetSessionManager = sessionManager;
 
       if (targetSlug) {
         // Get tenant ID from public endpoint using slug
@@ -327,17 +334,8 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       // Check if we need to switch
       const shouldSwitch = targetSlug && targetSlug !== tenantSlug;
 
-      // Save tokens to the correct tenant
-
-      if (shouldSwitch) {
-        // If switching, create a new SessionManager for the target tenant
-        targetSessionManager = new SessionManager({
-          tenantSlug: targetTenantSlug,
-          baseUrl: baseUrl,
-        });
-      }
-
-      targetSessionManager.setTokens({
+      // Save tokens (always to the same storage key)
+      sessionManager.setTokens({
         accessToken: loginResponse.accessToken,
         refreshToken: loginResponse.refreshToken,
         expiresIn: loginResponse.expiresIn,
@@ -345,7 +343,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
       // Store user data if available in the response
       if (loginResponse.user) {
-        targetSessionManager.setUser(loginResponse.user);
+        sessionManager.setUser(loginResponse.user);
         setCurrentUser(loginResponse.user);
 
         // Load complete user data from API after login
@@ -510,7 +508,6 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       // RFC-001: Get tenantId from slug if provided, otherwise use current context
       let resolvedTenantId = tenant?.id;
       let targetTenantSlug = tenantSlug;
-      let targetSessionManager = sessionManager;
 
       if (targetSlug) {
         // Get tenant ID from public endpoint using slug
@@ -530,16 +527,8 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       // Check if we need to switch
       const shouldSwitch = targetSlug && targetSlug !== tenantSlug;
 
-      // Save tokens to the correct tenant
-
-      if (shouldSwitch) {
-        // If switching, create a new SessionManager for the target tenant
-        targetSessionManager = new SessionManager({
-          tenantSlug: targetTenantSlug,
-          baseUrl: baseUrl,
-        });
-      }
-      targetSessionManager.setTokens({
+      // Save tokens (always to the same storage key)
+      sessionManager.setTokens({
         accessToken: verifyResponse.accessToken,
         refreshToken: verifyResponse.refreshToken,
         expiresIn: verifyResponse.expiresIn,
@@ -547,7 +536,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
       // Store user data
       if (verifyResponse.user) {
-        targetSessionManager.setUser(verifyResponse.user);
+        sessionManager.setUser(verifyResponse.user);
         setCurrentUser(verifyResponse.user);
 
         // Load complete user data from API after magic link login
@@ -869,6 +858,13 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       }
       if (cancelled) return;
 
+      // No local session — attempt cookie-based session restore if enabled
+      if (!sessionManager.hasValidSession() && !sessionManager.getTokens() && config.enableCookieSession) {
+        await sessionManager.attemptCookieSessionRestore();
+        if (cancelled) return;
+        // If restore succeeded, the auto-load effect will pick up the valid session
+      }
+
       const user = sessionManager.getUser();
       if (user && sessionManager.hasValidSession()) {
         setCurrentUser(user);
@@ -882,7 +878,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     return () => {
       cancelled = true;
     };
-  }, [sessionManager]);
+  }, [sessionManager, config.enableCookieSession]);
 
   // Auto-load user data if we have tokens but no currentUser
   useEffect(() => {

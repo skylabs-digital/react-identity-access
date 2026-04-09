@@ -297,20 +297,18 @@ describe('Cross-Subdomain Auth Flow', () => {
       expect(newUrl.startsWith('/dashboard?')).toBe(true);
     });
 
-    it('should allow tokens to be stored in tenant-specific key after extraction', () => {
-      const targetTenantSlug = 'my-company';
-
+    it('should allow tokens to be stored after extraction', () => {
       // Simulate URL with tokens
       const urlParams = new URLSearchParams();
-      urlParams.set('tenant', targetTenantSlug);
+      urlParams.set('tenant', 'my-company');
       urlParams.set(AUTH_TRANSFER_PARAM, encodeAuthTokens(sampleTokens));
 
       // Extract tokens (as AuthProvider does)
       const extractedTokens = decodeAuthTokens(urlParams.get(AUTH_TRANSFER_PARAM)!);
       expect(extractedTokens).not.toBeNull();
 
-      // Store in tenant-specific key (as SessionManager does)
-      const storageKey = `auth_tokens_${targetTenantSlug}`;
+      // Store in unified key (as SessionManager does)
+      const storageKey = 'auth_tokens';
       localStorage.setItem(storageKey, JSON.stringify(extractedTokens));
 
       // Verify stored correctly
@@ -385,13 +383,13 @@ describe('Cross-Subdomain Auth Flow', () => {
       // 5. On page load, AuthProvider extracts tokens from URL
       const extractedTokens = decodeAuthTokens(urlParams.get(AUTH_TRANSFER_PARAM)!);
 
-      // 6. SessionManager stores in tenant-specific key
-      const tenantStorageKey = `auth_tokens_${targetTenantSlug}`;
-      localStorage.setItem(tenantStorageKey, JSON.stringify(extractedTokens));
+      // 6. SessionManager stores in unified key
+      const storageKey = 'auth_tokens';
+      localStorage.setItem(storageKey, JSON.stringify(extractedTokens));
 
       // 7. Verify correct storage
-      expect(localStorage.getItem(tenantStorageKey)).not.toBeNull();
-      const stored = JSON.parse(localStorage.getItem(tenantStorageKey)!);
+      expect(localStorage.getItem(storageKey)).not.toBeNull();
+      const stored = JSON.parse(localStorage.getItem(storageKey)!);
       expect(stored.accessToken).toBe('tenant-scoped-access-token');
     });
   });
