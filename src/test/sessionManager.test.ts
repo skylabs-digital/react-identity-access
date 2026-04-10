@@ -1727,8 +1727,7 @@ describe('SessionManager', () => {
 
     it('rejects retryBackoffBase < 1 (would cause infinite tight retry loop)', () => {
       expect(
-        () =>
-          new SessionManager({ tokenStorage: storage, autoRefresh: false, retryBackoffBase: 0 })
+        () => new SessionManager({ tokenStorage: storage, autoRefresh: false, retryBackoffBase: 0 })
       ).toThrow(/>= 1/);
     });
 
@@ -1775,25 +1774,25 @@ describe('SessionManager', () => {
 
     it('rejects negative expiresIn', () => {
       const sm = new SessionManager({ tokenStorage: storage, autoRefresh: false });
-      expect(() =>
-        sm.setTokens({ accessToken: 'a', refreshToken: 'r', expiresIn: -10 })
-      ).toThrow(/expiresIn/);
+      expect(() => sm.setTokens({ accessToken: 'a', refreshToken: 'r', expiresIn: -10 })).toThrow(
+        /expiresIn/
+      );
       sm.destroy();
     });
 
     it('rejects zero expiresIn', () => {
       const sm = new SessionManager({ tokenStorage: storage, autoRefresh: false });
-      expect(() =>
-        sm.setTokens({ accessToken: 'a', refreshToken: 'r', expiresIn: 0 })
-      ).toThrow(/expiresIn/);
+      expect(() => sm.setTokens({ accessToken: 'a', refreshToken: 'r', expiresIn: 0 })).toThrow(
+        /expiresIn/
+      );
       sm.destroy();
     });
 
     it('rejects NaN expiresAt', () => {
       const sm = new SessionManager({ tokenStorage: storage, autoRefresh: false });
-      expect(() =>
-        sm.setTokens({ accessToken: 'a', refreshToken: 'r', expiresAt: NaN })
-      ).toThrow(/expiresAt/);
+      expect(() => sm.setTokens({ accessToken: 'a', refreshToken: 'r', expiresAt: NaN })).toThrow(
+        /expiresAt/
+      );
       sm.destroy();
     });
   });
@@ -1824,9 +1823,7 @@ describe('SessionManager', () => {
     it('attaches a visibilitychange listener at construction', () => {
       const addSpy = vi.spyOn(document, 'addEventListener');
       const sm = new SessionManager({ tokenStorage: storage, autoRefresh: false });
-      expect(
-        addSpy.mock.calls.some(([event]) => event === 'visibilitychange')
-      ).toBe(true);
+      expect(addSpy.mock.calls.some(([event]) => event === 'visibilitychange')).toBe(true);
       sm.destroy();
       addSpy.mockRestore();
     });
@@ -1835,9 +1832,7 @@ describe('SessionManager', () => {
       const removeSpy = vi.spyOn(document, 'removeEventListener');
       const sm = new SessionManager({ tokenStorage: storage, autoRefresh: false });
       sm.destroy();
-      expect(
-        removeSpy.mock.calls.some(([event]) => event === 'visibilitychange')
-      ).toBe(true);
+      expect(removeSpy.mock.calls.some(([event]) => event === 'visibilitychange')).toBe(true);
       removeSpy.mockRestore();
     });
   });
