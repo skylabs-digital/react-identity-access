@@ -8,11 +8,14 @@ A powerful, modern authentication and authorization library for React applicatio
 - **✨ Magic Link Authentication** - Passwordless authentication via email with automatic verification
 - **📧 Flexible Login** - Support for both email and phone number authentication
 - **👥 Role-Based Access Control** - Granular permission system with role hierarchy
-- **🛡️ Protected Components** - Easy-to-use components for conditional rendering
-- **📱 Multi-Tenant Support** - Built-in support for multi-tenant applications
+- **🛡️ Protected Components & Zone Routing** - Declarative route access control (RFC-005)
+- **📱 Multi-Tenant Support** - Subdomain, selector, and fixed tenant modes
 - **🎯 TypeScript First** - Full TypeScript support with comprehensive type definitions
 - **⚡ Modern React** - Built with React hooks and context for optimal performance
-- **🔄 Session Management** - Automatic session handling and token refresh
+- **🔄 Session Management** - Automatic refresh, proactive renewal, circuit breaker
+- **🍪 Cross-subdomain Cookie Session** - Optional HttpOnly refresh cookie for seamless SSO between subdomains
+- **🪟 Multi-tab Safety** - Web Locks API coordinates token refresh across browser tabs
+- **🧩 Standalone AuthProvider** - Works with or without AppProvider/TenantProvider
 - **🎨 Feature Flags** - Built-in feature flag management
 - **💳 Subscription Management** - Integrated billing and subscription handling
 - **🎛️ Fully Customizable Components** - All texts, styles, and icons are overridable via props
@@ -29,14 +32,14 @@ yarn add @skylabs-digital/react-identity-access
 
 ### 1. Setup Providers
 
-Wrap your application with the required providers in order:
+You can use the library in **two modes**:
+
+#### Option A — Multi-tenant setup (recommended for SaaS apps)
+
+Wrap your application with the three providers in order:
 
 ```tsx
-import {
-  AppProvider,
-  TenantProvider,
-  AuthProvider,
-} from '@skylabs-digital/react-identity-access';
+import { AppProvider, TenantProvider, AuthProvider } from '@skylabs-digital/react-identity-access';
 
 function App() {
   return (
@@ -48,15 +51,34 @@ function App() {
     >
       <TenantProvider
         config={{
-          tenantMode: 'selector', // 'subdomain' | 'selector' | 'fixed' | 'optional'
+          tenantMode: 'selector', // 'subdomain' | 'selector' | 'fixed'
           selectorParam: 'tenant',
         }}
       >
-        <AuthProvider>
-          {/* Your app components */}
-        </AuthProvider>
+        <AuthProvider>{/* Your app components */}</AuthProvider>
       </TenantProvider>
     </AppProvider>
+  );
+}
+```
+
+#### Option B — Standalone AuthProvider (single-tenant or pure auth)
+
+`AuthProvider` can run without `AppProvider` and `TenantProvider`. Pass `baseUrl` and `appId` directly via `AuthConfig` — ideal for simple apps that don't need multi-tenancy.
+
+```tsx
+import { AuthProvider } from '@skylabs-digital/react-identity-access';
+
+function App() {
+  return (
+    <AuthProvider
+      config={{
+        baseUrl: 'https://your-api.com',
+        appId: 'your-app-id',
+      }}
+    >
+      {/* Your app components */}
+    </AuthProvider>
   );
 }
 ```
@@ -151,64 +173,64 @@ Traditional email/phone + password login form.
 
 #### Props (`LoginFormProps`)
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `copy` | `LoginFormCopy` | See below | Override user-facing texts |
-| `styles` | `LoginFormStyles` | See below | Override inline styles |
-| `icons` | `LoginFormIcons` | Eye/EyeOff SVGs | Override password toggle icons |
-| `onSuccess` | `(data: any) => void` | — | Called after successful login |
-| `onError` | `(error: string) => void` | — | Called on login failure |
-| `onForgotPassword` | `() => void` | — | Navigate to forgot password |
-| `onSignupClick` | `() => void` | — | Navigate to signup |
-| `onMagicLinkClick` | `() => void` | — | Navigate to magic link |
-| `showForgotPassword` | `boolean` | `true` | Show "Forgot password?" link |
-| `showSignupLink` | `boolean` | `true` | Show signup link |
-| `showMagicLinkOption` | `boolean` | `false` | Show magic link option |
-| `className` | `string` | — | CSS class for the root element |
+| Prop                  | Type                      | Default         | Description                    |
+| --------------------- | ------------------------- | --------------- | ------------------------------ |
+| `copy`                | `LoginFormCopy`           | See below       | Override user-facing texts     |
+| `styles`              | `LoginFormStyles`         | See below       | Override inline styles         |
+| `icons`               | `LoginFormIcons`          | Eye/EyeOff SVGs | Override password toggle icons |
+| `onSuccess`           | `(data: any) => void`     | —               | Called after successful login  |
+| `onError`             | `(error: string) => void` | —               | Called on login failure        |
+| `onForgotPassword`    | `() => void`              | —               | Navigate to forgot password    |
+| `onSignupClick`       | `() => void`              | —               | Navigate to signup             |
+| `onMagicLinkClick`    | `() => void`              | —               | Navigate to magic link         |
+| `showForgotPassword`  | `boolean`                 | `true`          | Show "Forgot password?" link   |
+| `showSignupLink`      | `boolean`                 | `true`          | Show signup link               |
+| `showMagicLinkOption` | `boolean`                 | `false`         | Show magic link option         |
+| `className`           | `string`                  | —               | CSS class for the root element |
 
 #### Copy (`LoginFormCopy`)
 
-| Key | Default |
-|-----|---------|
-| `title` | `'Sign In'` |
-| `usernameLabel` | `'Email or Phone'` |
-| `usernamePlaceholder` | `'Enter your email or phone number'` |
-| `passwordLabel` | `'Password'` |
-| `passwordPlaceholder` | `'Enter your password'` |
-| `submitButton` | `'Sign In'` |
-| `loadingText` | `'Signing in...'` |
-| `errorMessage` | `'Invalid credentials'` |
-| `forgotPasswordLink` | `'Forgot your password?'` |
-| `signupLink` | `'Sign up here'` |
-| `signupText` | `"Don't have an account?"` |
-| `magicLinkText` | `'Prefer passwordless?'` |
-| `magicLinkLink` | `'Use Magic Link'` |
-| `tenantNotFoundError` | `'Tenant not found'` |
-| `dividerBullet` | `'•'` |
-| `showPasswordAriaLabel` | `'Show password'` |
-| `hidePasswordAriaLabel` | `'Hide password'` |
+| Key                     | Default                              |
+| ----------------------- | ------------------------------------ |
+| `title`                 | `'Sign In'`                          |
+| `usernameLabel`         | `'Email or Phone'`                   |
+| `usernamePlaceholder`   | `'Enter your email or phone number'` |
+| `passwordLabel`         | `'Password'`                         |
+| `passwordPlaceholder`   | `'Enter your password'`              |
+| `submitButton`          | `'Sign In'`                          |
+| `loadingText`           | `'Signing in...'`                    |
+| `errorMessage`          | `'Invalid credentials'`              |
+| `forgotPasswordLink`    | `'Forgot your password?'`            |
+| `signupLink`            | `'Sign up here'`                     |
+| `signupText`            | `"Don't have an account?"`           |
+| `magicLinkText`         | `'Prefer passwordless?'`             |
+| `magicLinkLink`         | `'Use Magic Link'`                   |
+| `tenantNotFoundError`   | `'Tenant not found'`                 |
+| `dividerBullet`         | `'•'`                                |
+| `showPasswordAriaLabel` | `'Show password'`                    |
+| `hidePasswordAriaLabel` | `'Hide password'`                    |
 
 #### Styles (`LoginFormStyles`)
 
-| Key | Targets |
-|-----|---------|
-| `container` | Root wrapper |
-| `title` | `<h2>` heading |
-| `form` | `<form>` element |
-| `fieldGroup` | Each label+input group |
-| `label` | `<label>` elements |
-| `input` | `<input>` elements |
-| `inputError` | Input in error state (merged on top of `input`) |
-| `inputContainer` | Password field wrapper |
-| `inputWithIcon` | Password input with toggle icon |
-| `passwordToggle` | Show/hide password button |
-| `button` | Submit button |
-| `buttonDisabled` | Disabled state (merged on top of `button`) |
-| `buttonLoading` | Loading state (merged on top of `button`) |
-| `errorText` | Error message text |
-| `linkContainer` | Links section wrapper |
-| `link` | `<a>` link elements |
-| `divider` | Bullet divider between links |
+| Key              | Targets                                         |
+| ---------------- | ----------------------------------------------- |
+| `container`      | Root wrapper                                    |
+| `title`          | `<h2>` heading                                  |
+| `form`           | `<form>` element                                |
+| `fieldGroup`     | Each label+input group                          |
+| `label`          | `<label>` elements                              |
+| `input`          | `<input>` elements                              |
+| `inputError`     | Input in error state (merged on top of `input`) |
+| `inputContainer` | Password field wrapper                          |
+| `inputWithIcon`  | Password input with toggle icon                 |
+| `passwordToggle` | Show/hide password button                       |
+| `button`         | Submit button                                   |
+| `buttonDisabled` | Disabled state (merged on top of `button`)      |
+| `buttonLoading`  | Loading state (merged on top of `button`)       |
+| `errorText`      | Error message text                              |
+| `linkContainer`  | Links section wrapper                           |
+| `link`           | `<a>` link elements                             |
+| `divider`        | Bullet divider between links                    |
 
 #### Usage Example
 
@@ -228,7 +250,7 @@ Traditional email/phone + password login form.
     showPassword: <MyEyeIcon />,
     hidePassword: <MyEyeOffIcon />,
   }}
-  onSuccess={(data) => navigate('/dashboard')}
+  onSuccess={data => navigate('/dashboard')}
   onMagicLinkClick={() => navigate('/magic-link')}
   showMagicLinkOption
 />
@@ -242,74 +264,74 @@ User registration form with email/phone, password, and optional tenant creation.
 
 #### Props (`SignupFormProps`)
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `copy` | `SignupFormCopy` | See below | Override user-facing texts |
-| `styles` | `SignupFormStyles` | See below | Override inline styles |
-| `signupType` | `'user' \| 'tenant'` | `'user'` | User signup or tenant admin signup |
-| `onSuccess` | `(data: any) => void` | — | Called after successful signup |
-| `onError` | `(error: string) => void` | — | Called on signup failure |
-| `onLoginClick` | `() => void` | — | Navigate to login |
-| `onMagicLinkClick` | `() => void` | — | Navigate to magic link |
-| `showLoginLink` | `boolean` | `true` | Show login link |
-| `showMagicLinkOption` | `boolean` | `false` | Show magic link option |
-| `className` | `string` | — | CSS class for the root element |
+| Prop                  | Type                      | Default   | Description                        |
+| --------------------- | ------------------------- | --------- | ---------------------------------- |
+| `copy`                | `SignupFormCopy`          | See below | Override user-facing texts         |
+| `styles`              | `SignupFormStyles`        | See below | Override inline styles             |
+| `signupType`          | `'user' \| 'tenant'`      | `'user'`  | User signup or tenant admin signup |
+| `onSuccess`           | `(data: any) => void`     | —         | Called after successful signup     |
+| `onError`             | `(error: string) => void` | —         | Called on signup failure           |
+| `onLoginClick`        | `() => void`              | —         | Navigate to login                  |
+| `onMagicLinkClick`    | `() => void`              | —         | Navigate to magic link             |
+| `showLoginLink`       | `boolean`                 | `true`    | Show login link                    |
+| `showMagicLinkOption` | `boolean`                 | `false`   | Show magic link option             |
+| `className`           | `string`                  | —         | CSS class for the root element     |
 
 #### Copy (`SignupFormCopy`)
 
-| Key | Default |
-|-----|---------|
-| `title` | `'Create Account'` |
-| `nameLabel` | `'First Name'` |
-| `namePlaceholder` | `'Enter your first name'` |
-| `lastNameLabel` | `'Last Name'` |
-| `lastNamePlaceholder` | `'Enter your last name'` |
-| `emailLabel` | `'Email'` |
-| `emailPlaceholder` | `'Enter your email'` |
-| `phoneNumberLabel` | `'Phone Number'` |
-| `phoneNumberPlaceholder` | `'Enter your phone number'` |
-| `passwordLabel` | `'Password'` |
-| `passwordPlaceholder` | `'Enter your password'` |
-| `confirmPasswordLabel` | `'Confirm Password'` |
-| `confirmPasswordPlaceholder` | `'Confirm your password'` |
-| `tenantNameLabel` | `'Organization Name'` |
-| `tenantNamePlaceholder` | `'Enter your organization name'` |
-| `submitButton` | `'Create Account'` |
-| `loadingText` | `'Creating account...'` |
-| `errorMessage` | `'Failed to create account'` |
-| `passwordMismatchError` | `'Passwords do not match'` |
-| `loginLink` | `'Sign in here'` |
-| `loginText` | `'Already have an account?'` |
-| `magicLinkText` | `'Prefer passwordless?'` |
-| `magicLinkLink` | `'Use Magic Link'` |
-| `isAdminLabel` | `'Create new organization'` |
-| `isAdminDescription` | `'Check this if you want to create a new organization'` |
-| `contactMethodHint` | `'At least one contact method (email or phone) is required'` |
-| `tenantNotFoundError` | `'Tenant not found'` |
-| `dividerBullet` | `'•'` |
+| Key                          | Default                                                      |
+| ---------------------------- | ------------------------------------------------------------ |
+| `title`                      | `'Create Account'`                                           |
+| `nameLabel`                  | `'First Name'`                                               |
+| `namePlaceholder`            | `'Enter your first name'`                                    |
+| `lastNameLabel`              | `'Last Name'`                                                |
+| `lastNamePlaceholder`        | `'Enter your last name'`                                     |
+| `emailLabel`                 | `'Email'`                                                    |
+| `emailPlaceholder`           | `'Enter your email'`                                         |
+| `phoneNumberLabel`           | `'Phone Number'`                                             |
+| `phoneNumberPlaceholder`     | `'Enter your phone number'`                                  |
+| `passwordLabel`              | `'Password'`                                                 |
+| `passwordPlaceholder`        | `'Enter your password'`                                      |
+| `confirmPasswordLabel`       | `'Confirm Password'`                                         |
+| `confirmPasswordPlaceholder` | `'Confirm your password'`                                    |
+| `tenantNameLabel`            | `'Organization Name'`                                        |
+| `tenantNamePlaceholder`      | `'Enter your organization name'`                             |
+| `submitButton`               | `'Create Account'`                                           |
+| `loadingText`                | `'Creating account...'`                                      |
+| `errorMessage`               | `'Failed to create account'`                                 |
+| `passwordMismatchError`      | `'Passwords do not match'`                                   |
+| `loginLink`                  | `'Sign in here'`                                             |
+| `loginText`                  | `'Already have an account?'`                                 |
+| `magicLinkText`              | `'Prefer passwordless?'`                                     |
+| `magicLinkLink`              | `'Use Magic Link'`                                           |
+| `isAdminLabel`               | `'Create new organization'`                                  |
+| `isAdminDescription`         | `'Check this if you want to create a new organization'`      |
+| `contactMethodHint`          | `'At least one contact method (email or phone) is required'` |
+| `tenantNotFoundError`        | `'Tenant not found'`                                         |
+| `dividerBullet`              | `'•'`                                                        |
 
 #### Styles (`SignupFormStyles`)
 
-| Key | Targets |
-|-----|---------|
-| `container` | Root wrapper |
-| `title` | `<h2>` heading |
-| `form` | `<form>` element |
-| `fieldGroup` | Each label+input group |
-| `label` | `<label>` elements |
-| `input` | `<input>` elements |
-| `inputError` | Input in error state |
-| `checkbox` | Checkbox input |
-| `checkboxContainer` | Checkbox + label wrapper |
-| `checkboxLabel` | Checkbox label text |
-| `button` | Submit button |
-| `buttonDisabled` | Disabled state (merged on top of `button`) |
-| `buttonLoading` | Loading state (merged on top of `button`) |
-| `errorText` | Error message text |
-| `linkContainer` | Links section wrapper |
-| `link` | `<a>` link elements |
-| `divider` | Bullet divider between links |
-| `hintText` | Contact method hint text |
+| Key                 | Targets                                    |
+| ------------------- | ------------------------------------------ |
+| `container`         | Root wrapper                               |
+| `title`             | `<h2>` heading                             |
+| `form`              | `<form>` element                           |
+| `fieldGroup`        | Each label+input group                     |
+| `label`             | `<label>` elements                         |
+| `input`             | `<input>` elements                         |
+| `inputError`        | Input in error state                       |
+| `checkbox`          | Checkbox input                             |
+| `checkboxContainer` | Checkbox + label wrapper                   |
+| `checkboxLabel`     | Checkbox label text                        |
+| `button`            | Submit button                              |
+| `buttonDisabled`    | Disabled state (merged on top of `button`) |
+| `buttonLoading`     | Loading state (merged on top of `button`)  |
+| `errorText`         | Error message text                         |
+| `linkContainer`     | Links section wrapper                      |
+| `link`              | `<a>` link elements                        |
+| `divider`           | Bullet divider between links               |
+| `hintText`          | Contact method hint text                   |
 
 ---
 
@@ -319,71 +341,71 @@ Passwordless Magic Link send form. Handles both new and existing users.
 
 #### Props (`MagicLinkFormProps`)
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `copy` | `MagicLinkFormCopy` | See below | Override user-facing texts |
-| `styles` | `MagicLinkFormStyles` | See below | Override inline styles |
-| `onSuccess` | `(data: any) => void` | — | Called after magic link sent |
-| `onError` | `(error: string) => void` | — | Called on failure |
-| `onLoginClick` | `() => void` | — | Navigate to login |
-| `onSignupClick` | `() => void` | — | Navigate to signup |
-| `showTraditionalLinks` | `boolean` | `true` | Show login/signup links |
-| `className` | `string` | — | CSS class for the root element |
-| `verifyToken` | `string` | — | Auto-verify a magic link token |
-| `frontendUrl` | `string` | `window.location.origin` | Base URL for the magic link callback |
+| Prop                   | Type                      | Default                  | Description                          |
+| ---------------------- | ------------------------- | ------------------------ | ------------------------------------ |
+| `copy`                 | `MagicLinkFormCopy`       | See below                | Override user-facing texts           |
+| `styles`               | `MagicLinkFormStyles`     | See below                | Override inline styles               |
+| `onSuccess`            | `(data: any) => void`     | —                        | Called after magic link sent         |
+| `onError`              | `(error: string) => void` | —                        | Called on failure                    |
+| `onLoginClick`         | `() => void`              | —                        | Navigate to login                    |
+| `onSignupClick`        | `() => void`              | —                        | Navigate to signup                   |
+| `showTraditionalLinks` | `boolean`                 | `true`                   | Show login/signup links              |
+| `className`            | `string`                  | —                        | CSS class for the root element       |
+| `verifyToken`          | `string`                  | —                        | Auto-verify a magic link token       |
+| `frontendUrl`          | `string`                  | `window.location.origin` | Base URL for the magic link callback |
 
 #### Copy (`MagicLinkFormCopy`)
 
-| Key | Default |
-|-----|---------|
-| `title` | `'Sign In with Magic Link'` |
-| `description` | `"Enter your email to receive a magic link..."` |
-| `emailLabel` | `'Email'` |
-| `emailPlaceholder` | `'Enter your email'` |
-| `nameLabel` | `'Name'` |
-| `namePlaceholder` | `'Enter your name'` |
-| `lastNameLabel` | `'Last Name'` |
-| `lastNamePlaceholder` | `'Enter your last name'` |
-| `submitButton` | `'Send Magic Link'` |
-| `loadingText` | `'Sending magic link...'` |
-| `successMessage` | `'Magic link sent! Check your email...'` |
-| `errorMessage` | `'Failed to send magic link. Please try again.'` |
-| `verifyingText` | `'Verifying magic link...'` |
-| `verifyingDescription` | `'Please wait while we verify your magic link...'` |
-| `showNameToggle` | `'New user? Add your name'` |
-| `hideNameToggle` | `'Existing user? Hide name fields'` |
-| `loginLink` | `'Sign in with password'` |
-| `loginText` | `'Already have an account?'` |
-| `signupLink` | `'Sign up with password'` |
-| `signupText` | `'Prefer traditional signup?'` |
-| `tenantNotFoundError` | `'Tenant not found'` |
-| `missingTenantOrEmailError` | `'Missing tenant or email'` |
-| `dividerBullet` | `'•'` |
+| Key                         | Default                                            |
+| --------------------------- | -------------------------------------------------- |
+| `title`                     | `'Sign In with Magic Link'`                        |
+| `description`               | `"Enter your email to receive a magic link..."`    |
+| `emailLabel`                | `'Email'`                                          |
+| `emailPlaceholder`          | `'Enter your email'`                               |
+| `nameLabel`                 | `'Name'`                                           |
+| `namePlaceholder`           | `'Enter your name'`                                |
+| `lastNameLabel`             | `'Last Name'`                                      |
+| `lastNamePlaceholder`       | `'Enter your last name'`                           |
+| `submitButton`              | `'Send Magic Link'`                                |
+| `loadingText`               | `'Sending magic link...'`                          |
+| `successMessage`            | `'Magic link sent! Check your email...'`           |
+| `errorMessage`              | `'Failed to send magic link. Please try again.'`   |
+| `verifyingText`             | `'Verifying magic link...'`                        |
+| `verifyingDescription`      | `'Please wait while we verify your magic link...'` |
+| `showNameToggle`            | `'New user? Add your name'`                        |
+| `hideNameToggle`            | `'Existing user? Hide name fields'`                |
+| `loginLink`                 | `'Sign in with password'`                          |
+| `loginText`                 | `'Already have an account?'`                       |
+| `signupLink`                | `'Sign up with password'`                          |
+| `signupText`                | `'Prefer traditional signup?'`                     |
+| `tenantNotFoundError`       | `'Tenant not found'`                               |
+| `missingTenantOrEmailError` | `'Missing tenant or email'`                        |
+| `dividerBullet`             | `'•'`                                              |
 
 #### Styles (`MagicLinkFormStyles`)
 
-| Key | Targets |
-|-----|---------|
-| `container` | Root wrapper |
-| `title` | `<h2>` heading |
-| `description` | Description paragraph |
-| `form` | `<form>` element |
-| `fieldGroup` | Each label+input group |
-| `label` | `<label>` elements |
-| `input` | `<input>` elements |
-| `inputError` | Input in error state |
-| `button` | Submit button |
-| `buttonDisabled` | Disabled state (merged on top of `button`) |
-| `buttonLoading` | Loading state (merged on top of `button`) |
-| `errorText` | Error message text |
-| `successText` | Success message text |
-| `linkContainer` | Links section wrapper |
-| `link` | `<a>` link elements |
-| `divider` | Bullet divider between links |
-| `verifyingContainer` | Verification loading wrapper |
-| `verifyingText` | Verification description text |
-| `toggleContainer` | Name fields toggle wrapper |
-| `toggleLink` | "New user? Add your name" toggle button |
+| Key                  | Targets                                    |
+| -------------------- | ------------------------------------------ |
+| `container`          | Root wrapper                               |
+| `title`              | `<h2>` heading                             |
+| `description`        | Description paragraph                      |
+| `form`               | `<form>` element                           |
+| `fieldGroup`         | Each label+input group                     |
+| `label`              | `<label>` elements                         |
+| `input`              | `<input>` elements                         |
+| `inputError`         | Input in error state                       |
+| `button`             | Submit button                              |
+| `buttonDisabled`     | Disabled state (merged on top of `button`) |
+| `buttonLoading`      | Loading state (merged on top of `button`)  |
+| `errorText`          | Error message text                         |
+| `successText`        | Success message text                       |
+| `linkContainer`      | Links section wrapper                      |
+| `link`               | `<a>` link elements                        |
+| `divider`            | Bullet divider between links               |
+| `verifyingContainer` | Verification loading wrapper               |
+| `verifyingText`      | Verification description text              |
+| `toggleContainer`    | Name fields toggle wrapper                 |
+| `toggleLink`         | "New user? Add your name" toggle button    |
 
 ---
 
@@ -393,59 +415,59 @@ Automatic Magic Link verification component. Reads token from URL params or acce
 
 #### Props (`MagicLinkVerifyProps`)
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `copy` | `MagicLinkVerifyCopy` | See below | Override user-facing texts |
-| `styles` | `MagicLinkVerifyStyles` | See below | Override inline styles |
-| `icons` | `MagicLinkVerifyIcons` | SVG icons | Override loading/success/error icons |
-| `onSuccess` | `(data: any) => void` | — | Called after successful verification |
-| `onError` | `(error: string) => void` | — | Called on verification failure |
-| `onRetry` | `() => void` | — | Called before retry attempt |
-| `onBackToLogin` | `() => void` | — | Navigate back to login |
-| `className` | `string` | — | CSS class for the root element |
-| `token` | `string` | URL param | Magic link token (auto-extracted from `?token=`) |
-| `email` | `string` | URL param | User email (auto-extracted from `?email=`) |
-| `appId` | `string` | URL param | App ID (auto-extracted from `?appId=`) |
-| `tenantSlug` | `string` | URL param | Tenant slug (auto-extracted from `?tenantSlug=`) |
-| `autoRedirectDelay` | `number` | `3000` | Milliseconds before auto-redirect (0 to disable) |
+| Prop                | Type                      | Default   | Description                                      |
+| ------------------- | ------------------------- | --------- | ------------------------------------------------ |
+| `copy`              | `MagicLinkVerifyCopy`     | See below | Override user-facing texts                       |
+| `styles`            | `MagicLinkVerifyStyles`   | See below | Override inline styles                           |
+| `icons`             | `MagicLinkVerifyIcons`    | SVG icons | Override loading/success/error icons             |
+| `onSuccess`         | `(data: any) => void`     | —         | Called after successful verification             |
+| `onError`           | `(error: string) => void` | —         | Called on verification failure                   |
+| `onRetry`           | `() => void`              | —         | Called before retry attempt                      |
+| `onBackToLogin`     | `() => void`              | —         | Navigate back to login                           |
+| `className`         | `string`                  | —         | CSS class for the root element                   |
+| `token`             | `string`                  | URL param | Magic link token (auto-extracted from `?token=`) |
+| `email`             | `string`                  | URL param | User email (auto-extracted from `?email=`)       |
+| `appId`             | `string`                  | URL param | App ID (auto-extracted from `?appId=`)           |
+| `tenantSlug`        | `string`                  | URL param | Tenant slug (auto-extracted from `?tenantSlug=`) |
+| `autoRedirectDelay` | `number`                  | `3000`    | Milliseconds before auto-redirect (0 to disable) |
 
 #### Copy (`MagicLinkVerifyCopy`)
 
-| Key | Default |
-|-----|---------|
-| `title` | `'Verifying Magic Link'` |
-| `verifyingMessage` | `'Please wait while we verify your magic link...'` |
-| `successMessage` | `'Magic link verified successfully! You are now logged in.'` |
-| `errorMessage` | `'Failed to verify magic link. The link may be expired or invalid.'` |
-| `redirectingMessage` | `'Redirecting you to the dashboard...'` |
-| `retryButton` | `'Try Again'` |
-| `backToLoginButton` | `'Back to Login'` |
-| `missingParamsError` | `'Missing required parameters: token or email'` |
+| Key                  | Default                                                              |
+| -------------------- | -------------------------------------------------------------------- |
+| `title`              | `'Verifying Magic Link'`                                             |
+| `verifyingMessage`   | `'Please wait while we verify your magic link...'`                   |
+| `successMessage`     | `'Magic link verified successfully! You are now logged in.'`         |
+| `errorMessage`       | `'Failed to verify magic link. The link may be expired or invalid.'` |
+| `redirectingMessage` | `'Redirecting you to the dashboard...'`                              |
+| `retryButton`        | `'Try Again'`                                                        |
+| `backToLoginButton`  | `'Back to Login'`                                                    |
+| `missingParamsError` | `'Missing required parameters: token or email'`                      |
 
 #### Styles (`MagicLinkVerifyStyles`)
 
-| Key | Targets |
-|-----|---------|
-| `container` | Root wrapper |
-| `card` | Inner card (kept for compatibility) |
-| `title` | `<h1>` heading |
-| `message` | Verifying/redirecting message |
-| `successMessage` | Success state message |
-| `errorMessage` | Error state message |
-| `spinner` | Loading spinner |
-| `buttonContainer` | Error buttons wrapper |
-| `retryButton` | "Try Again" button |
-| `retryButtonHover` | Hover state for retry button |
-| `backButton` | "Back to Login" button |
-| `backButtonHover` | Hover state for back button |
+| Key                | Targets                             |
+| ------------------ | ----------------------------------- |
+| `container`        | Root wrapper                        |
+| `card`             | Inner card (kept for compatibility) |
+| `title`            | `<h1>` heading                      |
+| `message`          | Verifying/redirecting message       |
+| `successMessage`   | Success state message               |
+| `errorMessage`     | Error state message                 |
+| `spinner`          | Loading spinner                     |
+| `buttonContainer`  | Error buttons wrapper               |
+| `retryButton`      | "Try Again" button                  |
+| `retryButtonHover` | Hover state for retry button        |
+| `backButton`       | "Back to Login" button              |
+| `backButtonHover`  | Hover state for back button         |
 
 #### Icons (`MagicLinkVerifyIcons`)
 
-| Key | Default | Description |
-|-----|---------|-------------|
-| `loading` | Animated spinner | Shown during verification |
-| `success` | Green checkmark SVG | Shown on success |
-| `error` | Red X circle SVG | Shown on error |
+| Key       | Default             | Description               |
+| --------- | ------------------- | ------------------------- |
+| `loading` | Animated spinner    | Shown during verification |
+| `success` | Green checkmark SVG | Shown on success          |
+| `error`   | Red X circle SVG    | Shown on error            |
 
 ---
 
@@ -455,68 +477,68 @@ Password reset flow with two modes: request (send email) and reset (set new pass
 
 #### Props (`PasswordRecoveryFormProps`)
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `copy` | `PasswordRecoveryFormCopy` | See below | Override user-facing texts |
-| `styles` | `PasswordRecoveryFormStyles` | See below | Override inline styles |
-| `mode` | `'request' \| 'reset'` | `'request'` | Current form mode |
-| `token` | `string` | — | Pre-fill reset token |
-| `onSuccess` | `(data?: any) => void` | — | Called after success |
-| `onError` | `(error: string) => void` | — | Called on failure |
-| `onBackToLogin` | `() => void` | — | Navigate back to login |
-| `onModeChange` | `(mode: 'request' \| 'reset') => void` | — | Show mode switch links |
-| `className` | `string` | — | CSS class for the root element |
+| Prop            | Type                                   | Default     | Description                    |
+| --------------- | -------------------------------------- | ----------- | ------------------------------ |
+| `copy`          | `PasswordRecoveryFormCopy`             | See below   | Override user-facing texts     |
+| `styles`        | `PasswordRecoveryFormStyles`           | See below   | Override inline styles         |
+| `mode`          | `'request' \| 'reset'`                 | `'request'` | Current form mode              |
+| `token`         | `string`                               | —           | Pre-fill reset token           |
+| `onSuccess`     | `(data?: any) => void`                 | —           | Called after success           |
+| `onError`       | `(error: string) => void`              | —           | Called on failure              |
+| `onBackToLogin` | `() => void`                           | —           | Navigate back to login         |
+| `onModeChange`  | `(mode: 'request' \| 'reset') => void` | —           | Show mode switch links         |
+| `className`     | `string`                               | —           | CSS class for the root element |
 
 #### Copy (`PasswordRecoveryFormCopy`)
 
-| Key | Default |
-|-----|---------|
-| `title` | `'Reset Password'` |
-| `subtitle` | `"Enter your email address and we'll send you a link..."` |
-| `emailLabel` | `'Email'` |
-| `emailPlaceholder` | `'Enter your email'` |
-| `submitButton` | `'Send Reset Link'` |
-| `loadingText` | `'Sending...'` |
-| `successMessage` | `'Password reset link sent! Check your email.'` |
-| `errorMessage` | `'Failed to send reset link'` |
-| `backToLoginLink` | `'Back to Sign In'` |
-| `resetTitle` | `'Set New Password'` |
-| `resetSubtitle` | `'Enter your reset token and new password.'` |
-| `tokenLabel` | `'Reset Token'` |
-| `tokenPlaceholder` | `'Enter reset token from email'` |
-| `newPasswordLabel` | `'New Password'` |
-| `newPasswordPlaceholder` | `'Enter new password'` |
-| `confirmPasswordLabel` | `'Confirm Password'` |
-| `confirmPasswordPlaceholder` | `'Confirm new password'` |
-| `resetSubmitButton` | `'Reset Password'` |
-| `resetLoadingText` | `'Resetting...'` |
-| `resetSuccessMessage` | `'Password reset successfully!'` |
-| `passwordMismatchError` | `'Passwords do not match'` |
-| `requestNewLinkLink` | `'Request New Link'` |
-| `haveTokenLink` | `'I have a token'` |
-| `tenantNotFoundError` | `'Tenant not found'` |
-| `dividerBullet` | `'•'` |
+| Key                          | Default                                                   |
+| ---------------------------- | --------------------------------------------------------- |
+| `title`                      | `'Reset Password'`                                        |
+| `subtitle`                   | `"Enter your email address and we'll send you a link..."` |
+| `emailLabel`                 | `'Email'`                                                 |
+| `emailPlaceholder`           | `'Enter your email'`                                      |
+| `submitButton`               | `'Send Reset Link'`                                       |
+| `loadingText`                | `'Sending...'`                                            |
+| `successMessage`             | `'Password reset link sent! Check your email.'`           |
+| `errorMessage`               | `'Failed to send reset link'`                             |
+| `backToLoginLink`            | `'Back to Sign In'`                                       |
+| `resetTitle`                 | `'Set New Password'`                                      |
+| `resetSubtitle`              | `'Enter your reset token and new password.'`              |
+| `tokenLabel`                 | `'Reset Token'`                                           |
+| `tokenPlaceholder`           | `'Enter reset token from email'`                          |
+| `newPasswordLabel`           | `'New Password'`                                          |
+| `newPasswordPlaceholder`     | `'Enter new password'`                                    |
+| `confirmPasswordLabel`       | `'Confirm Password'`                                      |
+| `confirmPasswordPlaceholder` | `'Confirm new password'`                                  |
+| `resetSubmitButton`          | `'Reset Password'`                                        |
+| `resetLoadingText`           | `'Resetting...'`                                          |
+| `resetSuccessMessage`        | `'Password reset successfully!'`                          |
+| `passwordMismatchError`      | `'Passwords do not match'`                                |
+| `requestNewLinkLink`         | `'Request New Link'`                                      |
+| `haveTokenLink`              | `'I have a token'`                                        |
+| `tenantNotFoundError`        | `'Tenant not found'`                                      |
+| `dividerBullet`              | `'•'`                                                     |
 
 #### Styles (`PasswordRecoveryFormStyles`)
 
-| Key | Targets |
-|-----|---------|
-| `container` | Root wrapper |
-| `title` | `<h2>` heading |
-| `subtitle` | Subtitle paragraph |
-| `form` | `<form>` element |
-| `fieldGroup` | Each label+input group |
-| `label` | `<label>` elements |
-| `input` | `<input>` elements |
-| `inputError` | Input in error state |
-| `button` | Submit button |
-| `buttonDisabled` | Disabled state (merged on top of `button`) |
-| `buttonLoading` | Loading state (merged on top of `button`) |
-| `errorText` | Error message text |
-| `successText` | Success message text |
-| `linkContainer` | Links section wrapper |
-| `link` | `<a>` link elements |
-| `modeSwitchDivider` | Bullet divider between mode links |
+| Key                 | Targets                                    |
+| ------------------- | ------------------------------------------ |
+| `container`         | Root wrapper                               |
+| `title`             | `<h2>` heading                             |
+| `subtitle`          | Subtitle paragraph                         |
+| `form`              | `<form>` element                           |
+| `fieldGroup`        | Each label+input group                     |
+| `label`             | `<label>` elements                         |
+| `input`             | `<input>` elements                         |
+| `inputError`        | Input in error state                       |
+| `button`            | Submit button                              |
+| `buttonDisabled`    | Disabled state (merged on top of `button`) |
+| `buttonLoading`     | Loading state (merged on top of `button`)  |
+| `errorText`         | Error message text                         |
+| `successText`       | Success message text                       |
+| `linkContainer`     | Links section wrapper                      |
+| `link`              | `<a>` link elements                        |
+| `modeSwitchDivider` | Bullet divider between mode links          |
 
 ---
 
@@ -526,33 +548,33 @@ Dropdown component for switching between tenants. Integrates with `AuthProvider`
 
 #### Props (`TenantSelectorProps`)
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `tenants` | `UserTenantMembership[]` | From context | Override tenant list |
-| `currentTenantId` | `string \| null` | From context | Override current tenant |
-| `onSelect` | `(tenantId: string) => void` | `auth.switchToTenant` | Custom selection handler |
-| `styles` | `TenantSelectorStyles` | See below | Override inline styles |
-| `className` | `string` | — | CSS class for root element |
-| `dropdownClassName` | `string` | — | CSS class for dropdown |
-| `itemClassName` | `string` | — | CSS class for each item |
-| `renderItem` | `(tenant, isSelected) => ReactNode` | Default renderer | Custom item renderer |
-| `placeholder` | `string` | `'Select tenant'` | Placeholder when no tenant selected |
-| `disabled` | `boolean` | `false` | Disable the selector |
-| `showCurrentTenant` | `boolean` | `true` | Show name when only 1 tenant |
+| Prop                | Type                                | Default               | Description                         |
+| ------------------- | ----------------------------------- | --------------------- | ----------------------------------- |
+| `tenants`           | `UserTenantMembership[]`            | From context          | Override tenant list                |
+| `currentTenantId`   | `string \| null`                    | From context          | Override current tenant             |
+| `onSelect`          | `(tenantId: string) => void`        | `auth.switchToTenant` | Custom selection handler            |
+| `styles`            | `TenantSelectorStyles`              | See below             | Override inline styles              |
+| `className`         | `string`                            | —                     | CSS class for root element          |
+| `dropdownClassName` | `string`                            | —                     | CSS class for dropdown              |
+| `itemClassName`     | `string`                            | —                     | CSS class for each item             |
+| `renderItem`        | `(tenant, isSelected) => ReactNode` | Default renderer      | Custom item renderer                |
+| `placeholder`       | `string`                            | `'Select tenant'`     | Placeholder when no tenant selected |
+| `disabled`          | `boolean`                           | `false`               | Disable the selector                |
+| `showCurrentTenant` | `boolean`                           | `true`                | Show name when only 1 tenant        |
 
 #### Styles (`TenantSelectorStyles`)
 
-| Key | Targets |
-|-----|---------|
-| `wrapper` | Root `<div>` (position: relative) |
-| `button` | Trigger button |
+| Key              | Targets                                           |
+| ---------------- | ------------------------------------------------- |
+| `wrapper`        | Root `<div>` (position: relative)                 |
+| `button`         | Trigger button                                    |
 | `buttonDisabled` | Disabled button state (merged on top of `button`) |
-| `dropdown` | Dropdown menu container |
-| `item` | Each tenant item |
-| `itemSelected` | Selected tenant item (merged on top of `item`) |
-| `itemHover` | Hover state for items |
-| `itemRole` | Role badge next to tenant name |
-| `arrow` | Arrow indicator (▲/▼) |
+| `dropdown`       | Dropdown menu container                           |
+| `item`           | Each tenant item                                  |
+| `itemSelected`   | Selected tenant item (merged on top of `item`)    |
+| `itemHover`      | Hover state for items                             |
+| `itemRole`       | Role badge next to tenant name                    |
+| `arrow`          | Arrow indicator (▲/▼)                             |
 
 ---
 
@@ -570,13 +592,13 @@ Conditionally renders content based on permissions and/or roles.
 </Protected>
 ```
 
-| Prop | Type | Default | Description |
-|------|------|---------|-------------|
-| `requiredPermissions` | `string[]` | — | Required permissions |
-| `requiredRole` | `string` | — | Required user role |
-| `requireAll` | `boolean` | `true` | All permissions required? |
-| `fallback` | `ReactNode` | `null` | Shown when access denied |
-| `onUnauthorized` | `() => void` | — | Callback on denial |
+| Prop                  | Type         | Default | Description               |
+| --------------------- | ------------ | ------- | ------------------------- |
+| `requiredPermissions` | `string[]`   | —       | Required permissions      |
+| `requiredRole`        | `string`     | —       | Required user role        |
+| `requireAll`          | `boolean`    | `true`  | All permissions required? |
+| `fallback`            | `ReactNode`  | `null`  | Shown when access denied  |
+| `onUnauthorized`      | `() => void` | —       | Callback on denial        |
 
 ---
 
@@ -648,7 +670,7 @@ import { Eye, EyeOff } from 'lucide-react';
     showPassword: <Eye size={16} />,
     hidePassword: <EyeOff size={16} />,
   }}
-/>
+/>;
 ```
 
 ---
@@ -657,14 +679,14 @@ import { Eye, EyeOff } from 'lucide-react';
 
 ### Core Providers
 
-| Provider | Purpose |
-|----------|---------|
-| **AppProvider** | Application configuration (baseUrl, appId) |
-| **TenantProvider** | Multi-tenant detection and management |
-| **AuthProvider** | Authentication, session, and user data |
-| **FeatureFlagProvider** | Feature flag management |
-| **SubscriptionProvider** | Billing and subscription handling |
-| **RoutingProvider** | Zone-based routing (RFC-005) |
+| Provider                 | Purpose                                    |
+| ------------------------ | ------------------------------------------ |
+| **AppProvider**          | Application configuration (baseUrl, appId) |
+| **TenantProvider**       | Multi-tenant detection and management      |
+| **AuthProvider**         | Authentication, session, and user data     |
+| **FeatureFlagProvider**  | Feature flag management                    |
+| **SubscriptionProvider** | Billing and subscription handling          |
+| **RoutingProvider**      | Zone-based routing (RFC-005)               |
 
 ### Permission System
 
@@ -683,30 +705,38 @@ reports:read    - View reports
 - [🔧 Advanced Usage](./docs/advanced-usage.md)
 - [📋 API Reference](./docs/api-reference.md)
 - [🎯 Examples](./docs/examples.md)
-- [✨ Magic Link Guide](./MAGIC_LINK_USAGE.md)
+- [✨ Magic Link Guide](./docs/magic-link-usage.md)
 - [🛣️ Zone Routing](./docs/ZONE_ROUTING.md)
+- [🔒 Security & Threat Model](./docs/security.md)
+- [🚚 Migration to v2.31](./docs/migration-v2.31.md)
 - [🤝 Contributing](./docs/contributing.md)
 
-## 🎮 Demo Application
+## 🎮 Example Application
 
-A complete demo application is included in the `example/` directory:
+A complete example application is included in the `example/` directory. It's a Vite-based React app with **two areas**:
+
+- **`/demo/*`** — real feature pages (login, signup, magic link, tenant switching, subscription, zone routing, cookie session, standalone auth).
+- **`/labs/*`** — inspection labs for the internal state of each provider and service (useful while developing against the library).
 
 ```bash
 cd example
 yarn install
-yarn start
+yarn dev
 ```
 
-The demo showcases:
-- **Traditional Authentication** - Email/phone + password login
-- **Magic Link Authentication** - Passwordless login with automatic verification
-- **User Registration** - Signup with email/phone support
-- **Password Recovery** - Reset password functionality
-- **Role-based Dashboard** - Different views based on user roles
-- **Permission Testing** - Interactive permission system testing
-- **Protected Routes** - Route-level access control
-- **Feature Flag Usage** - Dynamic feature toggling
-- **Multi-tenant Support** - Tenant switching and management
+The example showcases:
+
+- **Traditional Authentication** — email/phone + password login
+- **Magic Link Authentication** — passwordless login with automatic verification
+- **User Registration** — signup with email/phone support
+- **Password Recovery** — request + reset flows
+- **Role-based Dashboard** — different views based on user roles
+- **Permission Testing** — interactive `Protected` / `ProtectedRoute` demos
+- **Zone Routing** — declarative route access control (RFC-005)
+- **Feature Flags** — dynamic feature toggling
+- **Multi-tenant Support** — tenant switching and management
+- **Standalone AuthProvider** — auth-only setup without App/Tenant providers
+- **Cross-subdomain Cookie Session** — `enableCookieSession` walkthrough
 
 ## 🛠️ Development
 
@@ -769,16 +799,49 @@ REACT_APP_TENANT_MODE=subdomain
 ```tsx
 // AppProvider Config
 interface AppConfig {
-  baseUrl: string;           // API base URL
-  appId: string;             // Application identifier
+  baseUrl: string; // API base URL
+  appId: string; // Application identifier
+  cache?: {
+    enabled?: boolean; // Default: true
+    ttl?: number; // Cache TTL in ms, default: 5 min
+    storageKey?: string; // Default: `app_cache_{appId}`
+  };
 }
 
 // TenantProvider Config
 interface TenantConfig {
-  tenantMode: 'subdomain' | 'selector' | 'fixed' | 'optional';
-  selectorParam?: string;    // For 'selector' mode
-  fixedTenantSlug?: string;  // For 'fixed' mode
-  initialTenant?: string;    // Initial tenant value
+  tenantMode?: 'subdomain' | 'selector' | 'fixed';
+  fixedTenantSlug?: string; // Required when tenantMode is 'fixed'
+  baseDomain?: string; // Base domain for subdomain mode (e.g. 'acme.app')
+  selectorParam?: string; // Default: 'tenant', used in 'selector' mode
+  cache?: {
+    enabled?: boolean; // Default: true
+    ttl?: number; // Cache TTL in ms, default: 5 min
+    storageKey?: string; // Default: `tenant_cache_{tenantSlug}`
+  };
+  initialTenant?: PublicTenantInfo; // SSR support
+}
+
+// AuthProvider Config (all fields optional)
+interface AuthConfig {
+  // Standalone mode — required if AppProvider is not used
+  baseUrl?: string;
+  appId?: string;
+
+  // Session lifecycle
+  onSessionExpired?: (error: SessionExpiredError) => void;
+  refreshQueueTimeout?: number; // Default: 10_000 ms
+  proactiveRefreshMargin?: number; // Default: 60_000 ms before expiry
+
+  // Cross-subdomain cookie session (see "Security & Resilience" below)
+  enableCookieSession?: boolean; // Default: false
+
+  // Multi-tenant UX
+  autoSwitchSingleTenant?: boolean; // Auto-switch when user has exactly one tenant
+  onTenantSelectionRequired?: (tenants: UserTenantMembership[]) => void;
+
+  // Initial roles (avoid extra fetch on mount)
+  initialRoles?: Role[];
 }
 ```
 
@@ -802,13 +865,37 @@ yarn test:coverage
 - **Optimized re-renders** - Minimal React re-renders
 - **Caching** - Intelligent caching of API responses
 
-## 🔒 Security
+## 🔒 Security & Resilience
 
-- **JWT tokens** with automatic refresh and proactive renewal
-- **Secure token storage** with configurable backends
-- **Session generation tracking** to prevent stale token usage
-- **Permission validation** on both client and server
-- **Console output suppressed** in production and test environments
+### Token lifecycle
+
+- **JWT access tokens** with automatic refresh and proactive renewal (60s margin by default).
+- **Refresh queueing** — concurrent requests during refresh share a single in-flight request; no duplicate rotations.
+- **Session generation tracking** — refresh attempts issued before a logout are discarded, preventing stale tokens from resurrecting a session.
+- **Circuit breaker** — three consecutive background refresh failures transition the session to expired, preventing infinite retry loops.
+- **Token reuse / revocation** — classified as fatal; session is cleared immediately to contain rotation-chain compromise.
+
+### Multi-tab safety
+
+The `SessionManager` is a singleton per `(baseUrl, tenantSlug)` pair and coordinates across tabs using the **Web Locks API**. Two tabs opening at the same time cannot issue duplicate refresh calls, and after a refresh all tabs converge on the same access token via shared storage.
+
+### Cross-subdomain cookie session (`enableCookieSession`)
+
+For SSO between subdomains (e.g. `www.example.com` ↔ `app.example.com`), set `enableCookieSession: true` in `AuthConfig`. When enabled:
+
+- Refresh requests are sent with `credentials: 'include'`, so the backend's HttpOnly refresh cookie flows automatically.
+- On app load, `SessionManager` attempts a cookie-based restore before requiring interactive login.
+- No refresh token is ever written to `localStorage` — the access token lives in memory, the refresh token lives only in the HttpOnly cookie.
+
+This replaces the previous, insecure `_auth=<token>` URL transfer mechanism (removed in **v2.31**). See [Migration to v2.31](./docs/migration-v2.31.md) for details.
+
+### Permissions
+
+- `resource:action` format, validated on both client and server.
+- `Protected` / `ProtectedRoute` / `ZoneRoute` components block rendering when permissions are missing.
+- Console output is suppressed in production and test environments.
+
+For a full threat model and list of fixed vulnerabilities, see [docs/security.md](./docs/security.md).
 
 ## 🌐 Browser Support
 

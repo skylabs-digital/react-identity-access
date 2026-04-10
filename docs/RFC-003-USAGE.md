@@ -1,4 +1,6 @@
-# RFC-003: Authentication State and Provider Caching - Usage Guide
+# RFC-003: Authentication State and Provider Caching — Usage Guide
+
+> **Status: historical.** This guide documents the changes introduced by RFC-003 at the time of its adoption. The described features (`isAuthenticated` on `useAuth`, provider caching) are now part of the stable public API and covered by [docs/implementation.md](./implementation.md) and [docs/api-reference.md](./api-reference.md). Keep this file for historical context only.
 
 This guide shows you how to use the new features added in RFC-003: `isAuthenticated` property and provider caching.
 
@@ -11,14 +13,14 @@ import { useAuth } from '@skylabs-digital/react-identity-access';
 
 function MyComponent() {
   const { hasValidSession, currentUser } = useAuth();
-  
+
   // Had to manually check both conditions
   const isLoggedIn = hasValidSession() && !!currentUser;
-  
+
   if (isLoggedIn) {
     return <Dashboard />;
   }
-  
+
   return <Login />;
 }
 ```
@@ -30,11 +32,11 @@ import { useAuth } from '@skylabs-digital/react-identity-access';
 
 function MyComponent() {
   const { isAuthenticated } = useAuth();
-  
+
   if (isAuthenticated) {
     return <Dashboard />;
   }
-  
+
   return <Login />;
 }
 ```
@@ -49,23 +51,25 @@ function MyComponent() {
 ### Common Use Cases
 
 **Protected Routes:**
+
 ```typescript
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
-  
+
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
   }
-  
+
   return <>{children}</>;
 }
 ```
 
 **Conditional Rendering:**
+
 ```typescript
 function Header() {
   const { isAuthenticated, currentUser } = useAuth();
-  
+
   return (
     <header>
       <Logo />
@@ -80,15 +84,16 @@ function Header() {
 ```
 
 **With useMemo:**
+
 ```typescript
 function Dashboard() {
   const { isAuthenticated, currentUser } = useAuth();
-  
+
   const greeting = useMemo(() => {
     if (!isAuthenticated) return 'Welcome, Guest!';
     return `Welcome back, ${currentUser?.name}!`;
   }, [isAuthenticated, currentUser]);
-  
+
   return <h1>{greeting}</h1>;
 }
 ```
@@ -107,16 +112,19 @@ Provider caching is **enabled by default** with sensible defaults. You don't nee
 ### How It Works
 
 **First Page Load:**
+
 ```
 User visits → Fetch app info → Fetch tenant info → Cache both → Render (200-500ms)
 ```
 
 **Subsequent Loads (within 5 min):**
+
 ```
 User refreshes → Load from cache → Render instantly (0ms) → Background refresh if needed
 ```
 
 **After Cache Expires (> 5 min):**
+
 ```
 User visits → Fetch fresh data → Update cache → Render
 ```
@@ -186,16 +194,17 @@ User visits → Fetch fresh data → Update cache → Render
 
 ### When to Use Different TTL Values
 
-| Scenario | Recommended TTL | Reason |
-|----------|----------------|---------|
-| Production app with stable config | 30-60 minutes | App/tenant info rarely changes |
-| Development environment | 1-2 minutes | Frequent config changes |
-| E-commerce with dynamic pricing | Disable cache | Requires real-time data |
-| Marketing/landing pages | 1-24 hours | Static content |
+| Scenario                          | Recommended TTL | Reason                         |
+| --------------------------------- | --------------- | ------------------------------ |
+| Production app with stable config | 30-60 minutes   | App/tenant info rarely changes |
+| Development environment           | 1-2 minutes     | Frequent config changes        |
+| E-commerce with dynamic pricing   | Disable cache   | Requires real-time data        |
+| Marketing/landing pages           | 1-24 hours      | Static content                 |
 
 ### Example Configurations
 
 **Production - High Performance:**
+
 ```typescript
 <AppProvider
   config={{
@@ -222,6 +231,7 @@ User visits → Fetch fresh data → Update cache → Render
 ```
 
 **Development - Fast Iteration:**
+
 ```typescript
 <AppProvider
   config={{
@@ -248,6 +258,7 @@ User visits → Fetch fresh data → Update cache → Render
 ```
 
 **Real-time Data - No Cache:**
+
 ```typescript
 <AppProvider
   config={{
@@ -267,12 +278,14 @@ User visits → Fetch fresh data → Update cache → Render
 ### Cache Storage
 
 Caches are stored in `localStorage` with these keys:
+
 - **App cache**: `app_cache_{appId}`
 - **Tenant cache**: `tenant_cache_{tenantSlug}`
 
 ### Cache Invalidation
 
 Caches are automatically invalidated when:
+
 - TTL expires (default: 5 minutes)
 - App ID changes
 - Tenant slug changes
@@ -281,6 +294,7 @@ Caches are automatically invalidated when:
 ### Background Refresh
 
 When cache is more than 50% expired:
+
 - Page renders immediately with cached data (0ms)
 - Fresh data fetched in background
 - Cache updated silently
@@ -289,6 +303,7 @@ When cache is more than 50% expired:
 ### Error Handling
 
 If caching fails (quota exceeded, permissions, etc.):
+
 - Error is logged to console
 - App continues without cache
 - Normal API fetching works as usual
@@ -329,17 +344,23 @@ RFC-003 is **100% backward compatible**. You don't need to change any existing c
 If you want to use the new features:
 
 1. **Start using `isAuthenticated`** (recommended):
+
 ```typescript
 // Before
 const { hasValidSession, currentUser } = useAuth();
-if (hasValidSession() && currentUser) { /* ... */ }
+if (hasValidSession() && currentUser) {
+  /* ... */
+}
 
 // After
 const { isAuthenticated } = useAuth();
-if (isAuthenticated) { /* ... */ }
+if (isAuthenticated) {
+  /* ... */
+}
 ```
 
 2. **Configure caching** (optional - works great with defaults):
+
 ```typescript
 // Only if you need custom TTL or want to disable
 <AppProvider config={{ /* ... */, cache: { ttl: 10 * 60 * 1000 } }}>
@@ -350,6 +371,7 @@ if (isAuthenticated) { /* ... */ }
 ### Cache Not Working?
 
 Check these:
+
 1. localStorage is enabled in browser
 2. Cache is not disabled in config
 3. Check browser console for warnings
@@ -357,15 +379,21 @@ Check these:
 ### Too Much Stale Data?
 
 Reduce TTL:
+
 ```typescript
-cache: { ttl: 2 * 60 * 1000 } // 2 minutes instead of 5
+cache: {
+  ttl: 2 * 60 * 1000;
+} // 2 minutes instead of 5
 ```
 
 ### Need Real-time Data?
 
 Disable cache:
+
 ```typescript
-cache: { enabled: false }
+cache: {
+  enabled: false;
+}
 ```
 
 ### Clear Cache Manually
@@ -384,12 +412,14 @@ localStorage.clear();
 ## 7. Best Practices
 
 ✅ **Do:**
+
 - Use default caching settings (they work great!)
 - Use `isAuthenticated` for simpler code
 - Increase TTL in production for better performance
 - Decrease TTL in development for faster iteration
 
 ❌ **Don't:**
+
 - Set TTL too high (> 1 hour) unless data is truly static
 - Disable cache without good reason
 - Store sensitive data in cache (only public info is cached)
@@ -398,6 +428,7 @@ localStorage.clear();
 ## Summary
 
 RFC-003 gives you:
+
 - ✅ Simpler auth checks with `isAuthenticated`
 - ✅ Faster page loads with automatic caching
 - ✅ Better UX with instant renders

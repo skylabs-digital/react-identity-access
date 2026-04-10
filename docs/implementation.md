@@ -49,7 +49,7 @@ import {
   TenantProvider,
   AuthProvider,
   FeatureFlagProvider,
-  SubscriptionProvider
+  SubscriptionProvider,
 } from '@skylabs-digital/react-identity-access';
 
 function App() {
@@ -58,9 +58,7 @@ function App() {
       <TenantProvider config={tenantConfig}>
         <AuthProvider>
           <FeatureFlagProvider>
-            <SubscriptionProvider>
-              {/* Your app components */}
-            </SubscriptionProvider>
+            <SubscriptionProvider>{/* Your app components */}</SubscriptionProvider>
           </FeatureFlagProvider>
         </AuthProvider>
       </TenantProvider>
@@ -80,7 +78,7 @@ const appConfig = {
 const tenantConfig = {
   tenantMode: 'subdomain', // 'subdomain' | 'selector' | 'fixed'
   baseDomain: 'yourapp.com', // For subdomain mode
-  selectorParam: 'tenant',   // For selector mode
+  selectorParam: 'tenant', // For selector mode
 };
 ```
 
@@ -92,18 +90,16 @@ The root provider that configures the application context:
 
 ```tsx
 interface AppConfig {
-  baseUrl: string;           // Backend API URL
-  appId: string;             // Unique application identifier
+  baseUrl: string; // Backend API URL
+  appId: string; // Unique application identifier
   cache?: {
-    enabled?: boolean;       // Default: true
-    ttl?: number;            // Cache TTL in ms (default: 5 minutes)
-    storageKey?: string;     // Default: 'app_cache_{appId}'
+    enabled?: boolean; // Default: true
+    ttl?: number; // Cache TTL in ms (default: 5 minutes)
+    storageKey?: string; // Default: 'app_cache_{appId}'
   };
 }
 
-<AppProvider config={appConfig}>
-  {/* children */}
-</AppProvider>
+<AppProvider config={appConfig}>{/* children */}</AppProvider>;
 ```
 
 ### TenantProvider
@@ -112,46 +108,81 @@ Handles multi-tenant detection, tenant info loading, settings, and switching:
 
 ```tsx
 interface TenantConfig {
-  tenantMode?: 'subdomain' | 'selector' | 'fixed';  // Default: 'selector'
-  fixedTenantSlug?: string;   // Required when tenantMode is 'fixed'
-  baseDomain?: string;        // Base domain for subdomain mode
-  selectorParam?: string;     // Default: 'tenant', for selector mode
+  tenantMode?: 'subdomain' | 'selector' | 'fixed'; // Default: 'selector'
+  fixedTenantSlug?: string; // Required when tenantMode is 'fixed'
+  baseDomain?: string; // Base domain for subdomain mode
+  selectorParam?: string; // Default: 'tenant', for selector mode
   cache?: {
     enabled?: boolean;
     ttl?: number;
     storageKey?: string;
   };
-  initialTenant?: PublicTenantInfo;  // For SSR
+  initialTenant?: PublicTenantInfo; // For SSR
 }
 
-<TenantProvider config={tenantConfig}>
-  {/* children */}
-</TenantProvider>
+<TenantProvider config={tenantConfig}>{/* children */}</TenantProvider>;
 ```
 
 ### AuthProvider
 
-Handles authentication and session management:
+Handles authentication, session management, token refresh, and session safety.
 
 ```tsx
 interface AuthConfig {
-  onRefreshFailed?: () => void;  // Callback when token refresh fails
-  initialRoles?: Role[];         // SSR role injection
+  // Standalone mode — only required when AppProvider is not used.
+  baseUrl?: string;
+  appId?: string;
+
+  // Session expiry callback (preferred over the deprecated onRefreshFailed).
+  onSessionExpired?: (error: SessionExpiredError) => void;
+
+  // Refresh timing
+  refreshQueueTimeout?: number; // Default: 10_000 ms
+  proactiveRefreshMargin?: number; // Default: 60_000 ms before expiry
+
+  // Cross-subdomain cookie session (see Advanced Usage → Cookie Session).
+  enableCookieSession?: boolean; // Default: false
+
+  // Multi-tenant UX
+  autoSwitchSingleTenant?: boolean;
+  onTenantSelectionRequired?: (tenants: UserTenantMembership[]) => void;
+
+  // SSR / cold start
+  initialRoles?: Role[];
 }
 
-<AuthProvider config={authConfig}>
-  {/* children */}
-</AuthProvider>
+<AuthProvider config={authConfig}>{/* children */}</AuthProvider>;
 ```
+
+#### Standalone AuthProvider
+
+Since **v2.27**, `AuthProvider` can be used without `AppProvider` and `TenantProvider`. Pass `baseUrl` and `appId` directly via `AuthConfig` — useful for single-tenant apps or pure authentication scenarios:
+
+```tsx
+import { AuthProvider } from '@skylabs-digital/react-identity-access';
+
+function App() {
+  return (
+    <AuthProvider
+      config={{
+        baseUrl: 'https://api.example.com',
+        appId: 'your-app-id',
+      }}
+    >
+      <Routes>{/* ... */}</Routes>
+    </AuthProvider>
+  );
+}
+```
+
+In standalone mode, `useTenant()` will be unavailable and `useTenantOptional()` returns `null`. All tenant-specific features (subdomain detection, tenant switching) are disabled; authenticated routes still work normally.
 
 ### FeatureFlagProvider
 
 Manages feature flags for the application:
 
 ```tsx
-<FeatureFlagProvider>
-  {/* children */}
-</FeatureFlagProvider>
+<FeatureFlagProvider>{/* children */}</FeatureFlagProvider>
 ```
 
 ### SubscriptionProvider
@@ -159,91 +190,92 @@ Manages feature flags for the application:
 Handles billing and subscription management:
 
 ```tsx
-<SubscriptionProvider>
-  {/* children */}
-</SubscriptionProvider>
+<SubscriptionProvider>{/* children */}</SubscriptionProvider>
 ```
 
 ## Authentication Flow
 
 ### Login Process
 
+The `login` action takes a single params object (`LoginParams`). The tenant is resolved automatically from `TenantProvider` context — you don't pass a tenant id explicitly.
+
 ```tsx
 import { useAuth } from '@skylabs-digital/react-identity-access';
 
 function LoginForm() {
-  const { login, isLoading } = useAuth();
-  const [credentials, setCredentials] = useState({
-    email: '',
-    password: '',
-    tenantId: ''
-  });
+  const { login } = useAuth();
+  const [username, setUsername] = useState('');
+  const [password, setPassword] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleLogin = async (e: FormEvent) => {
     e.preventDefault();
+    setLoading(true);
     try {
-      await login(credentials.email, credentials.password, credentials.tenantId);
-      // Redirect to dashboard or home
+      // `username` accepts email or phone number
+      await login({ username, password });
+      // AuthProvider updates currentUser automatically; navigate as needed.
     } catch (error) {
       console.error('Login failed:', error);
-      // Handle error (show message, etc.)
+    } finally {
+      setLoading(false);
     }
   };
 
   return (
     <form onSubmit={handleLogin}>
       <input
-        type="email"
-        value={credentials.email}
-        onChange={(e) => setCredentials(prev => ({ ...prev, email: e.target.value }))}
-        placeholder="Email"
+        type="text"
+        value={username}
+        onChange={e => setUsername(e.target.value)}
+        placeholder="Email or phone"
         required
       />
       <input
         type="password"
-        value={credentials.password}
-        onChange={(e) => setCredentials(prev => ({ ...prev, password: e.target.value }))}
+        value={password}
+        onChange={e => setPassword(e.target.value)}
         placeholder="Password"
         required
       />
-      <input
-        type="text"
-        value={credentials.tenantId}
-        onChange={(e) => setCredentials(prev => ({ ...prev, tenantId: e.target.value }))}
-        placeholder="Tenant ID"
-        required
-      />
-      <button type="submit" disabled={isLoading}>
-        {isLoading ? 'Logging in...' : 'Login'}
+      <button type="submit" disabled={loading}>
+        {loading ? 'Logging in...' : 'Login'}
       </button>
     </form>
   );
 }
 ```
 
+> **Tip:** Prefer the pre-built `<LoginForm />` component over a custom form unless you need non-standard layout. It handles validation, loading states, and accessibility for you.
+
 ### Session Management
+
+`useAuth()` exposes `currentUser`, `isAuthenticated`, and `logout()` directly — there is no need to touch `sessionManager` for typical use cases.
 
 ```tsx
 function UserProfile() {
-  const { sessionManager, logout } = useAuth();
-  const user = sessionManager.getUser();
+  const { currentUser, isAuthenticated, logout, userRole } = useAuth();
 
-  if (!user) {
+  if (!isAuthenticated || !currentUser) {
     return <div>Please log in</div>;
   }
 
   return (
     <div>
-      <h2>Welcome, {user.name}</h2>
-      <p>Email: {user.email}</p>
-      <p>Role: {user.role}</p>
+      <h2>Welcome, {currentUser.firstName}</h2>
+      <p>Email: {currentUser.email}</p>
+      {userRole && <p>Role: {userRole.name}</p>}
       <button onClick={logout}>Logout</button>
     </div>
   );
 }
 ```
 
+> **Note:** The session lifecycle is handled automatically by `AuthProvider`. Tokens refresh proactively, expired sessions trigger `onSessionExpired`, and multiple tabs stay in sync via Web Locks. You don't need to poll or manually refresh.
+
 ### Password Management
+
+`requestPasswordReset` and `confirmPasswordReset` take params objects — the tenant is resolved from context automatically.
 
 ```tsx
 function PasswordReset() {
@@ -254,7 +286,7 @@ function PasswordReset() {
 
   const handleRequestReset = async () => {
     try {
-      await requestPasswordReset(email, 'tenant-id');
+      await requestPasswordReset({ email });
       alert('Reset email sent!');
     } catch (error) {
       console.error('Reset request failed:', error);
@@ -263,7 +295,7 @@ function PasswordReset() {
 
   const handleConfirmReset = async () => {
     try {
-      await confirmPasswordReset(token, newPassword);
+      await confirmPasswordReset({ token, newPassword });
       alert('Password reset successful!');
     } catch (error) {
       console.error('Password reset failed:', error);
@@ -277,7 +309,7 @@ function PasswordReset() {
         <input
           type="email"
           value={email}
-          onChange={(e) => setEmail(e.target.value)}
+          onChange={e => setEmail(e.target.value)}
           placeholder="Email"
         />
         <button onClick={handleRequestReset}>Request Reset</button>
@@ -288,13 +320,13 @@ function PasswordReset() {
         <input
           type="text"
           value={token}
-          onChange={(e) => setToken(e.target.value)}
+          onChange={e => setToken(e.target.value)}
           placeholder="Reset Token"
         />
         <input
           type="password"
           value={newPassword}
-          onChange={(e) => setNewPassword(e.target.value)}
+          onChange={e => setNewPassword(e.target.value)}
           placeholder="New Password"
         />
         <button onClick={handleConfirmReset}>Reset Password</button>
@@ -339,15 +371,12 @@ function Dashboard() {
   return (
     <div>
       {canViewUsers && <UserList />}
-      
+
       <Protected requiredPermissions={['reports:read']}>
         <ReportsSection />
       </Protected>
 
-      <Protected 
-        requiredPermissions={['admin:*']}
-        fallback={<div>Admin access required</div>}
-      >
+      <Protected requiredPermissions={['admin:*']} fallback={<div>Admin access required</div>}>
         <AdminPanel />
       </Protected>
     </div>
@@ -357,22 +386,21 @@ function Dashboard() {
 
 ### Role-Based Components
 
+`userRole` is a `Role` object (not a string). Check its `name` field or rely on permission-based checks, which are usually more flexible.
+
 ```tsx
 function RoleBasedNavigation() {
   const { userRole } = useAuth();
+  const roleName = userRole?.name;
 
   return (
     <nav>
       <Link to="/">Home</Link>
-      
-      {userRole === 'admin' && (
-        <Link to="/admin">Admin Panel</Link>
-      )}
-      
-      {['admin', 'manager'].includes(userRole) && (
-        <Link to="/reports">Reports</Link>
-      )}
-      
+
+      {roleName === 'admin' && <Link to="/admin">Admin Panel</Link>}
+
+      {roleName && ['admin', 'manager'].includes(roleName) && <Link to="/reports">Reports</Link>}
+
       <Protected requiredPermissions={['users:read']}>
         <Link to="/users">Users</Link>
       </Protected>
@@ -402,7 +430,7 @@ const tenantConfig = {
 
 const tenantConfig = {
   tenantMode: 'selector',
-  selectorParam: 'tenant',  // URL search parameter name
+  selectorParam: 'tenant', // URL search parameter name
 };
 ```
 
@@ -431,9 +459,7 @@ function App() {
   return (
     <AppProvider config={appConfig}>
       <AuthProvider config={{ onRefreshFailed: handleAuthError }}>
-        <ErrorBoundary>
-          {/* Your app */}
-        </ErrorBoundary>
+        <ErrorBoundary>{/* Your app */}</ErrorBoundary>
       </AuthProvider>
     </AppProvider>
   );
@@ -487,11 +513,7 @@ REACT_APP_ID=prod-app-id
 
 ```tsx
 // Define your permission types
-type AppPermission = 
-  | 'users:read' 
-  | 'users:write' 
-  | 'admin:*' 
-  | 'reports:read';
+type AppPermission = 'users:read' | 'users:write' | 'admin:*' | 'reports:read';
 
 // Use typed permissions
 const hasUserAccess = hasPermission('users:read' as AppPermission);
@@ -521,7 +543,7 @@ function ProtectedRoute() {
 ```tsx
 function UserList() {
   const { userPermissions } = useAuth();
-  
+
   const canEditUsers = useMemo(
     () => userPermissions.some(p => p === 'users:write' || p === 'admin:*'),
     [userPermissions]
@@ -545,9 +567,7 @@ import { AppProvider, AuthProvider } from '@skylabs-digital/react-identity-acces
 
 const TestWrapper = ({ children }: { children: React.ReactNode }) => (
   <AppProvider config={testConfig}>
-    <AuthProvider>
-      {children}
-    </AuthProvider>
+    <AuthProvider>{children}</AuthProvider>
   </AppProvider>
 );
 

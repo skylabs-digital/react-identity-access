@@ -35,18 +35,24 @@ export function usePermissions(configs: PermissionConfig[]) {
   const { userPermissions, userRole, hasPermission } = useAuth();
 
   return useMemo(() => {
-    return configs.reduce((acc, config) => {
-      const { resource, actions, fallbackRole } = config;
-      
-      acc[resource] = actions.reduce((resourceAcc, action) => {
-        const permission = `${resource}:${action}`;
-        resourceAcc[action] = hasPermission(permission) || 
-          (fallbackRole && userRole === fallbackRole);
-        return resourceAcc;
-      }, {} as Record<string, boolean>);
-      
-      return acc;
-    }, {} as Record<string, Record<string, boolean>>);
+    return configs.reduce(
+      (acc, config) => {
+        const { resource, actions, fallbackRole } = config;
+
+        acc[resource] = actions.reduce(
+          (resourceAcc, action) => {
+            const permission = `${resource}:${action}`;
+            resourceAcc[action] =
+              hasPermission(permission) || (fallbackRole && userRole === fallbackRole);
+            return resourceAcc;
+          },
+          {} as Record<string, boolean>
+        );
+
+        return acc;
+      },
+      {} as Record<string, Record<string, boolean>>
+    );
   }, [userPermissions, userRole, configs]);
 }
 
@@ -55,7 +61,7 @@ function AdminDashboard() {
   const permissions = usePermissions([
     { resource: 'users', actions: ['read', 'write', 'delete'] },
     { resource: 'reports', actions: ['read', 'export'], fallbackRole: 'manager' },
-    { resource: 'settings', actions: ['read', 'write'] }
+    { resource: 'settings', actions: ['read', 'write'] },
   ]);
 
   return (
@@ -87,13 +93,8 @@ interface AuthGuardOptions {
 export function useAuthGuard(options: AuthGuardOptions = {}) {
   const { hasValidSession, hasAllPermissions, userRole } = useAuth();
   const navigate = useNavigate();
-  
-  const {
-    requiredPermissions = [],
-    requiredRole,
-    redirectTo = '/login',
-    onUnauthorized
-  } = options;
+
+  const { requiredPermissions = [], requiredRole, redirectTo = '/login', onUnauthorized } = options;
 
   useEffect(() => {
     if (!hasValidSession()) {
@@ -115,9 +116,10 @@ export function useAuthGuard(options: AuthGuardOptions = {}) {
   }, [hasValidSession, hasAllPermissions, userRole, requiredPermissions, requiredRole]);
 
   return {
-    isAuthorized: hasValidSession() && 
+    isAuthorized:
+      hasValidSession() &&
       (requiredPermissions.length === 0 || hasAllPermissions(requiredPermissions)) &&
-      (!requiredRole || userRole === requiredRole)
+      (!requiredRole || userRole === requiredRole),
   };
 }
 
@@ -125,7 +127,7 @@ export function useAuthGuard(options: AuthGuardOptions = {}) {
 function AdminPage() {
   const { isAuthorized } = useAuthGuard({
     requiredPermissions: ['admin:read', 'admin:write'],
-    onUnauthorized: () => console.log('Access denied to admin page')
+    onUnauthorized: () => console.log('Access denied to admin page'),
   });
 
   if (!isAuthorized) {
@@ -147,12 +149,12 @@ const PERMISSION_HIERARCHY = {
   'admin:*': ['users:*', 'reports:*', 'settings:*'],
   'users:*': ['users:read', 'users:write', 'users:delete'],
   'reports:*': ['reports:read', 'reports:write', 'reports:export'],
-  'settings:*': ['settings:read', 'settings:write']
+  'settings:*': ['settings:read', 'settings:write'],
 };
 
 function expandPermissions(permissions: string[]): string[] {
   const expanded = new Set(permissions);
-  
+
   permissions.forEach(permission => {
     const children = PERMISSION_HIERARCHY[permission];
     if (children) {
@@ -163,22 +165,25 @@ function expandPermissions(permissions: string[]): string[] {
       });
     }
   });
-  
+
   return Array.from(expanded);
 }
 
 // Custom hook with hierarchy support
 export function useHierarchicalPermissions() {
   const { userPermissions } = useAuth();
-  
+
   const expandedPermissions = useMemo(
-    () => expandPermissions(userPermissions.map(p => typeof p === 'string' ? p : p.name)),
+    () => expandPermissions(userPermissions.map(p => (typeof p === 'string' ? p : p.name))),
     [userPermissions]
   );
 
-  const hasPermission = useCallback((permission: string) => {
-    return expandedPermissions.includes(permission);
-  }, [expandedPermissions]);
+  const hasPermission = useCallback(
+    (permission: string) => {
+      return expandedPermissions.includes(permission);
+    },
+    [expandedPermissions]
+  );
 
   return { hasPermission, expandedPermissions };
 }
@@ -204,10 +209,10 @@ function useContextualPermissions(context: string) {
         // Load permissions for specific context
         const response = await fetch(`/api/permissions/${context}`, {
           headers: {
-            'Authorization': `Bearer ${sessionManager.getAccessToken()}`
-          }
+            Authorization: `Bearer ${sessionManager.getAccessToken()}`,
+          },
         });
-        
+
         const data = await response.json();
         setPermissions(data.permissions);
       } catch (error) {
@@ -226,7 +231,7 @@ function useContextualPermissions(context: string) {
 // Usage
 function ProjectDashboard({ projectId }: { projectId: string }) {
   const { permissions, loading } = useContextualPermissions(`project:${projectId}`);
-  
+
   if (loading) return <div>Loading permissions...</div>;
 
   return (
@@ -240,46 +245,55 @@ function ProjectDashboard({ projectId }: { projectId: string }) {
 
 ## Session Management
 
-### Custom Session Storage
+`AuthProvider` wraps a singleton `SessionManager` that handles token lifecycle, multi-tab coordination, and cross-subdomain cookies automatically. You rarely need to touch it directly — configure it through `AuthConfig` and rely on `useAuth()`.
 
-Implement custom session storage:
+### Cross-subdomain Cookie Session
+
+Enable `enableCookieSession` in `AuthConfig` to share a session across subdomains of the same parent domain. The backend must set the refresh token as an `HttpOnly` cookie scoped to `.example.com`.
 
 ```tsx
-interface SessionStorage {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-  removeItem(key: string): void;
-}
-
-class SecureSessionStorage implements SessionStorage {
-  private encrypt(value: string): string {
-    // Implement encryption logic
-    return btoa(value); // Simple base64 for example
-  }
-
-  private decrypt(value: string): string {
-    // Implement decryption logic
-    return atob(value); // Simple base64 for example
-  }
-
-  getItem(key: string): string | null {
-    const encrypted = localStorage.getItem(key);
-    return encrypted ? this.decrypt(encrypted) : null;
-  }
-
-  setItem(key: string, value: string): void {
-    localStorage.setItem(key, this.encrypt(value));
-  }
-
-  removeItem(key: string): void {
-    localStorage.removeItem(key);
-  }
-}
-
-// Use custom storage with SessionManager
-const customStorage = new SecureSessionStorage();
-const sessionManager = new SessionManager(customStorage);
+<AuthProvider
+  config={{
+    enableCookieSession: true,
+    onSessionExpired: err => navigate('/login'),
+  }}
+>
+  {/* ... */}
+</AuthProvider>
 ```
+
+Behaviour when enabled:
+
+- Refresh requests are sent with `credentials: 'include'` so the HttpOnly cookie flows automatically.
+- On app load, `SessionManager` tries to restore the session from the cookie before requiring interactive login.
+- No refresh token is ever written to JavaScript-accessible storage.
+
+See [docs/security.md](./security.md#storage-model) for the full storage model and [docs/migration-v2.31.md](./migration-v2.31.md) for the migration path from the removed `_auth` URL transfer.
+
+### Multi-tab Safety (Web Locks)
+
+When multiple tabs are open against the same app, `SessionManager` uses `navigator.locks.request()` to serialise refresh attempts. A single refresh runs at any time and all tabs read the new token from shared storage. This prevents the classic race where two tabs refresh in parallel, causing the backend to detect token reuse and terminate the session.
+
+No configuration required — it is automatic on browsers that support the Web Locks API (all evergreen browsers).
+
+### Circuit Breaker
+
+Three consecutive background refresh failures transition the session to expired and invoke `onSessionExpired`. This prevents infinite retry loops when the auth server is unreachable or returns 5xx.
+
+```tsx
+<AuthProvider
+  config={{
+    onSessionExpired: (error) => {
+      console.warn('Session expired:', error.message);
+      navigate('/login');
+    },
+  }}
+>
+```
+
+### Session Generation Tracking
+
+Every logout bumps an internal generation counter. If a background refresh completes after a logout, the response is discarded instead of re-hydrating the session. This closes the "zombie session" race.
 
 ### Session Monitoring
 
@@ -340,11 +354,11 @@ function useFeatureFlags() {
     // Boolean flags
     showNewDashboard: isEnabled('new-dashboard'),
     enableBetaFeatures: isEnabled('beta-features'),
-    
+
     // Value flags
     maxUploadSize: getValue('max-upload-size', 10), // Default: 10MB
     theme: getValue('theme', 'light'),
-    
+
     // Complex flags
     experimentGroup: getValue('ab-test-group', 'control'),
   };
@@ -408,14 +422,14 @@ function useSubscriptionFeatures() {
   };
 }
 
-function FeatureGate({ 
-  feature, 
-  fallback, 
-  children 
-}: { 
-  feature: string; 
-  fallback?: React.ReactNode; 
-  children: React.ReactNode; 
+function FeatureGate({
+  feature,
+  fallback,
+  children,
+}: {
+  feature: string;
+  fallback?: React.ReactNode;
+  children: React.ReactNode;
 }) {
   const { hasFeature } = useSubscription();
 
@@ -433,8 +447,8 @@ function ReportsPage() {
   return (
     <div>
       <BasicReports />
-      
-      <FeatureGate 
+
+      <FeatureGate
         feature="advanced-reports"
         fallback={<div>Upgrade to Pro for advanced reports</div>}
       >
@@ -457,11 +471,14 @@ function OptimizedUserList() {
   const [users, setUsers] = useState([]);
 
   // Memoize permission checks
-  const permissions = useMemo(() => ({
-    canEdit: hasPermission('users:write'),
-    canDelete: hasPermission('users:delete'),
-    canView: hasPermission('users:read'),
-  }), [hasPermission]);
+  const permissions = useMemo(
+    () => ({
+      canEdit: hasPermission('users:write'),
+      canDelete: hasPermission('users:delete'),
+      canView: hasPermission('users:read'),
+    }),
+    [hasPermission]
+  );
 
   // Memoize filtered users
   const visibleUsers = useMemo(() => {
@@ -470,15 +487,21 @@ function OptimizedUserList() {
   }, [users, permissions.canView]);
 
   // Memoize event handlers
-  const handleEdit = useCallback((userId: string) => {
-    if (!permissions.canEdit) return;
-    // Edit logic
-  }, [permissions.canEdit]);
+  const handleEdit = useCallback(
+    (userId: string) => {
+      if (!permissions.canEdit) return;
+      // Edit logic
+    },
+    [permissions.canEdit]
+  );
 
-  const handleDelete = useCallback((userId: string) => {
-    if (!permissions.canDelete) return;
-    // Delete logic
-  }, [permissions.canDelete]);
+  const handleDelete = useCallback(
+    (userId: string) => {
+      if (!permissions.canDelete) return;
+      // Delete logic
+    },
+    [permissions.canDelete]
+  );
 
   return (
     <div>
@@ -505,10 +528,10 @@ const AdminPanel = lazy(() => import('./AdminPanel'));
 const UserManagement = lazy(() => import('./UserManagement'));
 const Reports = lazy(() => import('./Reports'));
 
-function ConditionalLazyLoad({ 
-  permission, 
-  component: Component, 
-  fallback 
+function ConditionalLazyLoad({
+  permission,
+  component: Component,
+  fallback,
 }: {
   permission: string;
   component: React.ComponentType;
@@ -530,21 +553,15 @@ function ConditionalLazyLoad({
 function Dashboard() {
   return (
     <div>
-      <ConditionalLazyLoad 
-        permission="admin:read" 
+      <ConditionalLazyLoad
+        permission="admin:read"
         component={AdminPanel}
         fallback={<div>Admin access required</div>}
       />
-      
-      <ConditionalLazyLoad 
-        permission="users:read" 
-        component={UserManagement}
-      />
-      
-      <ConditionalLazyLoad 
-        permission="reports:read" 
-        component={Reports}
-      />
+
+      <ConditionalLazyLoad permission="users:read" component={UserManagement} />
+
+      <ConditionalLazyLoad permission="reports:read" component={Reports} />
     </div>
   );
 }
@@ -561,10 +578,12 @@ import type { AppProps } from 'next/app';
 
 function MyApp({ Component, pageProps }: AppProps) {
   return (
-    <AppProvider config={{
-      baseUrl: process.env.NEXT_PUBLIC_API_URL!,
-      appId: process.env.NEXT_PUBLIC_APP_ID!,
-    }}>
+    <AppProvider
+      config={{
+        baseUrl: process.env.NEXT_PUBLIC_API_URL!,
+        appId: process.env.NEXT_PUBLIC_APP_ID!,
+      }}
+    >
       <TenantProvider config={{ tenantMode: 'subdomain', baseDomain: 'yourapp.com' }}>
         <AuthProvider config={{ initialRoles: pageProps.initialRoles }}>
           <Component {...pageProps} />
@@ -579,10 +598,10 @@ export default MyApp;
 // pages/dashboard.tsx
 import { GetServerSideProps } from 'next';
 
-export const getServerSideProps: GetServerSideProps = async (context) => {
+export const getServerSideProps: GetServerSideProps = async context => {
   // Verify authentication on server
   const token = context.req.cookies.accessToken;
-  
+
   if (!token) {
     return {
       redirect: {
@@ -595,11 +614,11 @@ export const getServerSideProps: GetServerSideProps = async (context) => {
   try {
     // Fetch user roles/permissions on server
     const response = await fetch(`${process.env.API_URL}/auth/me`, {
-      headers: { Authorization: `Bearer ${token}` }
+      headers: { Authorization: `Bearer ${token}` },
     });
-    
+
     const userData = await response.json();
-    
+
     return {
       props: {
         initialRoles: userData.roles,
@@ -646,15 +665,9 @@ export function AdvancedProtected({
   fallback,
   loadingComponent,
   onUnauthorized,
-  debug = false
+  debug = false,
 }: AdvancedProtectedProps) {
-  const { 
-    hasPermission, 
-    hasAnyPermission, 
-    hasAllPermissions, 
-    userRole,
-    isLoading 
-  } = useAuth();
+  const { hasPermission, hasAnyPermission, hasAllPermissions, userRole, isLoading } = useAuth();
 
   if (isLoading) {
     return loadingComponent || <div>Loading...</div>;
@@ -670,10 +683,10 @@ export function AdvancedProtected({
 
   // Check permission requirements
   if (requiredPermissions.length > 0) {
-    const permissionCheck = requireAll 
+    const permissionCheck = requireAll
       ? hasAllPermissions(requiredPermissions)
       : hasAnyPermission(requiredPermissions);
-    
+
     if (!permissionCheck) {
       hasAccess = false;
       if (debug) console.log(`Access denied: missing permissions`, requiredPermissions);
@@ -710,7 +723,7 @@ const navigationItems: NavItem[] = [
     children: [
       { label: 'User List', path: '/users', permission: 'users:read' },
       { label: 'Create User', path: '/users/create', permission: 'users:write' },
-    ]
+    ],
   },
   { label: 'Admin', path: '/admin', role: 'admin' },
 ];
@@ -722,11 +735,11 @@ function NavigationMenu() {
     return items.filter(item => {
       if (item.permission && !hasPermission(item.permission)) return false;
       if (item.role && userRole !== item.role) return false;
-      
+
       if (item.children) {
         item.children = filterNavItems(item.children);
       }
-      
+
       return true;
     });
   };
@@ -757,17 +770,14 @@ class AuthenticatedApiClient {
     this.baseUrl = baseUrl;
   }
 
-  private async request<T>(
-    endpoint: string, 
-    options: RequestInit = {}
-  ): Promise<T> {
+  private async request<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
     const token = this.sessionManager.getAccessToken();
-    
+
     const response = await fetch(`${this.baseUrl}${endpoint}`, {
       ...options,
       headers: {
         'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
+        Authorization: `Bearer ${token}`,
         ...options.headers,
       },
     });
@@ -838,10 +848,7 @@ interface ErrorBoundaryState {
   error?: Error;
 }
 
-class AuthErrorBoundary extends React.Component<
-  React.PropsWithChildren<{}>,
-  ErrorBoundaryState
-> {
+class AuthErrorBoundary extends React.Component<React.PropsWithChildren<{}>, ErrorBoundaryState> {
   constructor(props: React.PropsWithChildren<{}>) {
     super(props);
     this.state = { hasError: false };
@@ -853,7 +860,7 @@ class AuthErrorBoundary extends React.Component<
 
   componentDidCatch(error: Error, errorInfo: React.ErrorInfo) {
     console.error('Auth Error Boundary caught an error:', error, errorInfo);
-    
+
     // Log to error reporting service
     if (error.message.includes('401') || error.message.includes('unauthorized')) {
       // Handle authentication errors
@@ -868,9 +875,7 @@ class AuthErrorBoundary extends React.Component<
         <div className="error-boundary">
           <h2>Something went wrong</h2>
           <p>{this.state.error?.message}</p>
-          <button onClick={() => window.location.reload()}>
-            Reload Page
-          </button>
+          <button onClick={() => window.location.reload()}>Reload Page</button>
         </div>
       );
     }
@@ -884,9 +889,7 @@ function App() {
   return (
     <AuthErrorBoundary>
       <AppProvider config={appConfig}>
-        <AuthProvider>
-          {/* Your app */}
-        </AuthProvider>
+        <AuthProvider>{/* Your app */}</AuthProvider>
       </AppProvider>
     </AuthErrorBoundary>
   );

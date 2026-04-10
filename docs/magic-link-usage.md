@@ -26,12 +26,12 @@ import { useNavigate } from 'react-router-dom';
 function MagicLinkPage() {
   const navigate = useNavigate();
 
-  const handleSuccess = (response) => {
+  const handleSuccess = response => {
     console.log('Magic link sent successfully!', response);
     // Show success message or redirect
   };
 
-  const handleError = (error) => {
+  const handleError = error => {
     console.error('Failed to send magic link:', error);
   };
 
@@ -58,13 +58,13 @@ import { useNavigate } from 'react-router-dom';
 function MagicLinkVerifyPage() {
   const navigate = useNavigate();
 
-  const handleSuccess = (data) => {
+  const handleSuccess = data => {
     console.log('Magic link verified successfully!', data);
     // User is now authenticated
     navigate('/dashboard');
   };
 
-  const handleError = (error) => {
+  const handleError = error => {
     console.error('Magic link verification failed:', error);
   };
 
@@ -120,17 +120,17 @@ function LoginPage() {
 
   return (
     <LoginForm
-      onSuccess={(result) => {
+      onSuccess={result => {
         console.log('Login success:', result);
         navigate('/dashboard');
       }}
-      onError={(error) => console.error('Login error:', error)}
+      onError={error => console.error('Login error:', error)}
       onMagicLinkClick={() => navigate('/magic-link')}
       onSignupClick={() => navigate('/signup')}
       showMagicLinkOption={true}
       copy={{
         usernameLabel: 'Email or Phone',
-        usernamePlaceholder: 'Enter your email or phone number'
+        usernamePlaceholder: 'Enter your email or phone number',
       }}
     />
   );
@@ -150,11 +150,11 @@ function SignupPage() {
 
   return (
     <SignupForm
-      onSuccess={(result) => {
+      onSuccess={result => {
         console.log('Signup success:', result);
         navigate('/dashboard');
       }}
-      onError={(error) => console.error('Signup error:', error)}
+      onError={error => console.error('Signup error:', error)}
       onMagicLinkClick={() => navigate('/magic-link')}
       onLoginClick={() => navigate('/login')}
       showMagicLinkOption={true}
@@ -169,11 +169,11 @@ function SignupPage() {
 
 ```tsx
 import React, { useState, useEffect } from 'react';
-import { 
-  MagicLinkForm, 
-  LoginForm, 
+import {
+  MagicLinkForm,
+  LoginForm,
   SignupForm,
-  useAuth 
+  useAuth,
 } from '@skylabs-digital/react-identity-access';
 
 type AuthView = 'login' | 'signup' | 'magic-link';
@@ -187,7 +187,7 @@ function AuthenticationFlow() {
   useEffect(() => {
     const urlParams = new URLSearchParams(window.location.search);
     const token = urlParams.get('token');
-    
+
     if (token) {
       setMagicLinkToken(token);
       setView('magic-link');
@@ -258,8 +258,8 @@ function CustomMagicLinkComponent() {
       const result = await sendMagicLink({
         email,
         frontendUrl: 'https://yourapp.com',
-        name: 'John',      // optional for new users
-        lastName: 'Doe',   // optional for new users
+        name: 'John', // optional for new users
+        lastName: 'Doe', // optional for new users
       });
       console.log('Magic link sent:', result);
     } catch (error) {
@@ -269,11 +269,16 @@ function CustomMagicLinkComponent() {
     }
   };
 
-  const handleVerifyToken = async (token: string, email: string, appId: string, tenantSlug?: string) => {
+  const handleVerifyToken = async (
+    token: string,
+    email: string,
+    appId: string,
+    tenantSlug?: string
+  ) => {
     try {
       const result = await verifyMagicLink({ token, email, appId, tenantSlug });
       console.log('Verification result:', result);
-      
+
       // User is now authenticated automatically
       console.log('User authenticated successfully');
     } catch (error) {
@@ -286,13 +291,10 @@ function CustomMagicLinkComponent() {
       <input
         type="email"
         value={email}
-        onChange={(e) => setEmail(e.target.value)}
+        onChange={e => setEmail(e.target.value)}
         placeholder="Enter your email"
       />
-      <button 
-        onClick={handleSendMagicLink}
-        disabled={loading || !email}
-      >
+      <button onClick={handleSendMagicLink} disabled={loading || !email}>
         {loading ? 'Sending...' : 'Send Magic Link'}
       </button>
     </div>
@@ -308,94 +310,94 @@ Both `MagicLinkForm` and `MagicLinkVerify` support full customization through `c
 
 All keys are optional. Defaults are shown below:
 
-| Key | Default |
-|-----|---------|
-| `title` | `'Sign In with Magic Link'` |
-| `description` | `"Enter your email to receive a magic link..."` |
-| `emailLabel` | `'Email'` |
-| `emailPlaceholder` | `'Enter your email'` |
-| `nameLabel` | `'Name'` |
-| `namePlaceholder` | `'Enter your name'` |
-| `lastNameLabel` | `'Last Name'` |
-| `lastNamePlaceholder` | `'Enter your last name'` |
-| `submitButton` | `'Send Magic Link'` |
-| `loadingText` | `'Sending magic link...'` |
-| `successMessage` | `'Magic link sent! Check your email...'` |
-| `errorMessage` | `'Failed to send magic link. Please try again.'` |
-| `verifyingText` | `'Verifying magic link...'` |
-| `verifyingDescription` | `'Please wait while we verify your magic link...'` |
-| `showNameToggle` | `'New user? Add your name'` |
-| `hideNameToggle` | `'Existing user? Hide name fields'` |
-| `loginLink` | `'Sign in with password'` |
-| `loginText` | `'Already have an account?'` |
-| `signupLink` | `'Sign up with password'` |
-| `signupText` | `'Prefer traditional signup?'` |
-| `tenantNotFoundError` | `'Tenant not found'` |
-| `missingTenantOrEmailError` | `'Missing tenant or email'` |
-| `dividerBullet` | `'•'` |
+| Key                         | Default                                            |
+| --------------------------- | -------------------------------------------------- |
+| `title`                     | `'Sign In with Magic Link'`                        |
+| `description`               | `"Enter your email to receive a magic link..."`    |
+| `emailLabel`                | `'Email'`                                          |
+| `emailPlaceholder`          | `'Enter your email'`                               |
+| `nameLabel`                 | `'Name'`                                           |
+| `namePlaceholder`           | `'Enter your name'`                                |
+| `lastNameLabel`             | `'Last Name'`                                      |
+| `lastNamePlaceholder`       | `'Enter your last name'`                           |
+| `submitButton`              | `'Send Magic Link'`                                |
+| `loadingText`               | `'Sending magic link...'`                          |
+| `successMessage`            | `'Magic link sent! Check your email...'`           |
+| `errorMessage`              | `'Failed to send magic link. Please try again.'`   |
+| `verifyingText`             | `'Verifying magic link...'`                        |
+| `verifyingDescription`      | `'Please wait while we verify your magic link...'` |
+| `showNameToggle`            | `'New user? Add your name'`                        |
+| `hideNameToggle`            | `'Existing user? Hide name fields'`                |
+| `loginLink`                 | `'Sign in with password'`                          |
+| `loginText`                 | `'Already have an account?'`                       |
+| `signupLink`                | `'Sign up with password'`                          |
+| `signupText`                | `'Prefer traditional signup?'`                     |
+| `tenantNotFoundError`       | `'Tenant not found'`                               |
+| `missingTenantOrEmailError` | `'Missing tenant or email'`                        |
+| `dividerBullet`             | `'•'`                                              |
 
 ### MagicLinkForm Styles Reference
 
-| Key | Targets |
-|-----|---------|
-| `container` | Root wrapper |
-| `title` | `<h2>` heading |
-| `description` | Description paragraph |
-| `form` | `<form>` element |
-| `fieldGroup` | Each label+input group |
-| `label` | `<label>` elements |
-| `input` | `<input>` elements |
-| `inputError` | Input in error state |
-| `button` | Submit button |
-| `buttonDisabled` | Disabled state (merged on top of `button`) |
-| `buttonLoading` | Loading state (merged on top of `button`) |
-| `errorText` | Error message text |
-| `successText` | Success message text |
-| `linkContainer` | Links section wrapper |
-| `link` | `<a>` link elements |
-| `divider` | Bullet divider between links |
-| `verifyingContainer` | Verification loading wrapper |
-| `verifyingText` | Verification description text |
-| `toggleContainer` | Name fields toggle wrapper |
-| `toggleLink` | "New user? Add your name" toggle |
+| Key                  | Targets                                    |
+| -------------------- | ------------------------------------------ |
+| `container`          | Root wrapper                               |
+| `title`              | `<h2>` heading                             |
+| `description`        | Description paragraph                      |
+| `form`               | `<form>` element                           |
+| `fieldGroup`         | Each label+input group                     |
+| `label`              | `<label>` elements                         |
+| `input`              | `<input>` elements                         |
+| `inputError`         | Input in error state                       |
+| `button`             | Submit button                              |
+| `buttonDisabled`     | Disabled state (merged on top of `button`) |
+| `buttonLoading`      | Loading state (merged on top of `button`)  |
+| `errorText`          | Error message text                         |
+| `successText`        | Success message text                       |
+| `linkContainer`      | Links section wrapper                      |
+| `link`               | `<a>` link elements                        |
+| `divider`            | Bullet divider between links               |
+| `verifyingContainer` | Verification loading wrapper               |
+| `verifyingText`      | Verification description text              |
+| `toggleContainer`    | Name fields toggle wrapper                 |
+| `toggleLink`         | "New user? Add your name" toggle           |
 
 ### MagicLinkVerify Copy Reference
 
-| Key | Default |
-|-----|---------|
-| `title` | `'Verifying Magic Link'` |
-| `verifyingMessage` | `'Please wait while we verify your magic link...'` |
-| `successMessage` | `'Magic link verified successfully! You are now logged in.'` |
-| `errorMessage` | `'Failed to verify magic link. The link may be expired or invalid.'` |
-| `redirectingMessage` | `'Redirecting you to the dashboard...'` |
-| `retryButton` | `'Try Again'` |
-| `backToLoginButton` | `'Back to Login'` |
-| `missingParamsError` | `'Missing required parameters: token or email'` |
+| Key                  | Default                                                              |
+| -------------------- | -------------------------------------------------------------------- |
+| `title`              | `'Verifying Magic Link'`                                             |
+| `verifyingMessage`   | `'Please wait while we verify your magic link...'`                   |
+| `successMessage`     | `'Magic link verified successfully! You are now logged in.'`         |
+| `errorMessage`       | `'Failed to verify magic link. The link may be expired or invalid.'` |
+| `redirectingMessage` | `'Redirecting you to the dashboard...'`                              |
+| `retryButton`        | `'Try Again'`                                                        |
+| `backToLoginButton`  | `'Back to Login'`                                                    |
+| `missingParamsError` | `'Missing required parameters: token or email'`                      |
 
 ### MagicLinkVerify Styles Reference
 
-| Key | Targets |
-|-----|---------|
-| `container` | Root wrapper |
-| `card` | Inner card |
-| `title` | `<h1>` heading |
-| `message` | Verifying/redirecting message |
-| `successMessage` | Success state message |
-| `errorMessage` | Error state message |
-| `spinner` | Loading spinner |
-| `buttonContainer` | Error buttons wrapper |
-| `retryButton` | "Try Again" button |
-| `retryButtonHover` | Hover state for retry button |
-| `backButton` | "Back to Login" button |
-| `backButtonHover` | Hover state for back button |
+| Key                | Targets                       |
+| ------------------ | ----------------------------- |
+| `container`        | Root wrapper                  |
+| `card`             | Inner card                    |
+| `title`            | `<h1>` heading                |
+| `message`          | Verifying/redirecting message |
+| `successMessage`   | Success state message         |
+| `errorMessage`     | Error state message           |
+| `spinner`          | Loading spinner               |
+| `buttonContainer`  | Error buttons wrapper         |
+| `retryButton`      | "Try Again" button            |
+| `retryButtonHover` | Hover state for retry button  |
+| `backButton`       | "Back to Login" button        |
+| `backButtonHover`  | Hover state for back button   |
 
 ### MagicLinkVerify Icons
 
-| Key | Default | Description |
-|-----|---------|-------------|
+| Key       | Default              | Description               |
+| --------- | -------------------- | ------------------------- |
 | `loading` | Animated spinner SVG | Shown during verification |
-| `success` | Green checkmark SVG | Shown on success |
-| `error` | Red X circle SVG | Shown on error |
+| `success` | Green checkmark SVG  | Shown on success          |
+| `error`   | Red X circle SVG     | Shown on error            |
 
 ### Custom Styling Example
 
@@ -528,7 +530,7 @@ Simply add the magic link handlers:
   showMagicLinkOption={true}
 />
 
-// Add to existing SignupForm  
+// Add to existing SignupForm
 <SignupForm
   // ... existing props
   onMagicLinkClick={() => setView('magic-link')}
@@ -564,6 +566,6 @@ const authConfig = {
   debug: true, // Enable debug logging
   onRefreshFailed: () => {
     console.log('Token refresh failed, redirecting to login');
-  }
+  },
 };
 ```

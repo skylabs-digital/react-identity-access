@@ -149,6 +149,7 @@ test(auth): add unit tests for login flow
 ```
 
 Types:
+
 - `feat`: New feature
 - `fix`: Bug fix
 - `docs`: Documentation changes
@@ -160,6 +161,7 @@ Types:
 ### Development Process
 
 1. **Create a branch** from `main`:
+
    ```bash
    git checkout -b feature/your-feature-name
    ```
@@ -171,6 +173,7 @@ Types:
 4. **Update documentation** if needed
 
 5. **Test your changes**:
+
    ```bash
    pnpm test
    pnpm build
@@ -178,12 +181,14 @@ Types:
    ```
 
 6. **Commit your changes**:
+
    ```bash
    git add .
    git commit -m "feat(auth): add new authentication method"
    ```
 
 7. **Push to your fork**:
+
    ```bash
    git push origin feature/your-feature-name
    ```
@@ -226,14 +231,14 @@ describe('SessionManager', () => {
   it('should store and retrieve user data', () => {
     const user = { id: '1', email: 'test@example.com', name: 'Test User' };
     sessionManager.setUser(user);
-    
+
     expect(sessionManager.getUser()).toEqual(user);
   });
 
   it('should clear session data', () => {
     sessionManager.setUser({ id: '1', email: 'test@example.com' });
     sessionManager.clearSession();
-    
+
     expect(sessionManager.getUser()).toBeNull();
   });
 });
@@ -247,11 +252,7 @@ import { render, screen } from '@testing-library/react';
 import { Protected } from '../Protected';
 import { AuthProvider } from '../../providers/AuthProvider';
 
-const TestWrapper = ({ children, permissions = [] }) => (
-  <AuthProvider>
-    {children}
-  </AuthProvider>
-);
+const TestWrapper = ({ children, permissions = [] }) => <AuthProvider>{children}</AuthProvider>;
 
 describe('Protected Component', () => {
   it('renders children when user has required permissions', () => {
@@ -269,10 +270,7 @@ describe('Protected Component', () => {
   it('renders fallback when user lacks permissions', () => {
     render(
       <TestWrapper permissions={[]}>
-        <Protected 
-          requiredPermissions={['admin:write']}
-          fallback={<div>Access Denied</div>}
-        >
+        <Protected requiredPermissions={['admin:write']} fallback={<div>Access Denied</div>}>
           <div>Protected Content</div>
         </Protected>
       </TestWrapper>
@@ -287,6 +285,7 @@ describe('Protected Component', () => {
 ### Test Coverage
 
 Maintain high test coverage:
+
 - Aim for >90% code coverage
 - Test all public APIs
 - Include edge cases and error scenarios
@@ -373,20 +372,24 @@ pnpm lint:fix
 
 ```markdown
 ## Description
+
 Brief description of changes
 
 ## Type of Change
+
 - [ ] Bug fix
 - [ ] New feature
 - [ ] Breaking change
 - [ ] Documentation update
 
 ## Testing
+
 - [ ] Unit tests added/updated
 - [ ] Integration tests pass
 - [ ] Manual testing completed
 
 ## Checklist
+
 - [ ] Code follows style guidelines
 - [ ] Self-review completed
 - [ ] Documentation updated
@@ -447,6 +450,7 @@ When creating issues, use the appropriate template:
 ## Recognition
 
 Contributors will be recognized in:
+
 - CONTRIBUTORS.md file
 - GitHub contributors section
 - Release notes for significant contributions

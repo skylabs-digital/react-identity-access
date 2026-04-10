@@ -59,11 +59,11 @@ function Dashboard() {
   return (
     <div>
       <h1>Welcome, {user?.name}</h1>
-      
+
       <Protected requiredPermissions={['posts:write']}>
         <button>Create New Post</button>
       </Protected>
-      
+
       <Protected requiredPermissions={['posts:read']}>
         <PostList />
       </Protected>
@@ -101,9 +101,9 @@ function ProductManagement() {
   return (
     <div className="product-management">
       <h2>Product Management</h2>
-      
+
       {/* Product List - Available to all authenticated users */}
-      <Protected 
+      <Protected
         requiredPermissions={['products:read']}
         fallback={<div>You need permission to view products</div>}
       >
@@ -113,14 +113,12 @@ function ProductManagement() {
       {/* Create Product - Only for managers and admins */}
       <Protected requiredPermissions={['products:write']}>
         <div className="actions">
-          <button onClick={() => setShowCreateForm(true)}>
-            Add New Product
-          </button>
+          <button onClick={() => setShowCreateForm(true)}>Add New Product</button>
         </div>
       </Protected>
 
       {/* Inventory Management - Only for inventory managers */}
-      <Protected 
+      <Protected
         requiredPermissions={['inventory:manage']}
         fallback={<div>Contact inventory manager for stock updates</div>}
       >
@@ -144,16 +142,16 @@ function ProductCard({ product }: { product: Product }) {
       <h3>{product.name}</h3>
       <p>${product.price}</p>
       <p>Category: {product.category}</p>
-      
+
       <div className="actions">
         <Protected requiredPermissions={['products:write']}>
           <button>Edit</button>
         </Protected>
-        
+
         <Protected requiredPermissions={['products:delete']}>
           <button className="danger">Delete</button>
         </Protected>
-        
+
         <Protected requiredPermissions={['inventory:manage']}>
           <button>Update Stock</button>
         </Protected>
@@ -177,7 +175,7 @@ function OrderManagement() {
   return (
     <div>
       <h2>Order Management</h2>
-      
+
       {/* Basic order viewing - all sales staff */}
       <Protected requiredPermissions={['orders:read']}>
         <OrderList />
@@ -215,7 +213,13 @@ function OrderManagement() {
 
 ```tsx
 // App.tsx - Multi-tenant setup
-import { AppProvider, TenantProvider, AuthProvider, FeatureFlagProvider, SubscriptionProvider } from '@skylabs-digital/react-identity-access';
+import {
+  AppProvider,
+  TenantProvider,
+  AuthProvider,
+  FeatureFlagProvider,
+  SubscriptionProvider,
+} from '@skylabs-digital/react-identity-access';
 
 function App() {
   return (
@@ -243,7 +247,7 @@ function TenantDashboard() {
   const { sessionManager, userRole } = useAuth();
   const { subscription, hasFeature, getLimit } = useSubscription();
   const { tenantSlug } = useApp();
-  
+
   const user = sessionManager.getUser();
   const userLimit = getLimit('max-users', 5);
   const storageLimit = getLimit('storage-gb', 1);
@@ -252,13 +256,19 @@ function TenantDashboard() {
     <div>
       <header>
         <h1>{tenantSlug} Dashboard</h1>
-        <p>Welcome, {user?.name} ({userRole})</p>
+        <p>
+          Welcome, {user?.name} ({userRole})
+        </p>
       </header>
 
       <div className="subscription-info">
         <p>Plan: {subscription?.plan}</p>
-        <p>Users: {currentUserCount}/{userLimit}</p>
-        <p>Storage: {currentStorage}GB/{storageLimit}GB</p>
+        <p>
+          Users: {currentUserCount}/{userLimit}
+        </p>
+        <p>
+          Storage: {currentStorage}GB/{storageLimit}GB
+        </p>
       </div>
 
       {/* Tenant Admin Features */}
@@ -293,8 +303,10 @@ function UserManagement({ maxUsers }: { maxUsers: number }) {
 
   return (
     <div>
-      <h3>Team Members ({users.length}/{maxUsers})</h3>
-      
+      <h3>
+        Team Members ({users.length}/{maxUsers})
+      </h3>
+
       <Protected requiredPermissions={['users:read']}>
         <UserList users={users} />
       </Protected>
@@ -331,32 +343,32 @@ function AdminDashboard() {
       title: 'User Management',
       permission: 'users:manage',
       component: UserManagementSection,
-      icon: '👥'
+      icon: '👥',
     },
     {
       title: 'System Settings',
       permission: 'system:configure',
       component: SystemSettingsSection,
-      icon: '⚙️'
+      icon: '⚙️',
     },
     {
       title: 'Analytics',
       permission: 'analytics:view',
       component: AnalyticsSection,
-      icon: '📊'
+      icon: '📊',
     },
     {
       title: 'Audit Logs',
       permission: 'audit:read',
       component: AuditLogsSection,
-      icon: '📋'
+      icon: '📋',
     },
     {
       title: 'Feature Flags',
       permission: 'features:manage',
       component: FeatureFlagSection,
-      icon: '🚩'
-    }
+      icon: '🚩',
+    },
   ];
 
   return (
@@ -368,7 +380,7 @@ function AdminDashboard() {
 
       <div className="admin-grid">
         {adminSections.map(section => (
-          <Protected 
+          <Protected
             key={section.title}
             requiredPermissions={[section.permission]}
             fallback={
@@ -409,17 +421,17 @@ function UserManagementSection() {
         <Protected requiredPermissions={['users:create']}>
           <button>Create User</button>
         </Protected>
-        
+
         <Protected requiredPermissions={['users:import']}>
           <button>Import Users</button>
         </Protected>
-        
+
         <Protected requiredPermissions={['users:export']}>
           <button>Export Users</button>
         </Protected>
       </div>
 
-      <UserTable 
+      <UserTable
         users={users}
         canEdit={hasPermission('users:edit')}
         canDelete={hasPermission('users:delete')}
@@ -450,39 +462,29 @@ interface Article {
 function ContentEditor({ article }: { article: Article }) {
   const { hasPermission, userRole, sessionManager } = useAuth();
   const user = sessionManager.getUser();
-  
+
   const isAuthor = article.author === user?.id;
   const canEdit = hasPermission('content:edit') || (isAuthor && hasPermission('content:edit-own'));
   const canPublish = hasPermission('content:publish');
-  const canDelete = hasPermission('content:delete') || (isAuthor && hasPermission('content:delete-own'));
+  const canDelete =
+    hasPermission('content:delete') || (isAuthor && hasPermission('content:delete-own'));
 
   return (
     <div className="content-editor">
       <header>
         <h2>{article.title}</h2>
-        <div className="status-badge status-{article.status}">
-          {article.status}
-        </div>
+        <div className="status-badge status-{article.status}">{article.status}</div>
       </header>
 
       {/* Editor - Authors and Editors */}
-      <Protected 
-        requiredPermissions={['content:edit', 'content:edit-own']}
-        requireAll={false}
-      >
-        {canEdit ? (
-          <ArticleEditor article={article} />
-        ) : (
-          <ArticleViewer article={article} />
-        )}
+      <Protected requiredPermissions={['content:edit', 'content:edit-own']} requireAll={false}>
+        {canEdit ? <ArticleEditor article={article} /> : <ArticleViewer article={article} />}
       </Protected>
 
       <div className="actions">
         {/* Save Draft - Authors */}
         <Protected requiredPermissions={['content:edit', 'content:edit-own']} requireAll={false}>
-          {canEdit && (
-            <button onClick={saveDraft}>Save Draft</button>
-          )}
+          {canEdit && <button onClick={saveDraft}>Save Draft</button>}
         </Protected>
 
         {/* Submit for Review - Authors */}
@@ -510,9 +512,14 @@ function ContentEditor({ article }: { article: Article }) {
         </Protected>
 
         {/* Delete - Admins or Authors (own content) */}
-        <Protected requiredPermissions={['content:delete', 'content:delete-own']} requireAll={false}>
+        <Protected
+          requiredPermissions={['content:delete', 'content:delete-own']}
+          requireAll={false}
+        >
           {canDelete && (
-            <button className="danger" onClick={deleteArticle}>Delete</button>
+            <button className="danger" onClick={deleteArticle}>
+              Delete
+            </button>
           )}
         </Protected>
       </div>
@@ -532,7 +539,7 @@ function EditorialDashboard() {
       sections.push({
         title: 'My Articles',
         component: <MyArticlesList />,
-        permission: 'content:edit-own'
+        permission: 'content:edit-own',
       });
     }
 
@@ -540,7 +547,7 @@ function EditorialDashboard() {
       sections.push({
         title: 'Pending Review',
         component: <PendingReviewList />,
-        permission: 'content:review'
+        permission: 'content:review',
       });
     }
 
@@ -548,7 +555,7 @@ function EditorialDashboard() {
       sections.push({
         title: 'Ready to Publish',
         component: <ReadyToPublishList />,
-        permission: 'content:publish'
+        permission: 'content:publish',
       });
     }
 
@@ -556,7 +563,7 @@ function EditorialDashboard() {
       sections.push({
         title: 'Content Analytics',
         component: <ContentAnalytics />,
-        permission: 'analytics:content'
+        permission: 'analytics:content',
       });
     }
 
@@ -606,12 +613,13 @@ function PatientDashboard({ patientId }: { patientId: string }) {
 
   // Check if user is assigned to this patient
   const isAssignedProvider = patient?.assignedPhysician === user?.id;
-  const canViewPatient = hasPermission('patients:read') || 
+  const canViewPatient =
+    hasPermission('patients:read') ||
     (hasPermission('patients:read-assigned') && isAssignedProvider);
 
   return (
     <div className="patient-dashboard">
-      <Protected 
+      <Protected
         requiredPermissions={['patients:read', 'patients:read-assigned']}
         requireAll={false}
         fallback={<div>You don't have permission to view this patient</div>}
@@ -619,7 +627,7 @@ function PatientDashboard({ patientId }: { patientId: string }) {
         {canViewPatient ? (
           <>
             <PatientHeader patient={patient} />
-            
+
             {/* Basic Patient Info - All authorized staff */}
             <PatientBasicInfo patient={patient} />
 
@@ -707,7 +715,7 @@ function MedicalRecordForm({ patientId }: { patientId: string }) {
 
       <div className="form-actions">
         <button type="submit">Save Record</button>
-        
+
         <Protected requiredPermissions={['medical-records:sign']}>
           <button type="button">Sign and Lock</button>
         </Protected>
@@ -729,7 +737,7 @@ import { useSubscription } from '@skylabs-digital/react-identity-access';
 function PortfolioDashboard() {
   const { hasPermission, userRole } = useAuth();
   const { hasFeature, getLimit } = useSubscription();
-  
+
   const portfolioLimit = getLimit('max-portfolios', 1);
   const canAccessPremiumData = hasFeature('real-time-data');
 
@@ -800,17 +808,19 @@ function PortfolioDashboard() {
 function TradingInterface() {
   const { hasPermission } = useAuth();
   const { hasFeature, getLimit } = useSubscription();
-  
+
   const dailyTradeLimit = getLimit('daily-trades', 10);
   const [tradesUsed, setTradesUsed] = useState(0);
 
   return (
     <div className="trading-interface">
       <div className="trade-limits">
-        <p>Daily Trades: {tradesUsed}/{dailyTradeLimit}</p>
+        <p>
+          Daily Trades: {tradesUsed}/{dailyTradeLimit}
+        </p>
       </div>
 
-      <Protected 
+      <Protected
         requiredPermissions={['trading:execute']}
         fallback={<div>Trading permissions required</div>}
       >
@@ -827,15 +837,12 @@ function TradingInterface() {
 
           <input type="text" placeholder="Symbol" />
           <input type="number" placeholder="Quantity" />
-          
+
           <Protected requiredPermissions={['trading:limit-orders']}>
             <input type="number" placeholder="Limit Price" />
           </Protected>
 
-          <button 
-            disabled={tradesUsed >= dailyTradeLimit}
-            onClick={executeTrade}
-          >
+          <button disabled={tradesUsed >= dailyTradeLimit} onClick={executeTrade}>
             {tradesUsed >= dailyTradeLimit ? 'Daily Limit Reached' : 'Execute Trade'}
           </button>
         </div>

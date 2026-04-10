@@ -21,27 +21,29 @@ Currently, when a user logs in through the `AuthProvider.login()` method, the au
 ## Current Implementation
 
 ### AuthProvider Login Flow
+
 ```typescript
 const login = async (username: string, password: string, appId?: string, tenantId?: string) => {
   const loginResponse = await authApiService.login({ username, password, appId, tenantId });
-  
+
   sessionManager.setTokens({
     accessToken: loginResponse.accessToken,
     refreshToken: loginResponse.refreshToken,
     expiresIn: loginResponse.expiresIn,
   });
-  
+
   if (loginResponse.user) {
     sessionManager.setUser(loginResponse.user);
     setCurrentUser(loginResponse.user);
     await loadUserData();
   }
-  
+
   return loginResponse;
 };
 ```
 
 ### TenantProvider Detection Flow
+
 ```typescript
 const detectTenantSlug = (): string | null => {
   if (tenantMode === 'subdomain') {
@@ -79,9 +81,10 @@ Login already requires `tenantId` as a parameter, so we already have the tenant 
 ### 2. Add Tenant Switch Method to TenantProvider
 
 **Current TenantProvider Context:**
+
 ```typescript
 interface TenantContextValue {
-  tenant: PublicTenantInfo | null;  // Has both id and domain
+  tenant: PublicTenantInfo | null; // Has both id and domain
   tenantSlug: string | null;
   isTenantLoading: boolean;
   tenantError: Error | null;
@@ -107,16 +110,16 @@ export interface TenantContextValue {
 **Implementation**:
 
 const switchTenant = useCallback((tenantSlug: string, mode: 'navigate' | 'reload' = 'reload') => {
-  const tenantMode = config.tenantMode || 'selector';
-  
-  // Update localStorage
-  localStorage.setItem('tenant', tenantSlug);
-  
-  if (tenantMode === 'subdomain') {
-    // Subdomain mode: redirect to new subdomain
-    const currentHostname = window.location.hostname;
-    const parts = currentHostname.split('.');
-    
+const tenantMode = config.tenantMode || 'selector';
+
+// Update localStorage
+localStorage.setItem('tenant', tenantSlug);
+
+if (tenantMode === 'subdomain') {
+// Subdomain mode: redirect to new subdomain
+const currentHostname = window.location.hostname;
+const parts = currentHostname.split('.');
+
     if (parts.length >= 2) {
       // Replace subdomain
       parts[0] = tenantSlug;
@@ -124,11 +127,12 @@ const switchTenant = useCallback((tenantSlug: string, mode: 'navigate' | 'reload
       const newUrl = `${window.location.protocol}//${newHostname}${window.location.pathname}`;
       window.location.href = newUrl;
     }
-  } else if (tenantMode === 'selector') {
-    // Selector mode: update URL parameter
-    const urlParams = new URLSearchParams(window.location.search);
-    urlParams.set(config.selectorParam || 'tenant', tenantSlug);
-    
+
+} else if (tenantMode === 'selector') {
+// Selector mode: update URL parameter
+const urlParams = new URLSearchParams(window.location.search);
+urlParams.set(config.selectorParam || 'tenant', tenantSlug);
+
     if (mode === 'reload') {
       // Full page reload with new tenant
       const newUrl = `${window.location.pathname}?${urlParams.toString()}`;
@@ -140,9 +144,11 @@ const switchTenant = useCallback((tenantSlug: string, mode: 'navigate' | 'reload
       // Trigger tenant reload
       loadTenant(tenantSlug);
     }
-  }
+
+}
 }, [config.tenantMode, config.selectorParam, loadTenant]);
-```
+
+````
 
 ### 3. Update AuthProvider to Auto-Switch Tenant
 
@@ -152,16 +158,16 @@ const switchTenant = useCallback((tenantSlug: string, mode: 'navigate' | 'reload
 export function AuthProvider({ config = {}, children }: AuthProviderProps) {
   const { appId, baseUrl } = useApp();
   const { tenant, tenantSlug, switchTenant } = useTenant();
-  
+
   // ... existing setup ...
-  
+
   const contextValue = useMemo(() => {
     const login = async (params: LoginParams) => {
       const { username, password, tenantId } = params;
-      
+
       // Resolve tenantId (from params or context)
       const resolvedTenantId = tenantId ?? tenant?.id;
-      
+
       const loginResponse = await authApiService.login({
         username,
         password,
@@ -186,14 +192,14 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
           console.warn('Failed to load complete user data after login:', error);
         }
       }
-      
+
       // AUTO-SWITCH TENANT if login tenantId differs from current tenant
       if (tenantId && tenant?.id && tenantId !== tenant.id) {
         try {
           // Fetch tenant info to get domain/slug for switching
           const tenantApi = new TenantApiService(authenticatedHttpService, appId);
           const tenantInfo = await tenantApi.getTenantById(tenantId);
-          
+
           // Switch to the login tenant
           if (tenantInfo.domain && tenantInfo.domain !== tenantSlug) {
             // This will trigger a page reload, so return before that
@@ -208,39 +214,39 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
       return loginResponse;
     };
-    
+
     // Same logic for verifyMagicLink
     const verifyMagicLink = async (params: VerifyMagicLinkParams) => {
       const { token, email, tenantId } = params;
-      
+
       const resolvedTenantId = tenantId ?? tenant?.id;
-      
+
       const verifyResponse = await authApiService.verifyMagicLink({
         token,
         email,
         appId,
         tenantId: resolvedTenantId,
       });
-      
+
       // Set tokens and user
       sessionManager.setTokens({
         accessToken: verifyResponse.accessToken,
         refreshToken: verifyResponse.refreshToken,
         expiresIn: verifyResponse.expiresIn,
       });
-      
+
       if (verifyResponse.user) {
         sessionManager.setUser(verifyResponse.user);
         setCurrentUser(verifyResponse.user);
         await loadUserData();
       }
-      
+
       // AUTO-SWITCH TENANT for magic link too
       if (tenantId && tenant?.id && tenantId !== tenant.id) {
         try {
           const tenantApi = new TenantApiService(authenticatedHttpService, appId);
           const tenantInfo = await tenantApi.getTenantById(tenantId);
-          
+
           if (tenantInfo.domain && tenantInfo.domain !== tenantSlug) {
             switchTenant(tenantInfo.domain);
           }
@@ -248,10 +254,10 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
           console.error('Failed to switch tenant after magic link:', error);
         }
       }
-      
+
       return verifyResponse;
     };
-    
+
     return {
       login,
       verifyMagicLink,
@@ -267,10 +273,10 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     switchTenant,
     // ... other dependencies
   ]);
-  
+
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 }
-```
+````
 
 **Components are now simpler** - no need to handle tenant switching:
 
@@ -281,7 +287,7 @@ import { useAuth } from '../providers/AuthProvider';
 function LoginForm({ onLoginSuccess }: LoginFormProps) {
   const { login } = useAuth();
   const [loginTenantId, setLoginTenantId] = useState<string>('');
-  
+
   const handleLogin = async () => {
     // Just call login - AuthProvider handles tenant switching automatically
     const loginResponse = await login({
@@ -289,13 +295,13 @@ function LoginForm({ onLoginSuccess }: LoginFormProps) {
       password,
       tenantId: loginTenantId, // Override context tenant if needed
     });
-    
+
     // Note: If tenantId differs from current tenant, AuthProvider will
     // automatically switch and reload the page. This code only executes
     // if we're staying on the same tenant.
     onLoginSuccess?.(loginResponse);
   };
-  
+
   return (
     // ... form JSX
   );
@@ -304,11 +310,11 @@ function LoginForm({ onLoginSuccess }: LoginFormProps) {
 // Direct hook usage - Also works automatically!
 function CustomLoginComponent() {
   const { login } = useAuth();
-  
+
   const handleCustomLogin = async () => {
     // Tenant switching happens automatically - no extra code needed
-    await login({ 
-      username: 'user@example.com', 
+    await login({
+      username: 'user@example.com',
       password: 'secret',
       tenantId: 'some-tenant-id' // Will auto-switch if different
     });
@@ -317,6 +323,7 @@ function CustomLoginComponent() {
 ```
 
 **Key Points:**
+
 1. **Automatic Switching**: AuthProvider handles tenant switching internally
 2. **Works Everywhere**: Whether using LoginForm or `useAuth()` hook directly
 3. **Simpler Components**: No need to manually check tenants or call switchTenant
@@ -331,6 +338,7 @@ function CustomLoginComponent() {
 `AuthProvider` directly uses `useTenant()` hook to access tenant switching functionality.
 
 **Architecture:**
+
 ```
 AppProvider (top level)
   └─> TenantProvider (needs AppProvider)
@@ -339,6 +347,7 @@ AppProvider (top level)
 ```
 
 **Advantages:**
+
 - ✅ **Automatic Switching**: Works for all login methods (LoginForm, useAuth hook, magic link)
 - ✅ **Simple Components**: Components don't need tenant switching logic
 - ✅ **Single Source of Truth**: All auth flows go through same switching logic
@@ -347,6 +356,7 @@ AppProvider (top level)
 - ✅ **Consistent Behavior**: Same tenant switching everywhere
 
 **Provider Dependencies:**
+
 ```typescript
 // AuthProvider.tsx
 import { useApp } from './AppProvider';
@@ -355,7 +365,7 @@ import { useTenant } from './TenantProvider';
 export function AuthProvider({ children }) {
   const { appId, baseUrl } = useApp();
   const { tenant, tenantSlug, switchTenant } = useTenant();
-  
+
   // Auth logic + automatic tenant switching
 }
 ```
@@ -363,16 +373,19 @@ export function AuthProvider({ children }) {
 **Why This is Better Than Alternatives:**
 
 ❌ **Component-Level Switching**: Every component needs to implement the same logic
+
 - Duplication across LoginForm, custom forms, etc.
 - Easy to forget in some places
 - Inconsistent behavior
 
 ❌ **Prop Injection**: Pass switchTenant as prop to AuthProvider
+
 - Awkward API with render props or prop drilling
 - Not idiomatic React context usage
 - More verbose setup
 
 ✅ **Context Consumption**: AuthProvider uses useTenant() directly
+
 - Clean, idiomatic React
 - Automatic for all consumers
 - Simple setup
@@ -382,17 +395,20 @@ export function AuthProvider({ children }) {
 **AuthProvider handles automatic tenant switching** with the following implementation:
 
 ### Phase 1: Verify API Endpoints
+
 1. Confirm `getTenantById` endpoint exists: `GET /apps/{appId}/tenants/{tenantId}/public`
 2. Verify `PublicTenantInfo` response structure (has `domain` or `slug` property)
 3. Test endpoint with sample tenant IDs
 
 ### Phase 2: Add TenantProvider Methods
+
 1. Add `switchTenant(tenantSlug, mode?)` method to TenantProvider
 2. Export via `useTenant()` hook
 3. Handle both subdomain and selector modes
 4. Update localStorage when switching tenants
 
 ### Phase 3: Update AuthProvider
+
 1. Import and use `useTenant()` hook in AuthProvider
 2. Add auto-switch logic to `login()` method
 3. Add auto-switch logic to `verifyMagicLink()` method
@@ -400,6 +416,7 @@ export function AuthProvider({ children }) {
 5. Handle errors gracefully if tenant switch fails
 
 ### Phase 4: Update Components (Simplification)
+
 1. Remove tenant switching logic from `LoginForm` (now automatic)
 2. Remove tenant switching logic from `MagicLinkVerify` (now automatic)
 3. Update documentation to reflect automatic behavior
@@ -410,6 +427,7 @@ export function AuthProvider({ children }) {
 ### No Backend API Changes Required
 
 The solution uses existing data:
+
 - Login already accepts `tenantId` parameter
 - `PublicTenantInfo` already has both `id` and `domain`/`slug`
 - No new response fields needed
@@ -420,7 +438,7 @@ The solution uses existing data:
 // src/providers/TenantProvider.tsx - Updated context
 export interface TenantContextValue {
   // ... existing properties (tenant, tenantSlug, etc.)
-  switchTenant: (tenantSlug: string, mode?: 'navigate' | 'reload') => void;  // NEW
+  switchTenant: (tenantSlug: string, mode?: 'navigate' | 'reload') => void; // NEW
 }
 ```
 
@@ -429,6 +447,7 @@ export interface TenantContextValue {
 ### API Service Considerations
 
 **Current State:**
+
 - ✅ `getTenantById(id)` exists but requires authentication and returns full `Tenant`
 - ✅ `getPublicTenantInfo(slug)` exists but requires slug instead of tenantId
 - ❌ No public endpoint that accepts `tenantId` and returns `PublicTenantInfo`
@@ -436,6 +455,7 @@ export interface TenantContextValue {
 **Options:**
 
 **Option 1: Add Public Endpoint (Requires Backend)**
+
 ```typescript
 // src/services/TenantApiService.ts
 async getPublicTenantInfoById(tenantId: string): Promise<PublicTenantInfo> {
@@ -445,24 +465,28 @@ async getPublicTenantInfoById(tenantId: string): Promise<PublicTenantInfo> {
   return response.data;
 }
 ```
+
 - **Pro**: Clean, efficient, no extra API calls
 - **Con**: Requires backend changes
 
 **Option 2: Use Authenticated Endpoint**
+
 ```typescript
 // Use existing getTenantById which requires auth
 const switchTenantById = async (tenantId: string) => {
   if (!sessionManager) throw new Error('No session available');
-  
+
   const tenantApi = new TenantApiService(httpService, appId, sessionManager);
   const tenant = await tenantApi.getTenantById(tenantId);
   switchTenant(tenant.domain); // Assumes domain is the slug
 };
 ```
+
 - **Pro**: No backend changes, works immediately
 - **Con**: Requires authentication, returns more data than needed
 
 **Option 3: Client-Side Tenant Mapping**
+
 ```typescript
 // Maintain a mapping of tenantId -> slug in TenantProvider
 const tenantMap = useMemo(() => {
@@ -476,6 +500,7 @@ const switchTenantById = async (tenantId: string) => {
   switchTenant(slug);
 };
 ```
+
 - **Pro**: No API call needed
 - **Con**: Requires pre-populated data, might be stale
 
@@ -497,15 +522,15 @@ export interface TenantContextValue {
 // src/components/LoginForm.tsx
 export interface LoginFormProps {
   // ... existing props
-  autoSwitchTenant?: boolean;  // NEW, default: true
-  onTenantSwitch?: (tenantSlug: string) => void;  // NEW
+  autoSwitchTenant?: boolean; // NEW, default: true
+  onTenantSwitch?: (tenantSlug: string) => void; // NEW
 }
 
 // src/components/MagicLinkVerify.tsx
 export interface MagicLinkVerifyProps {
   // ... existing props
-  autoSwitchTenant?: boolean;  // NEW, default: true
-  onTenantSwitch?: (tenantSlug: string) => void;  // NEW
+  autoSwitchTenant?: boolean; // NEW, default: true
+  onTenantSwitch?: (tenantSlug: string) => void; // NEW
 }
 ```
 
@@ -519,10 +544,11 @@ export interface MagicLinkVerifyProps {
 2. **If using hooks directly**: No changes required, but can opt-in to tenant switching
 
 **To disable auto-switching**:
+
 ```tsx
-<LoginForm 
+<LoginForm
   autoSwitchTenant={false}
-  onLoginSuccess={(response) => {
+  onLoginSuccess={response => {
     // Handle login success manually
     // Access response.tenant for tenant info
   }}
@@ -530,13 +556,14 @@ export interface MagicLinkVerifyProps {
 ```
 
 **To use manual switching**:
+
 ```tsx
 const { login } = useAuth();
 const { switchTenant } = useTenant();
 
 const handleLogin = async () => {
   const response = await login(username, password);
-  
+
   // Custom logic before switching
   if (shouldSwitchTenant(response.tenant)) {
     switchTenant(response.tenant.slug);
@@ -547,16 +574,19 @@ const handleLogin = async () => {
 ## Implementation Checklist
 
 ### TenantProvider Updates
+
 - [ ] Add `switchTenant(slug, mode?)` method to `TenantProvider`
 - [ ] Update `TenantContextValue` interface
 - [ ] Export `switchTenant` via `useTenant()` hook
 - [ ] Handle both subdomain and selector modes in switch logic
 
 ### API Service Updates
+
 - [ ] Verify `getTenantById()` exists in `TenantApiService` (already exists)
 - [ ] Ensure it returns `Tenant` with `domain` property
 
 ### AuthProvider Updates
+
 - [ ] Import `useTenant()` hook in AuthProvider
 - [ ] Add auto-switch logic to `login()` method
 - [ ] Add auto-switch logic to `verifyMagicLink()` method
@@ -565,11 +595,13 @@ const handleLogin = async () => {
 - [ ] Update `useMemo` dependencies to include tenant and switchTenant
 
 ### Component Updates (Simplification)
+
 - [ ] Remove tenant switching logic from `LoginForm` (no longer needed)
 - [ ] Remove tenant switching logic from `MagicLinkVerify` (no longer needed)
 - [ ] Simplify component code - just call auth methods directly
 
 ### Testing
+
 - [ ] Add unit tests for `switchTenant()` method in TenantProvider
 - [ ] Add unit tests for auto-switch logic in AuthProvider
 - [ ] Test login with same tenant (no switch triggered)
@@ -582,6 +614,7 @@ const handleLogin = async () => {
 - [ ] Mock TenantApiService in AuthProvider tests
 
 ### Documentation
+
 - [ ] Update README.md with tenant switching examples
 - [ ] Update examples.md with cross-tenant login scenarios
 - [ ] Update API reference docs
@@ -590,12 +623,14 @@ const handleLogin = async () => {
 ## Testing Strategy
 
 ### Unit Tests
+
 1. `switchTenant()` method with subdomain mode
 2. `switchTenant()` method with selector mode
 3. localStorage updates
 4. URL construction
 
 ### Integration Tests
+
 1. Login → Tenant Switch → Page Reload
 2. Magic Link Verify → Tenant Switch → Page Reload
 3. Same tenant login (no switch)
@@ -603,6 +638,7 @@ const handleLogin = async () => {
 5. Missing tenant slug handling
 
 ### Manual Testing
+
 1. Login from wrong tenant (subdomain)
 2. Login from wrong tenant (selector)
 3. Login from correct tenant
@@ -672,8 +708,9 @@ const handleLogin = async () => {
 **Pending Review** - This RFC is open for discussion and feedback.
 
 **Key Decision Points:**
+
 1. ✅ Use Option A (Decoupled Providers)
-2. ✅ Start with "reload" mode only  
+2. ✅ Start with "reload" mode only
 3. ✅ Make auto-switch opt-out (enabled by default)
 4. ✅ No breaking changes
 5. ✅ Use existing `tenantId` from login parameters (no backend changes needed)

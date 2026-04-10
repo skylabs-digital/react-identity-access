@@ -5,13 +5,16 @@
 Se ha implementado una nueva estrategia de tokens para autenticación multi-tenant con **dos modos de operación**:
 
 ### Modo 1: Login en dos fases (Multi-tenant)
+
 1. **Login Global**: `POST /auth/login` sin `tenantId` → Token global + lista de tenants
 2. **Switch Tenant**: `POST /auth/switch-tenant` → Token específico con contexto de tenant
 
 ### Modo 2: Login directo (Single-tenant / Atajo)
+
 1. **Login con Tenant**: `POST /auth/login` con `tenantId` → Token específico directamente
 
 Esta arquitectura permite:
+
 - Usuarios multi-tenant: navegar entre tenants sin re-autenticarse
 - Apps single-tenant: login directo con contexto de tenant en un solo paso
 
@@ -20,11 +23,13 @@ Esta arquitectura permite:
 ## Motivación del Cambio
 
 ### Problema Anterior
+
 - El login requería seleccionar un tenant específico o se generaba un token temporal para selección
 - Los usuarios con múltiples tenants debían re-autenticarse para cambiar entre ellos
 - El `accessToken` siempre tenía contexto de tenant, limitando operaciones globales
 
 ### Solución Actual
+
 - Login retorna tokens **globales** (sin tenant) + lista de tenants disponibles
 - El usuario puede operar sin tenant (ver perfil, listar tenants)
 - Para operaciones específicas de tenant, usa `switch-tenant` para obtener token con contexto
@@ -35,13 +40,14 @@ Esta arquitectura permite:
 ## Diagrama del Flujo
 
 ### Flujo 1: Login en dos fases (sin tenantId)
+
 ```
-┌──────────┐                                                    
-│  Usuario │                                                    
-└────┬─────┘                                                    
-     │ 1. POST /auth/login                                      
-     │    { username, password, appId }    ← SIN tenantId                  
-     ▼                                                          
+┌──────────┐
+│  Usuario │
+└────┬─────┘
+     │ 1. POST /auth/login
+     │    { username, password, appId }    ← SIN tenantId
+     ▼
 ┌──────────┐     ┌─────────────────────────────────────────────┐
 │  IDACHU  │────▶│ Response:                                   │
 └──────────┘     │   • accessToken  (GLOBAL, sin tenant)       │
@@ -49,12 +55,12 @@ Esta arquitectura permite:
      │           │   • user { tenantId: null, role: null }     │
      │           │   • tenants [{ id, name, role }]            │
      │           └─────────────────────────────────────────────┘
-     │                                                          
-     │ 2. Usuario selecciona tenant de la lista                 
-     │                                                          
-     │ 3. POST /auth/switch-tenant                              
-     │    { refreshToken, tenantId }                            
-     ▼                                                          
+     │
+     │ 2. Usuario selecciona tenant de la lista
+     │
+     │ 3. POST /auth/switch-tenant
+     │    { refreshToken, tenantId }
+     ▼
 ┌──────────┐     ┌─────────────────────────────────────────────┐
 │  IDACHU  │────▶│ Response:                                   │
 └──────────┘     │   • accessToken  (CON tenant + role)        │
@@ -63,13 +69,14 @@ Esta arquitectura permite:
 ```
 
 ### Flujo 2: Login directo (con tenantId)
+
 ```
-┌──────────┐                                                    
-│  Usuario │                                                    
-└────┬─────┘                                                    
-     │ 1. POST /auth/login                                      
-     │    { username, password, appId, tenantId }   ← CON tenantId                  
-     ▼                                                          
+┌──────────┐
+│  Usuario │
+└────┬─────┘
+     │ 1. POST /auth/login
+     │    { username, password, appId, tenantId }   ← CON tenantId
+     ▼
 ┌──────────┐     ┌─────────────────────────────────────────────┐
 │  IDACHU  │────▶│ Response:                                   │
 └──────────┘     │   • accessToken  (CON tenant + role)        │
@@ -88,24 +95,27 @@ Esta arquitectura permite:
 ### 1. `POST /auth/login` (Modificado)
 
 #### Request
+
 ```typescript
 interface LoginRequest {
-  username: string;    // Email o número de teléfono
+  username: string; // Email o número de teléfono
   password: string;
-  appId: string;       // UUID de la aplicación
-  tenantId?: string;   // OPCIONAL: Si se pasa, genera token con contexto de tenant directamente
+  appId: string; // UUID de la aplicación
+  tenantId?: string; // OPCIONAL: Si se pasa, genera token con contexto de tenant directamente
 }
 ```
 
 > 💡 **Comportamiento dual**:
+>
 > - **Sin `tenantId`**: Retorna token global + lista de tenants (requiere `switch-tenant` después)
 > - **Con `tenantId`**: Retorna token específico de tenant directamente (atajo para apps single-tenant)
 
 #### Response (200 OK)
+
 ```typescript
 interface LoginResponse {
-  accessToken: string;      // JWT global O con tenant (según request)
-  refreshToken: string;     // Para usar en switch-tenant
+  accessToken: string; // JWT global O con tenant (según request)
+  refreshToken: string; // Para usar en switch-tenant
   user: {
     id: string;
     email: string | null;
@@ -115,28 +125,30 @@ interface LoginResponse {
     userType: 'USER' | 'SUPERADMIN';
     isActive: boolean;
     appId: string;
-    tenantId: string | null;  // null si login sin tenantId, presente si login con tenantId
-    role: string | null;      // null si login sin tenantId, presente si login con tenantId
+    tenantId: string | null; // null si login sin tenantId, presente si login con tenantId
+    role: string | null; // null si login sin tenantId, presente si login con tenantId
   };
-  tenants: Array<{          // Lista de tenants disponibles (siempre incluida)
+  tenants: Array<{
+    // Lista de tenants disponibles (siempre incluida)
     id: string;
     name: string;
     subdomain: string;
-    role: string | null;    // Rol del usuario en ese tenant
+    role: string | null; // Rol del usuario en ese tenant
   }>;
-  expiresIn: number;        // Segundos hasta expiración (3600)
+  expiresIn: number; // Segundos hasta expiración (3600)
 }
 ```
 
 #### Payload del JWT (accessToken global)
+
 ```json
 {
   "userId": "uuid",
   "email": "user@example.com",
   "phoneNumber": null,
   "userType": "USER",
-  "role": null,           // ← Siempre null
-  "tenantId": null,       // ← Siempre null
+  "role": null, // ← Siempre null
+  "tenantId": null, // ← Siempre null
   "appId": "uuid",
   "iat": 1767030023,
   "exp": 1767033623
@@ -150,19 +162,21 @@ interface LoginResponse {
 Este endpoint permite obtener un token con contexto de tenant específico.
 
 #### Request
+
 ```typescript
 interface SwitchTenantRequest {
-  refreshToken: string;   // El refreshToken obtenido en login
-  tenantId: string;       // UUID del tenant al que se quiere cambiar
+  refreshToken: string; // El refreshToken obtenido en login
+  tenantId: string; // UUID del tenant al que se quiere cambiar
 }
 ```
 
 > ⚠️ **Importante**: No requiere `Authorization` header. El `refreshToken` en el body es suficiente.
 
 #### Response (200 OK)
+
 ```typescript
 interface SwitchTenantResponse {
-  accessToken: string;      // JWT con contexto de tenant
+  accessToken: string; // JWT con contexto de tenant
   user: {
     id: string;
     email: string | null;
@@ -171,9 +185,9 @@ interface SwitchTenantResponse {
     lastName: string | null;
     userType: 'USER' | 'SUPERADMIN';
     isActive: boolean;
-    tenantId: string;       // ← El tenant seleccionado
+    tenantId: string; // ← El tenant seleccionado
     appId: string;
-    role: string | null;    // ← Rol en ese tenant
+    role: string | null; // ← Rol en ese tenant
   };
   expiresIn: number;
 }
@@ -182,14 +196,15 @@ interface SwitchTenantResponse {
 > ⚠️ **Nota**: Este endpoint NO retorna un nuevo `refreshToken`. El `refreshToken` original del login sigue siendo válido para futuros switch-tenant.
 
 #### Payload del JWT (accessToken con tenant)
+
 ```json
 {
   "userId": "uuid",
   "email": "user@example.com",
   "phoneNumber": null,
   "userType": "USER",
-  "role": "manager",                    // ← Rol en el tenant
-  "tenantId": "tenant-uuid",            // ← Tenant seleccionado
+  "role": "manager", // ← Rol en el tenant
+  "tenantId": "tenant-uuid", // ← Tenant seleccionado
   "appId": "uuid",
   "iat": 1767030041,
   "exp": 1767033641
@@ -198,19 +213,19 @@ interface SwitchTenantResponse {
 
 #### Errores Posibles
 
-| Status | Código | Descripción |
-|--------|--------|-------------|
-| 401 | `UNAUTHORIZED` | RefreshToken inválido o expirado |
-| 400 | `BAD_REQUEST` | TenantId con formato inválido |
-| 403 | `FORBIDDEN` | Usuario no tiene membresía en ese tenant |
-| 404 | `NOT_FOUND` | Tenant no existe |
+| Status | Código         | Descripción                              |
+| ------ | -------------- | ---------------------------------------- |
+| 401    | `UNAUTHORIZED` | RefreshToken inválido o expirado         |
+| 400    | `BAD_REQUEST`  | TenantId con formato inválido            |
+| 403    | `FORBIDDEN`    | Usuario no tiene membresía en ese tenant |
+| 404    | `NOT_FOUND`    | Tenant no existe                         |
 
 ---
 
 ### 3. Endpoint Deprecado
 
-| Endpoint Anterior | Reemplazo |
-|-------------------|-----------|
+| Endpoint Anterior          | Reemplazo                  |
+| -------------------------- | -------------------------- |
 | `POST /auth/select-tenant` | `POST /auth/switch-tenant` |
 
 El endpoint anterior usaba `userId` del token en header. El nuevo usa `refreshToken` en el body.
@@ -220,13 +235,16 @@ El endpoint anterior usaba `userId` del token en header. El nuevo usa `refreshTo
 ## Casos de Uso
 
 ### Caso 1: App single-tenant (login directo) ⭐ RECOMENDADO
+
 ```
 1. Login CON tenantId → Recibe token con contexto de tenant directamente
 2. Usar accessToken (ya tiene tenantId y role)
 ```
+
 **Ideal para**: Apps que ya conocen el tenant del usuario (ej: subdominio)
 
 ### Caso 2: Usuario con un solo tenant (auto-switch)
+
 ```
 1. Login SIN tenantId → Recibe tokens + tenants (1 elemento)
 2. Automáticamente hacer switch-tenant al único tenant
@@ -234,6 +252,7 @@ El endpoint anterior usaba `userId` del token en header. El nuevo usa `refreshTo
 ```
 
 ### Caso 3: Usuario con múltiples tenants (selector)
+
 ```
 1. Login SIN tenantId → Recibe tokens + tenants (N elementos)
 2. Mostrar selector de tenant al usuario
@@ -243,6 +262,7 @@ El endpoint anterior usaba `userId` del token en header. El nuevo usa `refreshTo
 ```
 
 ### Caso 4: Operaciones globales (sin tenant)
+
 ```
 1. Login SIN tenantId → Recibe tokens
 2. Usar accessToken global para:
@@ -256,40 +276,47 @@ El endpoint anterior usaba `userId` del token en header. El nuevo usa `refreshTo
 ## Ejemplo de Implementación en Cliente
 
 ### Login directo con tenant (Recomendado para single-tenant)
+
 ```typescript
-async function loginWithTenant(username: string, password: string, appId: string, tenantId: string) {
+async function loginWithTenant(
+  username: string,
+  password: string,
+  appId: string,
+  tenantId: string
+) {
   const response = await fetch('/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password, appId, tenantId })  // ← Incluye tenantId
+    body: JSON.stringify({ username, password, appId, tenantId }), // ← Incluye tenantId
   });
-  
+
   const data = await response.json();
-  
+
   // Token ya tiene contexto de tenant - listo para usar
-  storage.setAccessToken(data.accessToken);  // Ya tiene tenantId y role
+  storage.setAccessToken(data.accessToken); // Ya tiene tenantId y role
   storage.setRefreshToken(data.refreshToken);
   storage.setCurrentTenant(tenantId);
-  
+
   return data;
 }
 ```
 
 ### Login global (para multi-tenant con selector)
+
 ```typescript
 async function login(username: string, password: string, appId: string) {
   const response = await fetch('/auth/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password, appId })  // ← Sin tenantId
+    body: JSON.stringify({ username, password, appId }), // ← Sin tenantId
   });
-  
+
   const data = await response.json();
-  
+
   // Guardar tokens
   storage.setGlobalAccessToken(data.accessToken);
   storage.setRefreshToken(data.refreshToken);
-  
+
   // Si tiene un solo tenant, hacer switch automático
   if (data.tenants.length === 1) {
     await switchTenant(data.refreshToken, data.tenants[0].id);
@@ -297,38 +324,40 @@ async function login(username: string, password: string, appId: string) {
     // Mostrar selector de tenant
     showTenantSelector(data.tenants);
   }
-  
+
   return data;
 }
 ```
 
 ### Switch Tenant
+
 ```typescript
 async function switchTenant(refreshToken: string, tenantId: string) {
   const response = await fetch('/auth/switch-tenant', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ refreshToken, tenantId })
+    body: JSON.stringify({ refreshToken, tenantId }),
   });
-  
+
   const data = await response.json();
-  
+
   // Reemplazar accessToken con el nuevo (con contexto de tenant)
   storage.setTenantAccessToken(data.accessToken);
   storage.setCurrentTenant(tenantId);
-  
+
   return data;
 }
 ```
 
 ### Cambiar de Tenant (sin re-login)
+
 ```typescript
 async function changeTenant(newTenantId: string) {
   const refreshToken = storage.getRefreshToken();
-  
+
   // Usar el mismo refreshToken para cambiar a otro tenant
   const data = await switchTenant(refreshToken, newTenantId);
-  
+
   return data;
 }
 ```
@@ -337,11 +366,11 @@ async function changeTenant(newTenantId: string) {
 
 ## Tokens: Cuándo usar cada uno
 
-| Token | Uso | Duración |
-|-------|-----|----------|
-| `accessToken` (global) | Operaciones sin contexto de tenant | 1 hora |
-| `accessToken` (tenant) | Operaciones específicas de tenant | 1 hora |
-| `refreshToken` | Obtener nuevos accessTokens via switch-tenant | 7 días |
+| Token                  | Uso                                           | Duración |
+| ---------------------- | --------------------------------------------- | -------- |
+| `accessToken` (global) | Operaciones sin contexto de tenant            | 1 hora   |
+| `accessToken` (tenant) | Operaciones específicas de tenant             | 1 hora   |
+| `refreshToken`         | Obtener nuevos accessTokens via switch-tenant | 7 días   |
 
 ### Estrategia de Storage Recomendada
 
@@ -349,13 +378,13 @@ async function changeTenant(newTenantId: string) {
 interface TokenStorage {
   // Token global (del login)
   globalAccessToken: string;
-  
+
   // Token con contexto de tenant (del switch-tenant)
   tenantAccessToken: string | null;
-  
+
   // Refresh token (del login, no cambia)
   refreshToken: string;
-  
+
   // Tenant actualmente seleccionado
   currentTenantId: string | null;
 }
@@ -403,6 +432,7 @@ function getCurrentRole(token: string): string | null {
 ## Resumen de Cambios para Migración
 
 ### Antes (Deprecado)
+
 ```typescript
 // Login con tenant
 POST /auth/login
@@ -415,6 +445,7 @@ Authorization: Bearer <accessToken>
 ```
 
 ### Ahora (Actual)
+
 ```typescript
 // Login sin tenant
 POST /auth/login
@@ -441,16 +472,21 @@ POST /auth/switch-tenant
 ## Preguntas Frecuentes
 
 ### ¿El refreshToken cambia al hacer switch-tenant?
+
 No. El refreshToken obtenido en login es válido durante 7 días y sirve para hacer switch-tenant a cualquier tenant del usuario.
 
 ### ¿Puedo usar el accessToken global para operaciones de tenant?
+
 No. Las operaciones que requieren contexto de tenant validarán que el token tenga `tenantId` en su payload.
 
 ### ¿Qué pasa si el refreshToken expira?
+
 El usuario debe volver a hacer login. El refreshToken tiene duración de 7 días.
 
 ### ¿Cómo sé qué rol tiene el usuario en cada tenant?
+
 La respuesta del login incluye la lista de tenants con el rol del usuario en cada uno:
+
 ```json
 {
   "tenants": [
@@ -461,6 +497,7 @@ La respuesta del login incluye la lista de tenants con el rol del usuario en cad
 ```
 
 ### ¿El endpoint /auth/select-tenant sigue funcionando?
+
 No. Fue reemplazado por `/auth/switch-tenant` con diferente interfaz.
 
 ---

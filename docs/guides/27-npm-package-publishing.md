@@ -10,9 +10,9 @@ Guia para publicar paquetes npm con versionado automatico en Skylabs. Cubre el p
 
 Skylabs usa dos registries de npm:
 
-| Registry | Paquetes | Consumidores |
-|----------|----------|-------------|
-| **npmjs.org** | Solo publicos | Cualquiera (open source) |
+| Registry            | Paquetes            | Consumidores               |
+| ------------------- | ------------------- | -------------------------- |
+| **npmjs.org**       | Solo publicos       | Cualquiera (open source)   |
 | **GitHub Packages** | Publicos + privados | Proyectos internos Skylabs |
 
 ```
@@ -116,14 +116,14 @@ push to main → test job (typecheck + lint + test + build)
 }
 ```
 
-| Campo | Proposito |
-|-------|-----------|
-| `name` | Scope `@skylabs-digital/`, nombre kebab-case |
-| `version` | Iniciar en `0.0.0` — semantic-release la maneja |
-| `publishConfig.access` | `"public"` para publicos. Omitir para privados (default: restricted) |
-| `repository` | **Obligatorio** para GitHub Packages — asocia el paquete al repo |
-| `files` | Solo `dist/` y `README.md` — nunca publicar `src/`, tests, configs |
-| `main` / `module` / `types` | Triple entry point: CJS, ESM, y TypeScript declarations |
+| Campo                       | Proposito                                                            |
+| --------------------------- | -------------------------------------------------------------------- |
+| `name`                      | Scope `@skylabs-digital/`, nombre kebab-case                         |
+| `version`                   | Iniciar en `0.0.0` — semantic-release la maneja                      |
+| `publishConfig.access`      | `"public"` para publicos. Omitir para privados (default: restricted) |
+| `repository`                | **Obligatorio** para GitHub Packages — asocia el paquete al repo     |
+| `files`                     | Solo `dist/` y `README.md` — nunca publicar `src/`, tests, configs   |
+| `main` / `module` / `types` | Triple entry point: CJS, ESM, y TypeScript declarations              |
 
 ---
 
@@ -153,13 +153,13 @@ push to main → test job (typecheck + lint + test + build)
 
 ### Versionado segun commits
 
-| Commit | Version Bump | Ejemplo |
-|--------|--------------|---------|
-| `fix: corregir bug` | PATCH | 2.28.0 → 2.28.1 |
-| `feat: nueva funcionalidad` | MINOR | 2.28.0 → 2.29.0 |
-| `feat!: breaking change` | MAJOR | 2.28.0 → 3.0.0 |
-| `BREAKING CHANGE:` en body | MAJOR | 2.28.0 → 3.0.0 |
-| `chore:`, `docs:`, `style:` | Sin release | No se publica |
+| Commit                      | Version Bump | Ejemplo         |
+| --------------------------- | ------------ | --------------- |
+| `fix: corregir bug`         | PATCH        | 2.28.0 → 2.28.1 |
+| `feat: nueva funcionalidad` | MINOR        | 2.28.0 → 2.29.0 |
+| `feat!: breaking change`    | MAJOR        | 2.28.0 → 3.0.0  |
+| `BREAKING CHANGE:` en body  | MAJOR        | 2.28.0 → 3.0.0  |
+| `chore:`, `docs:`, `style:` | Sin release  | No se publica   |
 
 ---
 
@@ -285,13 +285,13 @@ jobs:
 
 ### Diferencias clave entre los jobs
 
-| Aspecto | release (npmjs.org) | publish-gpr (GitHub Packages) |
-|---------|-------------------|-------------------------------|
-| **Trigger** | Push a main | Solo si release creo nueva version |
-| **Auth** | GitHub App Token + npm OIDC | `GITHUB_TOKEN` automatico |
-| **Registry** | `registry.npmjs.org` | `npm.pkg.github.com` |
-| **Permisos** | `contents: write`, `id-token: write` | `packages: write` |
-| **Version** | semantic-release la determina | Usa la version ya bumpeada en package.json |
+| Aspecto      | release (npmjs.org)                  | publish-gpr (GitHub Packages)              |
+| ------------ | ------------------------------------ | ------------------------------------------ |
+| **Trigger**  | Push a main                          | Solo si release creo nueva version         |
+| **Auth**     | GitHub App Token + npm OIDC          | `GITHUB_TOKEN` automatico                  |
+| **Registry** | `registry.npmjs.org`                 | `npm.pkg.github.com`                       |
+| **Permisos** | `contents: write`, `id-token: write` | `packages: write`                          |
+| **Version**  | semantic-release la determina        | Usa la version ya bumpeada en package.json |
 
 ---
 
@@ -335,10 +335,11 @@ El workflow es igual al de arriba pero sin el step de `publish-gpr` separado. En
 {
   "extends": ["@commitlint/config-conventional"],
   "rules": {
-    "type-enum": [2, "always", [
-      "feat", "fix", "docs", "style", "refactor",
-      "perf", "test", "chore", "ci", "build", "revert"
-    ]],
+    "type-enum": [
+      2,
+      "always",
+      ["feat", "fix", "docs", "style", "refactor", "perf", "test", "chore", "ci", "build", "revert"]
+    ],
     "subject-case": [2, "never", ["sentence-case", "start-case", "pascal-case", "upper-case"]],
     "subject-empty": [2, "never"],
     "subject-full-stop": [2, "never", "."]
@@ -381,29 +382,30 @@ npx --no -- commitlint --edit ${1}
 
 ## 9. Troubleshooting
 
-| Problema | Causa | Solucion |
-|----------|-------|----------|
-| "No new release published" | Commit sin `feat:` o `fix:` | Solo esos prefijos disparan release |
-| publish-gpr no corre | release no emitio output | Verificar que `id: release` y los `echo >> GITHUB_OUTPUT` esten presentes |
-| 403 en GitHub Packages | Falta `packages: write` | Agregar permiso al job |
-| "Package not found" en proyecto interno | `.npmrc` no configurado | Agregar `@skylabs-digital:registry=https://npm.pkg.github.com` |
-| Token local expirado | PAT classic expirado | Regenerar en GitHub Settings → Developer Settings |
-| Version mismatch entre registries | publish-gpr corrio antes del commit de version | El job usa `ref: main` que ya tiene el commit de version |
+| Problema                                | Causa                                          | Solucion                                                                  |
+| --------------------------------------- | ---------------------------------------------- | ------------------------------------------------------------------------- |
+| "No new release published"              | Commit sin `feat:` o `fix:`                    | Solo esos prefijos disparan release                                       |
+| publish-gpr no corre                    | release no emitio output                       | Verificar que `id: release` y los `echo >> GITHUB_OUTPUT` esten presentes |
+| 403 en GitHub Packages                  | Falta `packages: write`                        | Agregar permiso al job                                                    |
+| "Package not found" en proyecto interno | `.npmrc` no configurado                        | Agregar `@skylabs-digital:registry=https://npm.pkg.github.com`            |
+| Token local expirado                    | PAT classic expirado                           | Regenerar en GitHub Settings → Developer Settings                         |
+| Version mismatch entre registries       | publish-gpr corrio antes del commit de version | El job usa `ref: main` que ya tiene el commit de version                  |
 
 ---
 
 ## 10. Paquetes Skylabs Publicados
 
-| Paquete | Tipo | npmjs.org | GitHub Packages |
-|---------|------|-----------|-----------------|
-| `@skylabs-digital/react-identity-access` | Publico | Si | Si |
-| `@skylabs-digital/react-proto-kit` | Publico | Si | Si |
+| Paquete                                  | Tipo    | npmjs.org | GitHub Packages |
+| ---------------------------------------- | ------- | --------- | --------------- |
+| `@skylabs-digital/react-identity-access` | Publico | Si        | Si              |
+| `@skylabs-digital/react-proto-kit`       | Publico | Si        | Si              |
 
 ---
 
 ## 11. Checklist
 
 ### Setup para paquete publico (dual publish)
+
 - [ ] `publishConfig.access: "public"` en package.json
 - [ ] `repository.url` apuntando al repo de GitHub
 - [ ] `.releaserc.json` con plugins de npm + github + changelog + git
@@ -412,19 +414,21 @@ npx --no -- commitlint --edit ${1}
 - [ ] Repo settings → Actions → "Read and write permissions"
 
 ### Setup para paquete privado
+
 - [ ] `publishConfig.registry: "https://npm.pkg.github.com"` en package.json
 - [ ] NO incluir `publishConfig.access`
 - [ ] Repo debe ser privado en GitHub
 - [ ] Workflow usa `NPM_CONFIG_REGISTRY` para semantic-release
 
 ### Proyectos consumidores
+
 - [ ] `.npmrc` con `@skylabs-digital:registry=https://npm.pkg.github.com`
 - [ ] Token configurado (CI: automatico, local: PAT con `read:packages`)
 
-| DO | DON'T |
-|----|-------|
-| Dejar que semantic-release maneje la version | Editar `version` en package.json manualmente |
-| Usar `feat:` y `fix:` para commits que publican | Usar `feat:` para cambios triviales |
-| Publicar publicos en ambos registries | Publicar privados en npmjs.org |
+| DO                                              | DON'T                                                |
+| ----------------------------------------------- | ---------------------------------------------------- |
+| Dejar que semantic-release maneje la version    | Editar `version` en package.json manualmente         |
+| Usar `feat:` y `fix:` para commits que publican | Usar `feat:` para cambios triviales                  |
+| Publicar publicos en ambos registries           | Publicar privados en npmjs.org                       |
 | Configurar `.npmrc` en cada proyecto consumidor | Asumir que npm resuelve magicamente entre registries |
-| Usar PAT con scope minimo (`read:packages`) | Compartir tokens con write access |
+| Usar PAT con scope minimo (`read:packages`)     | Compartir tokens con write access                    |

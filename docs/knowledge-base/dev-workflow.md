@@ -3,6 +3,7 @@
 ## Configuración Inicial (Solo una vez)
 
 ### 1. Setup del Link
+
 Desde la raíz del proyecto, ejecuta:
 
 ```bash
@@ -12,6 +13,7 @@ yarn link:example
 Esto creará un enlace simbólico entre la librería y el ejemplo.
 
 ### 2. Build Inicial
+
 ```bash
 yarn build
 ```
@@ -23,18 +25,22 @@ yarn build
 Abre **2 terminales**:
 
 **Terminal 1 - Librería (auto-rebuild):**
+
 ```bash
 yarn dev
 ```
+
 Este comando observa cambios en `src/` y recompila automáticamente TypeScript y Vite.
 
 **Terminal 2 - Ejemplo:**
+
 ```bash
 cd example
 yarn start
 ```
 
 Con este setup:
+
 - ✅ Cambios en la librería se recompilan automáticamente
 - ✅ El ejemplo ve los cambios inmediatamente (hot reload)
 - ✅ No necesitas ejecutar comandos manualmente
@@ -80,16 +86,19 @@ yarn type-check
 ## Troubleshooting
 
 ### El ejemplo no ve mis cambios
+
 1. Verifica que `yarn dev` está corriendo
 2. Verifica que el ejemplo está usando el link: `ls -la example/node_modules/@skylabs-digital/react-identity-access`
 3. Reinicia el dev server del ejemplo (Ctrl+C y `yarn start` de nuevo)
 
 ### Errores de tipos
+
 1. Para con Ctrl+C el `yarn dev`
 2. Ejecuta `yarn build`
 3. Reinicia `yarn dev`
 
 ### Quiero volver a la versión publicada
+
 ```bash
 yarn unlink:example
 cd example

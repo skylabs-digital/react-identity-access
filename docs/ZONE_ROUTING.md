@@ -40,11 +40,11 @@ El sistema de Zone-Based Routing reemplaza los componentes legacy (`TenantRoute`
 
 Una "zona" es una combinación de:
 
-| Dimensión | Valores | Descripción |
-|-----------|---------|-------------|
-| **Tenant** | `required` / `forbidden` / `optional` | Contexto de tenant |
-| **Auth** | `required` / `forbidden` / `optional` | Estado de autenticación |
-| **UserType** | `USER` / `TENANT_ADMIN` / array | Tipo de usuario requerido |
+| Dimensión    | Valores                               | Descripción               |
+| ------------ | ------------------------------------- | ------------------------- |
+| **Tenant**   | `required` / `forbidden` / `optional` | Contexto de tenant        |
+| **Auth**     | `required` / `forbidden` / `optional` | Estado de autenticación   |
+| **UserType** | `USER` / `TENANT_ADMIN` / array       | Tipo de usuario requerido |
 
 ### AccessMode
 
@@ -52,11 +52,11 @@ Una "zona" es una combinación de:
 type AccessMode = 'required' | 'forbidden' | 'optional';
 ```
 
-| Modo | Comportamiento |
-|------|----------------|
-| `required` | DEBE cumplir la condición, sino redirect |
+| Modo        | Comportamiento                              |
+| ----------- | ------------------------------------------- |
+| `required`  | DEBE cumplir la condición, sino redirect    |
 | `forbidden` | NO DEBE cumplir la condición, sino redirect |
-| `optional` | No importa si cumple o no |
+| `optional`  | No importa si cumple o no                   |
 
 ### Matriz de Zonas
 
@@ -84,10 +84,10 @@ import {
   // Provider de configuración global
   RoutingProvider,
   useRouting,
-  
+
   // Componente base
   ZoneRoute,
-  
+
   // Convenience components
   TenantZone,
   PublicZone,
@@ -99,16 +99,16 @@ import {
   TenantAuthenticatedZone,
   TenantOpenZone,
   TenantGuestZone,
-  
+
   // Hook de navegación
   useZoneNavigation,
-  
+
   // Types
   ZoneRouteProps,
   RoutingConfig,
   AccessMode,
   ZoneRoots,
-  
+
   // Constants
   DEFAULT_ZONE_ROOTS,
   DEFAULT_ZONE_PRESETS,
@@ -138,27 +138,27 @@ import { RoutingProvider } from 'react-identity-access';
 const routingConfig = {
   // Rutas de redirect por contexto/tipo de usuario
   zoneRoots: {
-    publicGuest: '/',              // Landing sin auth
-    publicUser: '/account',        // Usuario sin tenant
-    publicAdmin: '/admin',         // Admin sin tenant
-    tenantGuest: '/login',         // Login page del tenant
-    tenantUser: '/dashboard',      // Dashboard de usuario
+    publicGuest: '/', // Landing sin auth
+    publicUser: '/account', // Usuario sin tenant
+    publicAdmin: '/admin', // Admin sin tenant
+    tenantGuest: '/login', // Login page del tenant
+    tenantUser: '/dashboard', // Dashboard de usuario
     tenantAdmin: '/admin/dashboard', // Dashboard de admin
-    default: '/',                  // Fallback general
+    default: '/', // Fallback general
   },
-  
+
   // Fallbacks globales
   loadingFallback: <Spinner />,
   accessDeniedFallback: <AccessDeniedPage />,
-  
+
   // Callback global para access denied
-  onAccessDenied: (reason) => {
+  onAccessDenied: reason => {
     analytics.track('access_denied', reason);
   },
-  
+
   // Return URL config
-  returnToParam: 'returnTo',      // Query param name
-  returnToStorage: 'url',         // 'url' | 'session' | 'local'
+  returnToParam: 'returnTo', // Query param name
+  returnToStorage: 'url', // 'url' | 'session' | 'local'
 };
 
 function App() {
@@ -174,10 +174,10 @@ function App() {
 
 Los `zoneRoots` determinan a dónde redirigir según el contexto actual:
 
-| Contexto | Sin Auth | Con Auth (User) | Con Auth (Admin) |
-|----------|----------|-----------------|------------------|
-| **Sin Tenant** | `publicGuest` | `publicUser` | `publicAdmin` |
-| **Con Tenant** | `tenantGuest` | `tenantUser` | `tenantAdmin` |
+| Contexto       | Sin Auth      | Con Auth (User) | Con Auth (Admin) |
+| -------------- | ------------- | --------------- | ---------------- |
+| **Sin Tenant** | `publicGuest` | `publicUser`    | `publicAdmin`    |
+| **Con Tenant** | `tenantGuest` | `tenantUser`    | `tenantAdmin`    |
 
 **Ejemplo de uso:**
 
@@ -227,19 +227,19 @@ El `RoutingProvider` es **opcional**. Sin él, se usan los defaults:
 
 ### Tabla de Componentes
 
-| Componente | tenant | auth | userType | Caso de Uso |
-|------------|--------|------|----------|-------------|
-| `ZoneRoute` | configurable | configurable | configurable | Base component |
-| `TenantZone` | required | - | - | Páginas que requieren tenant |
-| `PublicZone` | forbidden | - | - | Landing page sin tenant |
-| `AuthenticatedZone` | - | required | - | Solo usuarios logueados |
-| `GuestZone` | - | forbidden | - | Solo usuarios no logueados |
-| `AdminZone` | - | required | TENANT_ADMIN | Solo admins |
-| `UserZone` | - | required | USER | Solo users regulares |
-| `OpenZone` | optional | optional | - | Acceso libre |
-| `TenantAuthenticatedZone` | required | required | - | Tenant + logged in |
-| `TenantOpenZone` | required | optional | - | Tenant, login opcional |
-| `TenantGuestZone` | required | forbidden | - | Login/signup pages |
+| Componente                | tenant       | auth         | userType     | Caso de Uso                  |
+| ------------------------- | ------------ | ------------ | ------------ | ---------------------------- |
+| `ZoneRoute`               | configurable | configurable | configurable | Base component               |
+| `TenantZone`              | required     | -            | -            | Páginas que requieren tenant |
+| `PublicZone`              | forbidden    | -            | -            | Landing page sin tenant      |
+| `AuthenticatedZone`       | -            | required     | -            | Solo usuarios logueados      |
+| `GuestZone`               | -            | forbidden    | -            | Solo usuarios no logueados   |
+| `AdminZone`               | -            | required     | TENANT_ADMIN | Solo admins                  |
+| `UserZone`                | -            | required     | USER         | Solo users regulares         |
+| `OpenZone`                | optional     | optional     | -            | Acceso libre                 |
+| `TenantAuthenticatedZone` | required     | required     | -            | Tenant + logged in           |
+| `TenantOpenZone`          | required     | optional     | -            | Tenant, login opcional       |
+| `TenantGuestZone`         | required     | forbidden    | -            | Login/signup pages           |
 
 ---
 
@@ -278,7 +278,7 @@ import { TenantGuestZone } from 'react-identity-access';
       <LoginPage />
     </TenantGuestZone>
   }
-/>
+/>;
 ```
 
 ### Ejemplo 3: Landing Page (prohibe tenant)
@@ -293,7 +293,7 @@ import { PublicZone } from 'react-identity-access';
       <LandingPage />
     </PublicZone>
   }
-/>
+/>;
 ```
 
 ### Ejemplo 4: Panel de Admin
@@ -308,7 +308,7 @@ import { AdminZone } from 'react-identity-access';
       <AdminPanel />
     </AdminZone>
   }
-/>
+/>;
 ```
 
 ---
@@ -378,7 +378,7 @@ import { ZoneRoute } from 'react-identity-access';
 <ZoneRoute
   tenant="required"
   auth="required"
-  onAccessDenied={(reason) => {
+  onAccessDenied={reason => {
     // Analytics, logging, etc.
     analytics.track('access_denied', {
       type: reason.type,
@@ -422,16 +422,16 @@ import { useZoneNavigation } from 'react-identity-access';
 function LoginPage() {
   const { returnToUrl, clearReturnTo } = useZoneNavigation();
   const navigate = useNavigate();
-  
+
   const handleLoginSuccess = async () => {
     await login(credentials);
-    
+
     // Redirect a returnTo o default
     const redirectPath = returnToUrl || '/dashboard';
     clearReturnTo();
     navigate(redirectPath);
   };
-  
+
   return <LoginForm onSuccess={handleLoginSuccess} />;
 }
 ```
@@ -445,13 +445,13 @@ import { useZoneNavigation } from 'react-identity-access';
 
 function SomeComponent() {
   const { getSmartRedirect, navigateToZone } = useZoneNavigation();
-  
+
   // Obtiene redirect basado en estado actual
   const smartPath = getSmartRedirect();
   // Si no hay tenant y no está logueado → "/"
   // Si hay tenant y está logueado como admin → "/admin/dashboard"
   // etc.
-  
+
   // Navegar a una zona específica
   navigateToZone('tenantUser'); // → "/dashboard"
   navigateToZone('publicGuest'); // → "/"
@@ -469,21 +469,21 @@ const DEFAULT_ZONE_PRESETS = {
   // Landing/Public
   landing: { tenant: 'forbidden', auth: 'optional' },
   publicOnly: { tenant: 'forbidden', auth: 'forbidden' },
-  
+
   // Auth flows
   login: { tenant: 'required', auth: 'forbidden' },
   guest: { auth: 'forbidden' },
   authenticated: { auth: 'required' },
-  
+
   // Tenant zones
   tenant: { tenant: 'required' },
   tenantOpen: { tenant: 'required', auth: 'optional' },
   tenantAuth: { tenant: 'required', auth: 'required' },
-  
+
   // User types
   user: { tenant: 'required', auth: 'required', userType: UserType.USER },
   admin: { tenant: 'required', auth: 'required', userType: UserType.TENANT_ADMIN },
-  
+
   // Open
   open: { tenant: 'optional', auth: 'optional' },
 };
@@ -498,8 +498,8 @@ const DEFAULT_ZONE_PRESETS = {
 <ZoneRoute tenant="required" auth="required" userType={UserType.TENANT_ADMIN} />
 
 // Override de preset
-<ZoneRoute 
-  preset="tenantAuth" 
+<ZoneRoute
+  preset="tenantAuth"
   requiredPermissions={['special:access']}
 />
 ```
@@ -628,27 +628,27 @@ type ReturnToStorage = 'url' | 'session' | 'local';
 ```typescript
 interface ZoneRouteProps {
   children: ReactNode;
-  
+
   // Preset (shorthand)
   preset?: keyof ZonePresets | string;
-  
+
   // Zone requirements
-  tenant?: AccessMode;      // 'required' | 'forbidden' | 'optional'
-  auth?: AccessMode;        // 'required' | 'forbidden' | 'optional'
-  
+  tenant?: AccessMode; // 'required' | 'forbidden' | 'optional'
+  auth?: AccessMode; // 'required' | 'forbidden' | 'optional'
+
   // User type (solo cuando auth='required')
   userType?: UserType | UserType[];
-  
+
   // Permissions
   requiredPermissions?: string[];
   requireAllPermissions?: boolean; // default: true
-  
+
   // Return URL
   returnTo?: boolean | string;
-  
+
   // Callbacks
   onAccessDenied?: (reason: AccessDeniedReason) => void;
-  
+
   // Fallbacks
   redirectTo?: string;
   loadingFallback?: ReactNode;
@@ -661,23 +661,23 @@ interface ZoneRouteProps {
 ```typescript
 interface AccessDeniedReason {
   type: AccessDeniedType;
-  // 'no_tenant' | 'has_tenant' | 'not_authenticated' | 
+  // 'no_tenant' | 'has_tenant' | 'not_authenticated' |
   // 'already_authenticated' | 'wrong_user_type' | 'missing_permissions'
-  
+
   required?: {
     tenant?: AccessMode;
     auth?: AccessMode;
     userType?: UserType | UserType[];
     permissions?: string[];
   };
-  
+
   current?: {
     hasTenant: boolean;
     isAuthenticated: boolean;
     userType?: UserType;
     permissions?: string[];
   };
-  
+
   redirectTo: string;
 }
 ```
@@ -725,7 +725,7 @@ function useZoneNavigation(options?: {
 // Verificar que returnTo está habilitado
 <ZoneRoute auth="required" returnTo={true}>
   ...
-</ZoneRoute>
+</ZoneRoute>;
 
 // Y que se consume en login
 const { returnToUrl } = useZoneNavigation();
@@ -773,7 +773,7 @@ function AppRoutes() {
           </PublicZone>
         }
       />
-      
+
       {/* Login - con tenant, sin auth */}
       <Route
         path="/login"
@@ -783,7 +783,7 @@ function AppRoutes() {
           </TenantGuestZone>
         }
       />
-      
+
       {/* Signup */}
       <Route
         path="/signup"
@@ -793,7 +793,7 @@ function AppRoutes() {
           </TenantGuestZone>
         }
       />
-      
+
       {/* Dashboard - con tenant, con auth */}
       <Route
         path="/dashboard"
@@ -803,7 +803,7 @@ function AppRoutes() {
           </TenantAuthenticatedZone>
         }
       />
-      
+
       {/* Settings */}
       <Route
         path="/settings/*"
@@ -813,7 +813,7 @@ function AppRoutes() {
           </TenantAuthenticatedZone>
         }
       />
-      
+
       {/* Admin Panel */}
       <Route
         path="/admin/*"
@@ -823,7 +823,7 @@ function AppRoutes() {
           </AdminZone>
         }
       />
-      
+
       {/* Página pública dentro de tenant (ej: términos) */}
       <Route
         path="/terms"
@@ -849,11 +849,11 @@ function LoginPage() {
   const navigate = useNavigate();
   const { login } = useAuth();
   const { returnToUrl, clearReturnTo } = useZoneNavigation();
-  
+
   const handleSubmit = async (credentials: LoginCredentials) => {
     try {
       await login(credentials);
-      
+
       // Redirect a donde intentaba ir, o dashboard
       const redirectPath = returnToUrl || '/dashboard';
       clearReturnTo();
@@ -862,12 +862,10 @@ function LoginPage() {
       // Handle error
     }
   };
-  
+
   return (
     <div>
-      {returnToUrl && (
-        <p>Después del login serás redirigido a: {returnToUrl}</p>
-      )}
+      {returnToUrl && <p>Después del login serás redirigido a: {returnToUrl}</p>}
       <LoginForm onSubmit={handleSubmit} />
     </div>
   );

@@ -19,6 +19,7 @@ Adapt the library to support the new multi-tenant authentication architecture wh
 The backend has implemented a new authentication strategy that provides flexibility for both single-tenant and multi-tenant applications:
 
 ### Current Implementation
+
 - Login requires `tenantId` or defaults to current tenant context
 - User is always associated with a single tenant at login time
 - `accessToken` always contains `tenantId` and `role`
@@ -29,17 +30,20 @@ The backend has implemented a new authentication strategy that provides flexibil
 **Two modes of operation:**
 
 #### Mode 1: Login Global (sin tenantId)
+
 - Login returns **global token** (no tenant context) + list of available tenants
 - User can operate without tenant (view profile, list tenants)
 - Requires `switch-tenant` to get tenant-scoped token
 - Ideal for multi-tenant apps where user selects tenant
 
 #### Mode 2: Login Directo (con tenantId)
+
 - Login with `tenantId` returns **tenant-scoped token** directly
 - Same behavior as before - one request, full context
 - Ideal for single-tenant apps or when tenant is known
 
 **Key improvements:**
+
 - Same `refreshToken` allows switching between any user's tenants without re-auth
 - User can belong to multiple tenants with different roles
 - `LoginResponse` now includes list of user's tenants
@@ -48,12 +52,12 @@ The backend has implemented a new authentication strategy that provides flexibil
 
 ### Breaking Changes
 
-| Component | Current | New | Breaking? |
-|-----------|---------|-----|-----------|
-| `LoginResponse.user.tenantId` | Always present | `null` if login sin tenantId | ⚠️ Conditional |
-| `LoginResponse.user.role` | Always present | `null` if login sin tenantId | ⚠️ Conditional |
-| `LoginRequest.tenantId` | Optional | Still optional (dual behavior) | ✅ Compatible |
-| `LoginResponse.tenants` | Not present | New: list of user's tenants | ✅ Addition |
+| Component                     | Current        | New                            | Breaking?      |
+| ----------------------------- | -------------- | ------------------------------ | -------------- |
+| `LoginResponse.user.tenantId` | Always present | `null` if login sin tenantId   | ⚠️ Conditional |
+| `LoginResponse.user.role`     | Always present | `null` if login sin tenantId   | ⚠️ Conditional |
+| `LoginRequest.tenantId`       | Optional       | Still optional (dual behavior) | ✅ Compatible  |
+| `LoginResponse.tenants`       | Not present    | New: list of user's tenants    | ✅ Addition    |
 
 > **Importante**: Si la app siempre envía `tenantId` en login (comportamiento actual), NO hay breaking changes. Los campos son nullable solo cuando se usa el nuevo flujo global.
 
@@ -62,19 +66,19 @@ The backend has implemented a new authentication strategy that provides flexibil
 ```typescript
 // New: Tenant membership info returned from login
 interface UserTenantMembership {
-  id: string;           // Tenant ID
-  name: string;         // Tenant name
-  subdomain: string;    // Tenant subdomain
-  role: string | null;  // User's role in this tenant
+  id: string; // Tenant ID
+  name: string; // Tenant name
+  subdomain: string; // Tenant subdomain
+  role: string | null; // User's role in this tenant
 }
 
 // Updated: Login response now includes tenants list
 interface LoginResponse {
-  accessToken: string;      // Global OR tenant-scoped (depends on request)
-  refreshToken: string;     // Valid for switch-tenant calls
+  accessToken: string; // Global OR tenant-scoped (depends on request)
+  refreshToken: string; // Valid for switch-tenant calls
   expiresIn: number;
-  user: User;               // User with/without tenant context
-  tenants: UserTenantMembership[];  // NEW: Always included - user's available tenants
+  user: User; // User with/without tenant context
+  tenants: UserTenantMembership[]; // NEW: Always included - user's available tenants
 }
 
 // New: Switch tenant request
@@ -83,11 +87,11 @@ interface SwitchTenantRequest {
   tenantId: string;
 }
 
-// New: Switch tenant response  
+// New: Switch tenant response
 interface SwitchTenantResponse {
-  accessToken: string;      // Tenant-scoped token
+  accessToken: string; // Tenant-scoped token
   expiresIn: number;
-  user: User;               // User WITH tenantId and role
+  user: User; // User WITH tenantId and role
 }
 
 // Updated: User type - tenantId/role nullable for global context
@@ -99,8 +103,8 @@ interface User {
   lastName?: string;
   isActive: boolean;
   userType: UserType;
-  tenantId: string | null;  // null if global login, present if login with tenantId
-  role?: string | null;     // null if global login, present if login with tenantId
+  tenantId: string | null; // null if global login, present if login with tenantId
+  role?: string | null; // null if global login, present if login with tenantId
   roleId: string | null;
   appId: string;
   createdAt: string;
@@ -128,18 +132,21 @@ const [globalAccessToken, setGlobalAccessToken] = useState<string | null>(null);
 ```typescript
 interface AuthContextValue {
   // ... existing methods ...
-  
+
   // New: List of tenants user belongs to
   userTenants: UserTenantMembership[];
-  
+
   // New: Whether current session has tenant context
   hasTenantContext: boolean;
-  
+
   // New: Switch to a different tenant (no re-auth needed)
-  switchToTenant: (tenantId: string, options?: {
-    redirectPath?: string;
-  }) => Promise<void>;
-  
+  switchToTenant: (
+    tenantId: string,
+    options?: {
+      redirectPath?: string;
+    }
+  ) => Promise<void>;
+
   // New: Get tenants from backend (refresh list)
   refreshUserTenants: () => Promise<UserTenantMembership[]>;
 }
@@ -150,7 +157,7 @@ interface AuthContextValue {
 ```typescript
 const login = async (params: LoginParams): Promise<LoginResponse> => {
   const { username, password, tenantSlug, redirectPath } = params;
-  
+
   // Resolve tenantId if tenantSlug provided (existing behavior)
   let resolvedTenantId: string | undefined;
   if (tenantSlug) {
@@ -158,31 +165,31 @@ const login = async (params: LoginParams): Promise<LoginResponse> => {
     const tenantInfo = await tenantApi.getPublicTenantInfo(tenantSlug);
     resolvedTenantId = tenantInfo.id;
   }
-  
+
   const loginResponse = await authApiService.login({
     username,
     password,
     appId,
     tenantId: resolvedTenantId, // Optional - dual behavior
   });
-  
+
   // Store tokens
   sessionManager.setTokens({
     accessToken: loginResponse.accessToken,
     refreshToken: loginResponse.refreshToken,
     expiresIn: loginResponse.expiresIn,
   });
-  
+
   // Store user
   setCurrentUser(loginResponse.user);
-  
+
   // Store available tenants (NEW - always present)
   setUserTenants(loginResponse.tenants);
-  
+
   // Determine if we have tenant context
   const hasTenant = loginResponse.user.tenantId !== null;
   setHasTenantContext(hasTenant);
-  
+
   // If login was global (no tenantId), handle tenant selection
   if (!hasTenant) {
     if (loginResponse.tenants.length === 1) {
@@ -196,7 +203,7 @@ const login = async (params: LoginParams): Promise<LoginResponse> => {
     // Login was direct with tenant, handle redirect if needed
     // (existing switch behavior for cross-subdomain)
   }
-  
+
   return loginResponse;
 };
 ```
@@ -211,29 +218,29 @@ const switchToTenant = async (
   options?: { redirectPath?: string }
 ): Promise<void> => {
   const { redirectPath } = options || {};
-  
+
   // Get refresh token from session
   const refreshToken = sessionManager.getRefreshToken();
   if (!refreshToken) {
     throw new Error('No refresh token available');
   }
-  
+
   // Call switch-tenant endpoint
   const response = await authApiService.switchTenant({
     refreshToken,
     tenantId,
   });
-  
+
   // Update access token with tenant-scoped one
   sessionManager.setAccessToken(response.accessToken);
-  
+
   // Update user with tenant context
   setCurrentUser(response.user);
   setHasTenantContext(true);
-  
+
   // Find target tenant info
   const targetTenant = userTenants.find(t => t.id === tenantId);
-  
+
   if (targetTenant) {
     // Use TenantProvider's switchTenant for URL handling
     switchTenant(targetTenant.subdomain, {
@@ -253,7 +260,7 @@ const switchToTenant = async (
 ```typescript
 export class AuthApiService {
   // ... existing methods ...
-  
+
   // New: Switch tenant endpoint
   async switchTenant(request: SwitchTenantRequest): Promise<SwitchTenantResponse> {
     // Note: No Authorization header needed - uses refreshToken in body
@@ -263,12 +270,10 @@ export class AuthApiService {
     );
     return response;
   }
-  
+
   // New: Get user's tenants (for refresh)
   async getUserTenants(): Promise<UserTenantMembership[]> {
-    const response = await this.httpService.get<UserTenantMembership[]>(
-      '/auth/tenants'
-    );
+    const response = await this.httpService.get<UserTenantMembership[]>('/auth/tenants');
     return response;
   }
 }
@@ -279,13 +284,13 @@ export class AuthApiService {
 ```typescript
 interface TokenStorage {
   // Existing
-  accessToken: string;      // Currently active token (global or tenant)
-  refreshToken: string;     // From login, used for switch-tenant
+  accessToken: string; // Currently active token (global or tenant)
+  refreshToken: string; // From login, used for switch-tenant
   expiresIn: number;
-  
+
   // New
-  globalAccessToken?: string;    // Preserved global token
-  currentTenantId?: string;      // Currently selected tenant
+  globalAccessToken?: string; // Preserved global token
+  currentTenantId?: string; // Currently selected tenant
 }
 ```
 
@@ -318,6 +323,7 @@ The existing `switchTenant` method in TenantProvider handles URL changes (subdom
 ### Phase 3: Optional Adoption
 
 Apps can **optionally** adopt the new global login flow:
+
 1. Remove `tenantSlug` from login call
 2. Implement tenant selector UI
 3. Use `switchToTenant` for tenant selection
@@ -329,13 +335,13 @@ Apps can **optionally** adopt the new global login flow:
 ```typescript
 interface AuthProviderConfig {
   // ... existing config ...
-  
+
   // New: Behavior when user has multiple tenants
   multiTenantBehavior?: 'auto-first' | 'require-selection' | 'redirect-selector';
-  
+
   // New: Path to redirect for tenant selection
   tenantSelectorPath?: string;
-  
+
   // New: Callback when user needs to select tenant
   onTenantSelectionRequired?: (tenants: UserTenantMembership[]) => void;
 }
@@ -347,7 +353,7 @@ Consider adding pre-built components:
 
 ```typescript
 // Tenant selector dropdown
-<TenantSelector 
+<TenantSelector
   onSelect={(tenantId) => switchToTenant(tenantId)}
   currentTenantId={currentUser?.tenantId}
 />
@@ -359,14 +365,17 @@ Consider adding pre-built components:
 ## Use Cases
 
 ### Case 1: Single-Tenant App (Login Directo) - Existing Behavior
+
 ```
 1. User logs in with tenantSlug → receives tenant-scoped token directly
 2. User has full context immediately
 3. tenants[] available as bonus (can show "switch tenant" option)
 ```
+
 > **No changes required** - works exactly as before.
 
 ### Case 2: Multi-Tenant App - Global Login
+
 ```
 1. User logs in WITHOUT tenantSlug → receives global token + N tenants
 2. If 1 tenant: Library auto-calls switchToTenant
@@ -377,6 +386,7 @@ Consider adding pre-built components:
 ```
 
 ### Case 3: Tenant Switch (No Re-Auth)
+
 ```
 1. User is authenticated in Tenant A
 2. User clicks "Switch to Tenant B" (from userTenants list)
@@ -386,22 +396,26 @@ Consider adding pre-built components:
 ```
 
 ### Case 4: Cross-Subdomain Login (Existing)
+
 ```
 1. User logs in on tenant-a.app.com with tenantSlug="tenant-b"
 2. Login succeeds with tenant-b context
 3. Library redirects to tenant-b.app.com with tokens
 4. User lands authenticated on tenant-b
 ```
+
 > **No changes required** - works exactly as before.
 
 ## Testing Requirements
 
 ### Backward Compatibility (Critical)
+
 1. Login with `tenantSlug` works exactly as before
 2. Cross-subdomain login with tokens works as before
 3. Existing apps don't break
 
 ### New Features
+
 4. Login without `tenantSlug` returns global token + tenants list
 5. `switchToTenant` gets new access token and redirects
 6. Auto-switch works when user has single tenant
@@ -424,6 +438,7 @@ Consider adding pre-built components:
 ### Phase 1: Types & API (Non-Breaking)
 
 #### Types (`src/types/api.ts`)
+
 - [ ] Add `UserTenantMembership` interface
 - [ ] Update `LoginResponse` with `tenants` array (always present)
 - [ ] Add `SwitchTenantRequest` interface
@@ -432,33 +447,39 @@ Consider adding pre-built components:
 - [ ] Add `role?: string | null` to User
 
 #### API Service (`src/services/AuthApiService.ts`)
+
 - [ ] Add `switchTenant(request)` method → `POST /auth/switch-tenant`
 - [ ] Add `getUserTenants()` method → `GET /auth/tenants`
 
 ### Phase 2: AuthProvider Updates
 
 #### State (`src/providers/AuthProvider.tsx`)
+
 - [ ] Add `userTenants: UserTenantMembership[]` state
 - [ ] Add `hasTenantContext: boolean` state
 
 #### Methods
+
 - [ ] Add `switchToTenant(tenantId, options?)` method
 - [ ] Add `refreshUserTenants()` method
 - [ ] Update login to store `userTenants` from response
 - [ ] Update login to set `hasTenantContext` based on user.tenantId
 
 #### Config
+
 - [ ] Add `onTenantSelectionRequired` callback option
 - [ ] Add `autoSwitchSingleTenant` boolean option (default: true)
 
 ### Phase 3: Context & Components
 
 #### AuthContext
+
 - [ ] Expose `userTenants` in context
 - [ ] Expose `hasTenantContext` in context
 - [ ] Expose `switchToTenant` in context
 
 #### TenantSelector Component (`src/components/TenantSelector.tsx`)
+
 - [ ] Create `<TenantSelector>` component
 - [ ] Props: `onSelect`, `currentTenantId`, `tenants` (optional, uses context)
 - [ ] Dropdown/list UI with tenant names
@@ -466,6 +487,7 @@ Consider adding pre-built components:
 - [ ] Customizable styling (className, renderItem)
 
 #### LocalStorage Cache
+
 - [ ] Cache `userTenants` in localStorage on login
 - [ ] Load cached tenants on AuthProvider init (for faster render)
 - [ ] Clear cache on logout
@@ -474,17 +496,20 @@ Consider adding pre-built components:
 ### Tests
 
 #### Backward Compatibility
+
 - [ ] Login with tenantSlug returns tenant-scoped token
 - [ ] Cross-subdomain auth still works
 - [ ] Existing apps continue to function
 
 #### New Features
+
 - [ ] Login without tenantSlug returns global token + tenants
 - [ ] switchToTenant gets new token and redirects
 - [ ] Auto-switch for single tenant
 - [ ] onTenantSelectionRequired callback
 
 ### Documentation
+
 - [ ] Update README with multi-tenant section
 - [ ] Document new AuthProvider config options
 - [ ] Add examples for tenant selector UI

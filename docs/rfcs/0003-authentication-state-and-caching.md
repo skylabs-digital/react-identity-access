@@ -8,6 +8,7 @@
 ## Summary
 
 Improve user experience and performance by:
+
 1. Adding `isAuthenticated` variable to `AuthContext` for simple authentication state checks
 2. Implementing optimistic caching for `AppProvider` and `TenantProvider` to prevent redundant API calls on page refresh
 
@@ -27,6 +28,7 @@ const isLoggedIn3 = sessionManager.hasValidSession();
 ```
 
 **Issues:**
+
 - No single source of truth for authentication state
 - `hasValidSession()` is a function call (not idiomatic React)
 - Not compatible with React's ref/memo patterns
@@ -36,16 +38,19 @@ const isLoggedIn3 = sessionManager.hasValidSession();
 ### Problem 2: Redundant API Calls on Every Page Refresh
 
 Currently, on every page refresh:
+
 - `AppProvider` fetches app info from `/apps/:appId/public-info`
 - `TenantProvider` fetches tenant info from `/tenants/:tenantSlug/public-info`
 
 **Issues:**
+
 - Slow initial page loads (2 API calls every time)
 - Unnecessary server load for data that rarely changes
 - Poor UX with loading screens on every refresh
 - No optimistic rendering
 
 **Example:**
+
 ```typescript
 // User refreshes page
 // → Shows loading screen
@@ -76,12 +81,12 @@ export interface AuthContextValue {
 ```typescript
 export function AppProvider({ config, children }: AppProviderProps) {
   const [appInfo, setAppInfo] = useState<PublicAppInfo | null>(null);
-  
+
   useEffect(() => {
     // Fetches on every mount - no cache!
     loadApp();
   }, [loadApp]);
-  
+
   // ...
 }
 ```
@@ -91,14 +96,14 @@ export function AppProvider({ config, children }: AppProviderProps) {
 ```typescript
 export function TenantProvider({ config, children }: TenantProviderProps) {
   const [tenant, setTenant] = useState<PublicTenantInfo | null>(config.initialTenant || null);
-  
+
   useEffect(() => {
     // Fetches on every mount - no cache!
     if (!config.initialTenant && tenantSlug) {
       loadTenant(tenantSlug);
     }
   }, [config.initialTenant, tenantSlug, loadTenant]);
-  
+
   // ...
 }
 ```
@@ -113,7 +118,7 @@ Add a reactive boolean that tracks authentication state:
 export interface AuthContextValue {
   // NEW: Simple boolean for authentication state
   isAuthenticated: boolean;
-  
+
   // Existing
   sessionManager: SessionManager;
   currentUser: User | null;
@@ -127,15 +132,15 @@ export interface AuthContextValue {
 ```typescript
 export function AuthProvider({ config = {}, children }: AuthProviderProps) {
   // ... existing code ...
-  
+
   // Compute isAuthenticated from session state
   const isAuthenticated = useMemo(() => {
     return sessionManager.hasValidSession() && currentUser !== null;
   }, [sessionManager, currentUser]);
-  
+
   const contextValue = useMemo(() => {
     // ... existing methods ...
-    
+
     return {
       isAuthenticated, // NEW
       sessionManager,
@@ -144,7 +149,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       // ... rest
     };
   }, [isAuthenticated, sessionManager, currentUser, /* ... */]);
-  
+
   return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
 }
 ```
@@ -197,24 +202,24 @@ export function AppProvider({ config, children }: AppProviderProps) {
     ttl: config.cache?.ttl ?? 5 * 60 * 1000, // 5 minutes default
     storageKey: config.cache?.storageKey ?? `app_cache_${config.appId}`,
   };
-  
+
   const [appInfo, setAppInfo] = useState<PublicAppInfo | null>(() => {
     // Try to load from cache on initialization
     if (!cacheConfig.enabled) return null;
-    
+
     try {
       const cached = localStorage.getItem(cacheConfig.storageKey);
       if (!cached) return null;
-      
+
       const parsed: CachedAppInfo = JSON.parse(cached);
       const now = Date.now();
       const age = now - parsed.timestamp;
-      
+
       // Check if cache is still valid
       if (age < cacheConfig.ttl && parsed.appId === config.appId) {
         return parsed.data;
       }
-      
+
       // Cache expired
       localStorage.removeItem(cacheConfig.storageKey);
       return null;
@@ -222,66 +227,69 @@ export function AppProvider({ config, children }: AppProviderProps) {
       return null;
     }
   });
-  
+
   const [isAppLoading, setIsAppLoading] = useState(!appInfo); // Don't load if we have cache
   const [appError, setAppError] = useState<Error | null>(null);
-  
-  const loadApp = useCallback(async (bypassCache = false) => {
-    // Check cache first (unless bypassing)
-    if (!bypassCache && cacheConfig.enabled && appInfo) {
-      return; // Already have valid cached data
-    }
-    
-    try {
-      setIsAppLoading(true);
-      setAppError(null);
-      
-      const httpService = new HttpService(config.baseUrl);
-      const appApi = new AppApiService(httpService, {} as any);
-      const appData = await appApi.getPublicAppInfo(config.appId);
-      setAppInfo(appData);
-      
-      // Save to cache
-      if (cacheConfig.enabled) {
-        try {
-          const cacheData: CachedAppInfo = {
-            data: appData,
-            timestamp: Date.now(),
-            appId: config.appId,
-          };
-          localStorage.setItem(cacheConfig.storageKey, JSON.stringify(cacheData));
-        } catch (error) {
-          console.warn('Failed to cache app info:', error);
-        }
+
+  const loadApp = useCallback(
+    async (bypassCache = false) => {
+      // Check cache first (unless bypassing)
+      if (!bypassCache && cacheConfig.enabled && appInfo) {
+        return; // Already have valid cached data
       }
-    } catch (err) {
-      const error = err instanceof Error ? err : new Error('Failed to load app information');
-      setAppError(error);
-      setAppInfo(null);
-    } finally {
-      setIsAppLoading(false);
-    }
-  }, [config.baseUrl, config.appId, cacheConfig, appInfo]);
-  
+
+      try {
+        setIsAppLoading(true);
+        setAppError(null);
+
+        const httpService = new HttpService(config.baseUrl);
+        const appApi = new AppApiService(httpService, {} as any);
+        const appData = await appApi.getPublicAppInfo(config.appId);
+        setAppInfo(appData);
+
+        // Save to cache
+        if (cacheConfig.enabled) {
+          try {
+            const cacheData: CachedAppInfo = {
+              data: appData,
+              timestamp: Date.now(),
+              appId: config.appId,
+            };
+            localStorage.setItem(cacheConfig.storageKey, JSON.stringify(cacheData));
+          } catch (error) {
+            console.warn('Failed to cache app info:', error);
+          }
+        }
+      } catch (err) {
+        const error = err instanceof Error ? err : new Error('Failed to load app information');
+        setAppError(error);
+        setAppInfo(null);
+      } finally {
+        setIsAppLoading(false);
+      }
+    },
+    [config.baseUrl, config.appId, cacheConfig, appInfo]
+  );
+
   // Background refresh: Load fresh data without blocking UI
   const backgroundRefresh = useCallback(async () => {
     if (!cacheConfig.enabled || !appInfo) return;
-    
+
     try {
       const cached = localStorage.getItem(cacheConfig.storageKey);
       if (!cached) return;
-      
+
       const parsed: CachedAppInfo = JSON.parse(cached);
       const age = Date.now() - parsed.timestamp;
-      
+
       // If cache is more than 50% expired, refresh in background
       if (age > cacheConfig.ttl * 0.5) {
         const httpService = new HttpService(config.baseUrl);
         const appApi = new AppApiService(httpService, {} as any);
         const appData = await appApi.getPublicAppInfo(config.appId);
-        
+
         setAppInfo(appData);
-        
+
         const cacheData: CachedAppInfo = {
           data: appData,
           timestamp: Date.now(),
@@ -294,7 +302,7 @@ export function AppProvider({ config, children }: AppProviderProps) {
       // Don't update error state - keep showing cached data
     }
   }, [config, cacheConfig, appInfo]);
-  
+
   useEffect(() => {
     if (!appInfo) {
       loadApp();
@@ -303,7 +311,7 @@ export function AppProvider({ config, children }: AppProviderProps) {
       backgroundRefresh();
     }
   }, []);
-  
+
   // ... rest of implementation
 }
 ```
@@ -340,92 +348,95 @@ interface CachedTenantInfo {
 export function TenantProvider({ config, children }: TenantProviderProps) {
   const { baseUrl, appId } = useApp();
   const tenantSlug = useMemo(() => detectTenantSlug(), [detectTenantSlug]);
-  
+
   const cacheConfig = {
     enabled: config.cache?.enabled ?? true,
     ttl: config.cache?.ttl ?? 5 * 60 * 1000,
     storageKey: config.cache?.storageKey ?? `tenant_cache_${tenantSlug}`,
   };
-  
+
   const [tenant, setTenant] = useState<PublicTenantInfo | null>(() => {
     // Try to load from cache first
     if (config.initialTenant) return config.initialTenant;
     if (!cacheConfig.enabled || !tenantSlug) return null;
-    
+
     try {
       const cached = localStorage.getItem(cacheConfig.storageKey);
       if (!cached) return null;
-      
+
       const parsed: CachedTenantInfo = JSON.parse(cached);
       const now = Date.now();
       const age = now - parsed.timestamp;
-      
+
       if (age < cacheConfig.ttl && parsed.tenantSlug === tenantSlug) {
         return parsed.data;
       }
-      
+
       localStorage.removeItem(cacheConfig.storageKey);
       return null;
     } catch {
       return null;
     }
   });
-  
+
   const [isTenantLoading, setIsTenantLoading] = useState(!tenant && !config.initialTenant);
-  
-  const loadTenant = useCallback(async (slug: string, bypassCache = false) => {
-    // Similar caching logic as AppProvider
-    if (!bypassCache && cacheConfig.enabled && tenant && tenant.domain === slug) {
-      return;
-    }
-    
-    try {
-      setIsTenantLoading(true);
-      setTenantError(null);
-      
-      const httpService = new HttpService(baseUrl);
-      const tenantApi = new TenantApiService(httpService, appId);
-      const tenantInfo = await tenantApi.getPublicTenantInfo(slug);
-      setTenant(tenantInfo);
-      
-      // Save to cache
-      if (cacheConfig.enabled) {
-        try {
-          const cacheData: CachedTenantInfo = {
-            data: tenantInfo,
-            timestamp: Date.now(),
-            tenantSlug: slug,
-          };
-          localStorage.setItem(cacheConfig.storageKey, JSON.stringify(cacheData));
-        } catch (error) {
-          console.warn('Failed to cache tenant info:', error);
-        }
+
+  const loadTenant = useCallback(
+    async (slug: string, bypassCache = false) => {
+      // Similar caching logic as AppProvider
+      if (!bypassCache && cacheConfig.enabled && tenant && tenant.domain === slug) {
+        return;
       }
-    } catch (err) {
-      // ... error handling
-    } finally {
-      setIsTenantLoading(false);
-    }
-  }, [baseUrl, appId, cacheConfig, tenant]);
-  
+
+      try {
+        setIsTenantLoading(true);
+        setTenantError(null);
+
+        const httpService = new HttpService(baseUrl);
+        const tenantApi = new TenantApiService(httpService, appId);
+        const tenantInfo = await tenantApi.getPublicTenantInfo(slug);
+        setTenant(tenantInfo);
+
+        // Save to cache
+        if (cacheConfig.enabled) {
+          try {
+            const cacheData: CachedTenantInfo = {
+              data: tenantInfo,
+              timestamp: Date.now(),
+              tenantSlug: slug,
+            };
+            localStorage.setItem(cacheConfig.storageKey, JSON.stringify(cacheData));
+          } catch (error) {
+            console.warn('Failed to cache tenant info:', error);
+          }
+        }
+      } catch (err) {
+        // ... error handling
+      } finally {
+        setIsTenantLoading(false);
+      }
+    },
+    [baseUrl, appId, cacheConfig, tenant]
+  );
+
   // Background refresh similar to AppProvider
   const backgroundRefresh = useCallback(async () => {
     if (!cacheConfig.enabled || !tenant || !tenantSlug) return;
-    
+
     try {
       const cached = localStorage.getItem(cacheConfig.storageKey);
       if (!cached) return;
-      
+
       const parsed: CachedTenantInfo = JSON.parse(cached);
       const age = Date.now() - parsed.timestamp;
-      
+
       if (age > cacheConfig.ttl * 0.5) {
         const httpService = new HttpService(baseUrl);
         const tenantApi = new TenantApiService(httpService, appId);
         const tenantInfo = await tenantApi.getPublicTenantInfo(tenantSlug);
-        
+
         setTenant(tenantInfo);
-        
+
         const cacheData: CachedTenantInfo = {
           data: tenantInfo,
           timestamp: Date.now(),
@@ -437,7 +448,7 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
       console.warn('Background tenant refresh failed:', error);
     }
   }, [baseUrl, appId, cacheConfig, tenant, tenantSlug]);
-  
+
   useEffect(() => {
     if (!tenant && tenantSlug) {
       loadTenant(tenantSlug);
@@ -445,7 +456,7 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
       backgroundRefresh();
     }
   }, []);
-  
+
   // ... rest of implementation
 }
 ```
@@ -519,7 +530,7 @@ return (
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { hasValidSession, currentUser } = useAuth();
   const isAuth = hasValidSession() && !!currentUser;
-  
+
   if (!isAuth) return <Navigate to="/login" />;
   return <>{children}</>;
 }
@@ -527,7 +538,7 @@ function ProtectedRoute({ children }: { children: ReactNode }) {
 // After
 function ProtectedRoute({ children }: { children: ReactNode }) {
   const { isAuthenticated } = useAuth();
-  
+
   if (!isAuthenticated) return <Navigate to="/login" />;
   return <>{children}</>;
 }
@@ -660,6 +671,7 @@ localStorage.removeItem('tenant_cache_' + tenantSlug);
 ## Implementation Plan
 
 ### Phase 1: Add isAuthenticated
+
 - [ ] Update `AuthContextValue` interface
 - [ ] Compute `isAuthenticated` with `useMemo`
 - [ ] Add to context value
@@ -667,6 +679,7 @@ localStorage.removeItem('tenant_cache_' + tenantSlug);
 - [ ] Add tests
 
 ### Phase 2: Add Caching to AppProvider
+
 - [ ] Add cache config to `AppConfig`
 - [ ] Implement cache read on initialization
 - [ ] Implement cache write after API fetch
@@ -675,6 +688,7 @@ localStorage.removeItem('tenant_cache_' + tenantSlug);
 - [ ] Add tests
 
 ### Phase 3: Add Caching to TenantProvider
+
 - [ ] Add cache config to `TenantConfig`
 - [ ] Implement cache read on initialization
 - [ ] Implement cache write after API fetch
@@ -683,6 +697,7 @@ localStorage.removeItem('tenant_cache_' + tenantSlug);
 - [ ] Add tests
 
 ### Phase 4: Documentation
+
 - [ ] Update README.md
 - [ ] Update API reference
 - [ ] Add caching guide
@@ -690,6 +705,7 @@ localStorage.removeItem('tenant_cache_' + tenantSlug);
 - [ ] Update examples
 
 ### Phase 5: Testing
+
 - [ ] Unit tests for isAuthenticated
 - [ ] Unit tests for cache logic
 - [ ] Integration tests for providers
@@ -703,7 +719,8 @@ localStorage.removeItem('tenant_cache_' + tenantSlug);
 
 **Question:** When should we invalidate the cache?
 
-**Solution:** 
+**Solution:**
+
 - Auto-expire after TTL (default 5 minutes)
 - Clear on app/tenant ID change
 - Provide manual refresh methods
@@ -714,6 +731,7 @@ localStorage.removeItem('tenant_cache_' + tenantSlug);
 **Question:** What if localStorage is full?
 
 **Solution:**
+
 - Catch storage errors gracefully
 - Fall back to no caching
 - Log warning to console
@@ -724,6 +742,7 @@ localStorage.removeItem('tenant_cache_' + tenantSlug);
 **Question:** How does caching work with SSR?
 
 **Solution:**
+
 - `initialTenant` and `initialRoles` bypass cache
 - Cache only activates in browser
 - SSR provides fresh data on first render
@@ -734,6 +753,7 @@ localStorage.removeItem('tenant_cache_' + tenantSlug);
 **Question:** What if user opens multiple tabs?
 
 **Solution:**
+
 - Each tab reads from shared localStorage cache
 - Background refresh updates cache for all tabs
 - Consider adding `storage` event listener for real-time sync (future enhancement)
@@ -743,6 +763,7 @@ localStorage.removeItem('tenant_cache_' + tenantSlug);
 **Question:** Is it safe to cache tenant/app info?
 
 **Solution:**
+
 - Only caching **public** info (no sensitive data)
 - Same data available via public API endpoints
 - No authentication tokens cached here
@@ -753,32 +774,38 @@ localStorage.removeItem('tenant_cache_' + tenantSlug);
 This change will be released as a **minor version bump** (v2.X.0) - no breaking changes.
 
 **Semantic Versioning:**
+
 - Current: `2.0.x` (after RFC-002)
 - After RFC-003: `2.1.0`
 
 ## Alternatives Considered
 
 ### Alternative 1: Keep Current Implementation
+
 **Pros:** No changes needed  
 **Cons:** Poor UX, slow page loads, redundant API calls  
 **Decision:** ❌ Rejected - improvements are needed
 
 ### Alternative 2: Use React Query / SWR
+
 **Pros:** Battle-tested caching libraries  
 **Cons:** Additional dependency, over-engineered for our use case  
 **Decision:** ❌ Rejected - simple localStorage cache is sufficient
 
 ### Alternative 3: Cache Everything Forever
+
 **Pros:** Maximum performance  
 **Cons:** Stale data, no way to get updates  
 **Decision:** ❌ Rejected - need balance between performance and freshness
 
 ### Alternative 4: Stale-While-Revalidate with TTL (SELECTED)
+
 **Pros:** Instant loads + fresh data, configurable, no extra dependencies  
 **Cons:** Slightly more complex implementation  
 **Decision:** ✅ **SELECTED** - Best balance of UX and performance
 
 ### Alternative 5: Use isLoggedIn instead of isAuthenticated
+
 **Pros:** Shorter name  
 **Cons:** Less precise terminology in auth context  
 **Decision:** ❌ Rejected - `isAuthenticated` is more accurate
@@ -820,6 +847,7 @@ These RFCs work together to create a fast, intuitive authentication experience.
 **Pending Review** - This RFC is open for discussion and feedback.
 
 **Key Decision Points:**
+
 1. ✅ Add `isAuthenticated` boolean to `AuthContext`
 2. ✅ Implement localStorage caching for `AppProvider`
 3. ✅ Implement localStorage caching for `TenantProvider`

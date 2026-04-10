@@ -1,6 +1,7 @@
 # Workflow de Desarrollo - React Identity Access
 
 ## Problema
+
 El template no ve los cambios de tipos de la librería en tiempo real durante el desarrollo.
 
 ## Solución
@@ -52,7 +53,7 @@ pnpm install
 ## Configuración Aplicada
 
 1. **TypeScript paths** en template/tsconfig.json
-2. **Webpack alias** en template/craco.config.js  
+2. **Webpack alias** en template/craco.config.js
 3. **Workspace dependency** en template/package.json
 
 El template ahora debería ver los tipos actualizados de `authenticatedHttpService` correctamente.

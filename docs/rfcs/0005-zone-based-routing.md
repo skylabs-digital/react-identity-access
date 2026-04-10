@@ -26,35 +26,37 @@ Redesign the multi-tenant routing system to use a zone-based approach with centr
 ### Zone Taxonomy
 
 Define clear zones based on two axes:
+
 - **Tenant Context**: `public` (no tenant) vs `tenant` (tenant required) vs `any` (both allowed)
 - **Auth State**: `guest` (not authenticated) vs `authenticated` (any auth user) vs `user` (USER type) vs `admin` (TENANT_ADMIN type) vs `any` (both allowed)
 
 This creates the following zone matrix:
 
-| Zone Name | Tenant Context | Auth State | Description |
-|-----------|---------------|------------|-------------|
-| `public.guest` | No tenant | Guest only | Landing pages, marketing |
-| `public.any` | No tenant | Any | Public content visible to all |
-| `public.authenticated` | No tenant | Authenticated | Tenant selection after login |
-| `tenant.guest` | Tenant | Guest only | Login page |
-| `tenant.any` | Tenant | Any | Public tenant content |
-| `tenant.authenticated` | Tenant | Authenticated | Requires login |
-| `tenant.user` | Tenant | USER only | User-specific features |
-| `tenant.admin` | Tenant | TENANT_ADMIN | Admin panel |
-| `any.any` | Any | Any | Fully open routes |
+| Zone Name              | Tenant Context | Auth State    | Description                   |
+| ---------------------- | -------------- | ------------- | ----------------------------- |
+| `public.guest`         | No tenant      | Guest only    | Landing pages, marketing      |
+| `public.any`           | No tenant      | Any           | Public content visible to all |
+| `public.authenticated` | No tenant      | Authenticated | Tenant selection after login  |
+| `tenant.guest`         | Tenant         | Guest only    | Login page                    |
+| `tenant.any`           | Tenant         | Any           | Public tenant content         |
+| `tenant.authenticated` | Tenant         | Authenticated | Requires login                |
+| `tenant.user`          | Tenant         | USER only     | User-specific features        |
+| `tenant.admin`         | Tenant         | TENANT_ADMIN  | Admin panel                   |
+| `any.any`              | Any            | Any           | Fully open routes             |
 
 ### Access Modes
 
 Las zonas pueden tener diferentes modos de acceso:
 
 ```typescript
-type AccessMode = 
-  | 'required'    // Must match (redirect if not)
-  | 'forbidden'   // Must NOT match (redirect if matches)
-  | 'optional';   // Can be either (no redirect, just render)
+type AccessMode =
+  | 'required' // Must match (redirect if not)
+  | 'forbidden' // Must NOT match (redirect if matches)
+  | 'optional'; // Can be either (no redirect, just render)
 ```
 
 Ejemplo de comportamiento:
+
 - `requireAuth: 'required'` → Solo usuarios autenticados, guests son redirigidos
 - `requireAuth: 'forbidden'` → Solo guests, usuarios autenticados son redirigidos
 - `requireAuth: 'optional'` → Ambos pueden acceder, sin redirección
@@ -66,57 +68,57 @@ Centralized configuration in `AuthConfig` for default redirect paths:
 ```typescript
 interface ZoneRoots {
   // Public zones (no tenant)
-  publicGuest?: string;      // Default: '/'
-  publicUser?: string;       // Default: '/account'
-  publicAdmin?: string;      // Default: '/admin'
-  
+  publicGuest?: string; // Default: '/'
+  publicUser?: string; // Default: '/account'
+  publicAdmin?: string; // Default: '/admin'
+
   // Tenant zones
-  tenantGuest?: string;      // Default: '/login'
-  tenantUser?: string;       // Default: '/dashboard'
-  tenantAdmin?: string;      // Default: '/admin/dashboard'
-  
+  tenantGuest?: string; // Default: '/login'
+  tenantUser?: string; // Default: '/dashboard'
+  tenantAdmin?: string; // Default: '/admin/dashboard'
+
   // Fallback for undefined zones
-  default?: string;          // Default: '/'
+  default?: string; // Default: '/'
 }
 
 // Predefined zone configurations for common use cases
 interface ZonePresets {
   // Public/Landing zones
-  landing: { tenant: 'forbidden', auth: 'optional' };
-  publicOnly: { tenant: 'forbidden', auth: 'forbidden' };
-  
+  landing: { tenant: 'forbidden'; auth: 'optional' };
+  publicOnly: { tenant: 'forbidden'; auth: 'forbidden' };
+
   // Auth zones
-  login: { tenant: 'required', auth: 'forbidden' };
+  login: { tenant: 'required'; auth: 'forbidden' };
   guest: { auth: 'forbidden' };
   authenticated: { auth: 'required' };
-  
+
   // Tenant zones
   tenant: { tenant: 'required' };
-  tenantOpen: { tenant: 'required', auth: 'optional' };
-  tenantAuth: { tenant: 'required', auth: 'required' };
-  
+  tenantOpen: { tenant: 'required'; auth: 'optional' };
+  tenantAuth: { tenant: 'required'; auth: 'required' };
+
   // User type zones
-  user: { tenant: 'required', auth: 'required', userType: 'USER' };
-  admin: { tenant: 'required', auth: 'required', userType: 'TENANT_ADMIN' };
-  
+  user: { tenant: 'required'; auth: 'required'; userType: 'USER' };
+  admin: { tenant: 'required'; auth: 'required'; userType: 'TENANT_ADMIN' };
+
   // Fully open
-  open: { tenant: 'optional', auth: 'optional' };
+  open: { tenant: 'optional'; auth: 'optional' };
 }
 
 interface RoutingConfig {
   zoneRoots?: ZoneRoots;
-  presets?: Partial<ZonePresets>;  // Override or extend default presets
-  
+  presets?: Partial<ZonePresets>; // Override or extend default presets
+
   // Global fallbacks
-  loadingFallback?: ReactNode;       // Shown while checking access
-  accessDeniedFallback?: ReactNode;  // Shown when access denied before redirect
-  
+  loadingFallback?: ReactNode; // Shown while checking access
+  accessDeniedFallback?: ReactNode; // Shown when access denied before redirect
+
   // Global callbacks
-  onAccessDenied?: (reason: AccessDeniedReason) => void;  // Global handler for analytics
-  
+  onAccessDenied?: (reason: AccessDeniedReason) => void; // Global handler for analytics
+
   // Return URL configuration
-  returnToParam?: string;            // Query param name for return URL (default: 'returnTo')
-  returnToStorage?: 'url' | 'session' | 'local';  // Where to store return URL (default: 'url')
+  returnToParam?: string; // Query param name for return URL (default: 'returnTo')
+  returnToStorage?: 'url' | 'session' | 'local'; // Where to store return URL (default: 'url')
 }
 ```
 
@@ -129,7 +131,13 @@ type AccessMode = 'required' | 'forbidden' | 'optional';
 
 // Reason object passed to callbacks when access is denied
 interface AccessDeniedReason {
-  type: 'no_tenant' | 'has_tenant' | 'not_authenticated' | 'already_authenticated' | 'wrong_user_type' | 'missing_permissions';
+  type:
+    | 'no_tenant'
+    | 'has_tenant'
+    | 'not_authenticated'
+    | 'already_authenticated'
+    | 'wrong_user_type'
+    | 'missing_permissions';
   required?: {
     tenant?: AccessMode;
     auth?: AccessMode;
@@ -147,50 +155,50 @@ interface AccessDeniedReason {
 
 interface ZoneRouteProps {
   children: ReactNode;
-  
+
   // Preset (shorthand for common configurations)
-  preset?: keyof ZonePresets;     // Use a predefined zone configuration
-  
+  preset?: keyof ZonePresets; // Use a predefined zone configuration
+
   // Zone requirements with access modes
-  tenant?: AccessMode;            // 'required' = must have tenant, 'forbidden' = no tenant, 'optional' = any
-  auth?: AccessMode;              // 'required' = must be authenticated, 'forbidden' = guest only, 'optional' = any
-  
+  tenant?: AccessMode; // 'required' = must have tenant, 'forbidden' = no tenant, 'optional' = any
+  auth?: AccessMode; // 'required' = must be authenticated, 'forbidden' = guest only, 'optional' = any
+
   // User type requirements (only applies when auth='required')
-  userType?: UserType | UserType[];  // Single type or array of allowed types
-  
+  userType?: UserType | UserType[]; // Single type or array of allowed types
+
   // Permission requirements (existing)
   requiredPermissions?: (string | Permission)[];
   requireAllPermissions?: boolean;
-  
+
   // Return URL handling
-  returnTo?: boolean | string;    // true = save current path, string = custom return path
-  
+  returnTo?: boolean | string; // true = save current path, string = custom return path
+
   // Callbacks
-  onAccessDenied?: (reason: AccessDeniedReason) => void;  // Called when access is denied (for analytics/logging)
-  
+  onAccessDenied?: (reason: AccessDeniedReason) => void; // Called when access is denied (for analytics/logging)
+
   // Fallback states (override global config)
-  redirectTo?: string;            // Override automatic redirect destination
-  loadingFallback?: ReactNode;    // Shown while checking access (default: global fallback)
-  accessDeniedFallback?: ReactNode;  // Shown when access denied before redirect (default: global fallback)
+  redirectTo?: string; // Override automatic redirect destination
+  loadingFallback?: ReactNode; // Shown while checking access (default: global fallback)
+  accessDeniedFallback?: ReactNode; // Shown when access denied before redirect (default: global fallback)
 }
 ```
 
 **Access Mode Behavior:**
 
-| Mode | Condition Met | Condition NOT Met |
-|------|--------------|-------------------|
-| `required` | ✅ Render children | ❌ Redirect to appropriate zone |
-| `forbidden` | ❌ Redirect to appropriate zone | ✅ Render children |
-| `optional` | ✅ Render children | ✅ Render children |
+| Mode        | Condition Met                   | Condition NOT Met               |
+| ----------- | ------------------------------- | ------------------------------- |
+| `required`  | ✅ Render children              | ❌ Redirect to appropriate zone |
+| `forbidden` | ❌ Redirect to appropriate zone | ✅ Render children              |
+| `optional`  | ✅ Render children              | ✅ Render children              |
 
 **User Type Matching:**
 
-| `userType` prop | USER accede | TENANT_ADMIN accede |
-|-----------------|-------------|---------------------|
-| `undefined` | ✅ | ✅ |
-| `'USER'` | ✅ | ❌ |
-| `'TENANT_ADMIN'` | ❌ | ✅ |
-| `['USER', 'TENANT_ADMIN']` | ✅ | ✅ |
+| `userType` prop            | USER accede | TENANT_ADMIN accede |
+| -------------------------- | ----------- | ------------------- |
+| `undefined`                | ✅          | ✅                  |
+| `'USER'`                   | ✅          | ❌                  |
+| `'TENANT_ADMIN'`           | ❌          | ✅                  |
+| `['USER', 'TENANT_ADMIN']` | ✅          | ✅                  |
 
 ### Return URL Flow
 
@@ -200,7 +208,7 @@ The `returnTo` prop enables the classic "login then return" pattern:
 // 1. User tries to access /admin/settings (protected)
 <ZoneRoute preset="admin" returnTo>
   <AdminSettings />
-</ZoneRoute>
+</ZoneRoute>;
 
 // 2. User is redirected to /login?returnTo=/admin/settings
 
@@ -217,11 +225,11 @@ const handleLogin = async () => {
 
 **returnTo Storage Options:**
 
-| Storage | Pros | Cons |
-|---------|------|------|
-| `'url'` (default) | Shareable, survives refresh | Visible in URL, limited length |
-| `'session'` | Hidden, survives refresh | Lost on new tab |
-| `'local'` | Hidden, persists across tabs | Needs manual cleanup |
+| Storage           | Pros                         | Cons                           |
+| ----------------- | ---------------------------- | ------------------------------ |
+| `'url'` (default) | Shareable, survives refresh  | Visible in URL, limited length |
+| `'session'`       | Hidden, survives refresh     | Lost on new tab                |
+| `'local'`         | Hidden, persists across tabs | Needs manual cleanup           |
 
 ### onAccessDenied Callback
 
@@ -229,7 +237,7 @@ For analytics, logging, or custom handling:
 
 ```tsx
 // Per-route callback
-<ZoneRoute 
+<ZoneRoute
   preset="admin"
   onAccessDenied={(reason) => {
     analytics.track('access_denied', {
@@ -257,14 +265,14 @@ For analytics, logging, or custom handling:
 
 **AccessDeniedReason Types:**
 
-| Type | Description |
-|------|-------------|
-| `no_tenant` | Route requires tenant, user has none |
-| `has_tenant` | Route forbids tenant, user has one |
-| `not_authenticated` | Route requires auth, user is guest |
+| Type                    | Description                                        |
+| ----------------------- | -------------------------------------------------- |
+| `no_tenant`             | Route requires tenant, user has none               |
+| `has_tenant`            | Route forbids tenant, user has one                 |
+| `not_authenticated`     | Route requires auth, user is guest                 |
 | `already_authenticated` | Route forbids auth (guest-only), user is logged in |
-| `wrong_user_type` | User type doesn't match required |
-| `missing_permissions` | User lacks required permissions |
+| `wrong_user_type`       | User type doesn't match required                   |
+| `missing_permissions`   | User lacks required permissions                    |
 
 ### Loading & Access Denied States
 
@@ -278,7 +286,7 @@ For analytics, logging, or custom handling:
 }}>
 
 // Per-route override
-<ZoneRoute 
+<ZoneRoute
   preset="admin"
   loadingFallback={<AdminSkeleton />}
   accessDeniedFallback={
@@ -385,7 +393,7 @@ function getSmartRedirect(
   zoneRoots: ZoneRoots
 ): string {
   const { hasTenant, isAuth, userType } = currentState;
-  
+
   // Determine target zone based on current state
   if (!hasTenant) {
     // User is in public context
@@ -444,8 +452,8 @@ function getSmartRedirect(
 
 <Route path="/admin/*" element={
   <TenantRoute redirectTo="/" fallback={<Loading />}>
-    <ProtectedRoute 
-      redirectTo="/login" 
+    <ProtectedRoute
+      redirectTo="/login"
       requiredUserType="TENANT_ADMIN"
       fallback={<Loading />}
     >
@@ -525,6 +533,7 @@ function getSmartRedirect(
 ## Implementation Checklist
 
 ### Phase 1: Core Infrastructure
+
 - [ ] Add `RoutingConfig` to `AuthConfig` interface
 - [ ] Add `ZoneRoots` interface with all zone paths
 - [ ] Add `ZonePresets` with default preset configurations
@@ -533,18 +542,21 @@ function getSmartRedirect(
 - [ ] Implement `getSmartRedirect` utility function
 
 ### Phase 2: Return URL System
+
 - [ ] Implement `returnTo` prop logic
 - [ ] Add `returnToStorage` configuration (url/session/local)
 - [ ] Create `useZoneNavigation` hook with `returnToUrl` and `clearReturnTo`
 - [ ] Handle return URL encoding/decoding
 
 ### Phase 3: Callbacks & Fallbacks
+
 - [ ] Implement `onAccessDenied` callback (global + per-route)
 - [ ] Add `loadingFallback` support (global + per-route)
 - [ ] Add `accessDeniedFallback` support (global + per-route)
 - [ ] Create default fallback components
 
 ### Phase 4: ZoneRoute Component
+
 - [ ] Create `ZoneRoute` base component with all props
 - [ ] Implement `AccessMode` logic (required/forbidden/optional)
 - [ ] Implement `userType` matching (single and array)
@@ -552,17 +564,20 @@ function getSmartRedirect(
 - [ ] Implement permission checking
 
 ### Phase 5: Convenience Components
+
 - [ ] Create `TenantZone`, `PublicZone`, `AuthenticatedZone`
 - [ ] Create `GuestZone`, `AdminZone`, `UserZone`
 - [ ] Create `OpenZone`, `TenantOpenZone`, `TenantAuthenticatedZone`
 - [ ] Add proper TypeScript types and exports
 
 ### Phase 6: Migration Support
+
 - [ ] Keep existing components working (deprecated)
 - [ ] Add deprecation warnings to old components
 - [ ] Update documentation with migration guide
 
 ### Phase 7: Testing
+
 - [ ] Unit tests for `getSmartRedirect` logic
 - [ ] Unit tests for `AccessMode` combinations
 - [ ] Unit tests for `returnTo` flow
@@ -614,20 +629,23 @@ None initially - existing components will continue to work but emit deprecation 
 ## Alternatives Considered
 
 ### A: Higher-Order Component Approach
+
 ```tsx
 const ProtectedDashboard = withZone({ requireTenant: true, requireAuth: true })(Dashboard);
 ```
+
 Rejected: Less readable, harder to configure per-route.
 
 ### B: Route Config Object
+
 ```tsx
-const routes = [
-  { path: '/dashboard', component: Dashboard, zone: { tenant: true, auth: true } }
-];
+const routes = [{ path: '/dashboard', component: Dashboard, zone: { tenant: true, auth: true } }];
 ```
+
 Rejected: Breaks from React Router patterns, requires custom router setup.
 
 ### C: Keep Separate Components
+
 Improve existing components without unification.
 Rejected: Doesn't solve the repetition problem or smart redirect logic.
 

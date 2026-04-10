@@ -25,6 +25,7 @@
 - [ ] Backend implements the two endpoints defined in [Phase 2 Backend Contract](#phase-2-backend-contract) below. Phase 2 frontend work cannot start until the backend is deployed in at least a staging environment.
 
 **Out of scope:**
+
 - Backend implementation of the handoff-code endpoints (separate repo/project).
 - Redis/KV store infrastructure for handoff code storage (backend team's responsibility).
 - Tenant model schema changes to store allowlist of `targetOrigin`s (backend team's responsibility).
@@ -36,11 +37,13 @@
 ### File Structure — Phase 1
 
 **Files to delete entirely:**
+
 - `src/utils/crossDomainAuth.ts` — all exports are exclusively used for URL token transfer
 - `src/test/crossDomainAuth.test.ts` — tests the utilities being deleted
 - `src/test/crossSubdomainAuth.test.ts` — integration tests for the URL transfer flow
 
 **Files to modify:**
+
 - `src/providers/AuthProvider.tsx` — remove URL-token init path (lines 10, 165-182, 205-211, 226, 241, 821-851, 888-898 and all references)
 - `src/providers/TenantProvider.tsx` — remove `tokens` option from `switchTenant` signature and remove `AUTH_TRANSFER_PARAM` plumbing (lines 14, 54-57, 389-482)
 - `src/providers/AuthProvider.tsx` — update `login`, `verifyMagicLink`, and `switchToTenant` callsites to stop passing `tokens` to `switchTenant` (lines 388-414, 562-572, 672-720)
@@ -48,6 +51,7 @@
 ### Task 1: Verify starting state and test baseline
 
 **Files:**
+
 - Read-only inspection
 
 - [ ] **Step 1: Confirm clean working tree and branch**
@@ -68,6 +72,7 @@ Expected: tests include coverage of `attemptCookieSessionRestore`. If not, stop 
 ### Task 2: Remove `tokens` option from `TenantProvider.switchTenant`
 
 **Files:**
+
 - Modify: `src/providers/TenantProvider.tsx` (lines 14, 54-57, 389-482)
 
 - [ ] **Step 1: Remove the import of `crossDomainAuth` symbols**
@@ -104,10 +109,7 @@ In `src/providers/TenantProvider.tsx`, replace the entire `switchTenant` useCall
 
 ```ts
 const switchTenant = useCallback(
-  (
-    targetTenantSlug: string,
-    options?: { mode?: 'navigate' | 'reload'; redirectPath?: string }
-  ) => {
+  (targetTenantSlug: string, options?: { mode?: 'navigate' | 'reload'; redirectPath?: string }) => {
     const { mode = 'reload', redirectPath } = options || {};
     const tenantMode = config.tenantMode || 'selector';
 
@@ -128,11 +130,7 @@ const switchTenant = useCallback(
 
     if (tenantMode === 'subdomain') {
       const currentHostname = window.location.hostname;
-      const newHostname = buildTenantHostname(
-        targetTenantSlug,
-        currentHostname,
-        config.baseDomain
-      );
+      const newHostname = buildTenantHostname(targetTenantSlug, currentHostname, config.baseDomain);
 
       if (!newHostname) {
         if (process.env.NODE_ENV === 'development') {
@@ -182,6 +180,7 @@ Expected: errors in `AuthProvider.tsx` where `switchTenant` is called with `{ to
 ### Task 3: Update `AuthProvider` callsites to drop `tokens` from `switchTenant` calls
 
 **Files:**
+
 - Modify: `src/providers/AuthProvider.tsx` (lines 388-414, 562-572, 672-720)
 
 - [ ] **Step 1: Update `login` flow to not pass `tokens` to `switchTenant`**
@@ -189,35 +188,35 @@ Expected: errors in `AuthProvider.tsx` where `switchTenant` is called with `{ to
 In `src/providers/AuthProvider.tsx`, locate the `login` function (around lines 380-414). Remove the `tokens` object construction and drop it from all three `switchTenant` calls. Replace lines ~380-414 with:
 
 ```ts
-      const hasTenant = loginResponse.user?.tenantId !== null;
+const hasTenant = loginResponse.user?.tenantId !== null;
 
-      // Handle navigation after login
-      if (shouldSwitch && targetTenantSlug) {
-        // Switching to different tenant — cookie session will restore on arrival
-        switchTenant(targetTenantSlug, { redirectPath });
-        return loginResponse; // Code after this won't execute due to page reload
-      }
+// Handle navigation after login
+if (shouldSwitch && targetTenantSlug) {
+  // Switching to different tenant — cookie session will restore on arrival
+  switchTenant(targetTenantSlug, { redirectPath });
+  return loginResponse; // Code after this won't execute due to page reload
+}
 
-      // Same tenant or no tenant switch - navigate to redirectPath if provided
-      if (redirectPath && redirectPath !== window.location.pathname) {
-        switchTenant(targetTenantSlug || tenantSlug || '', { redirectPath });
-        return loginResponse;
-      }
+// Same tenant or no tenant switch - navigate to redirectPath if provided
+if (redirectPath && redirectPath !== window.location.pathname) {
+  switchTenant(targetTenantSlug || tenantSlug || '', { redirectPath });
+  return loginResponse;
+}
 
-      // RFC-004: Handle global login (no tenantId) - auto-switch or callback
-      if (!hasTenant && loginResponse.tenants && loginResponse.tenants.length > 0) {
-        const autoSwitch = params.autoSwitch !== false && config.autoSwitchSingleTenant !== false;
+// RFC-004: Handle global login (no tenantId) - auto-switch or callback
+if (!hasTenant && loginResponse.tenants && loginResponse.tenants.length > 0) {
+  const autoSwitch = params.autoSwitch !== false && config.autoSwitchSingleTenant !== false;
 
-        if (loginResponse.tenants.length === 1 && autoSwitch) {
-          const singleTenant = loginResponse.tenants[0];
-          switchTenant(singleTenant.subdomain, { redirectPath });
-          return loginResponse;
-        } else if (loginResponse.tenants.length > 1 && config.onTenantSelectionRequired) {
-          config.onTenantSelectionRequired(loginResponse.tenants);
-        }
-      }
+  if (loginResponse.tenants.length === 1 && autoSwitch) {
+    const singleTenant = loginResponse.tenants[0];
+    switchTenant(singleTenant.subdomain, { redirectPath });
+    return loginResponse;
+  } else if (loginResponse.tenants.length > 1 && config.onTenantSelectionRequired) {
+    config.onTenantSelectionRequired(loginResponse.tenants);
+  }
+}
 
-      return loginResponse;
+return loginResponse;
 ```
 
 - [ ] **Step 2: Update `verifyMagicLink` flow**
@@ -225,13 +224,13 @@ In `src/providers/AuthProvider.tsx`, locate the `login` function (around lines 3
 In `src/providers/AuthProvider.tsx`, locate the `verifyMagicLink` function (around lines 560-575). Replace the cross-subdomain switch block with:
 
 ```ts
-      // Now perform the switch if needed
-      if (shouldSwitch && targetTenantSlug && targetTenantSlug !== tenantSlug) {
-        switchTenant(targetTenantSlug);
-        // Code after this won't execute due to page reload
-      }
+// Now perform the switch if needed
+if (shouldSwitch && targetTenantSlug && targetTenantSlug !== tenantSlug) {
+  switchTenant(targetTenantSlug);
+  // Code after this won't execute due to page reload
+}
 
-      return verifyResponse;
+return verifyResponse;
 ```
 
 - [ ] **Step 3: Update `switchToTenant` (RFC-004) flow**
@@ -268,6 +267,7 @@ Expected: no type errors. If `AuthTokens` is still referenced anywhere in `AuthP
 ### Task 4: Remove URL-token init path from `AuthProvider`
 
 **Files:**
+
 - Modify: `src/providers/AuthProvider.tsx` (lines 10, 165-182, 205-211, 226, 241, 821-851, 888-898)
 
 - [ ] **Step 1: Remove the import**
@@ -283,12 +283,12 @@ import { extractAuthTokensFromUrl, clearAuthTokensFromUrl } from '../utils/cross
 In `src/providers/AuthProvider.tsx`, replace the `initRef` block (lines ~165-175) with:
 
 ```ts
-  // === SYNCHRONOUS INITIALIZATION ===
-  const initRef = useRef<{ done: boolean }>({ done: false });
+// === SYNCHRONOUS INITIALIZATION ===
+const initRef = useRef<{ done: boolean }>({ done: false });
 
-  if (!initRef.current.done) {
-    initRef.current.done = true;
-  }
+if (!initRef.current.done) {
+  initRef.current.done = true;
+}
 ```
 
 - [ ] **Step 3: Remove `isLoadingAfterUrlTokens` state**
@@ -342,6 +342,7 @@ Delete the entire block. It has no replacement — the cookie session restore in
 Around lines 888-898 there is a `useEffect` that auto-loads user data, gated by `urlTokensCleanedUp` and `initRef.current.urlTokens`. Remove both gates:
 
 Before (approximate):
+
 ```ts
 useEffect(() => {
   if (!urlTokensCleanedUp) return;
@@ -351,6 +352,7 @@ useEffect(() => {
 ```
 
 After:
+
 ```ts
 useEffect(() => {
   // ... rest of auto-load logic
@@ -365,6 +367,7 @@ Expected: no errors, no stale references to `urlTokens`, `isLoadingAfterUrlToken
 ### Task 5: Delete `crossDomainAuth.ts` and its tests
 
 **Files:**
+
 - Delete: `src/utils/crossDomainAuth.ts`
 - Delete: `src/test/crossDomainAuth.test.ts`
 - Delete: `src/test/crossSubdomainAuth.test.ts`
@@ -399,6 +402,7 @@ Expected: type-check passes, tests pass, build succeeds.
 ### Task 6: Add replacement test — cookie session restore covers the removed flow
 
 **Files:**
+
 - Modify: `src/test/sessionManager.test.ts` (append new test case if not already covered)
 
 - [ ] **Step 1: Audit existing cookie session restore tests**
@@ -455,6 +459,7 @@ Expected: the new test passes. If it fails, diagnose and fix — this is the saf
 ### Task 7: Update changelog, format, and commit Phase 1
 
 **Files:**
+
 - Modify: `CHANGELOG.md` (if maintained; otherwise rely on semantic-release)
 - Commit all Phase 1 changes
 
@@ -471,6 +476,7 @@ Expected: all passes.
 - [ ] **Step 3: Commit Phase 1**
 
 Run:
+
 ```bash
 cd /Users/fer/Development/skylabs/react-identity-access
 git add -A
@@ -520,6 +526,7 @@ Expected: commit succeeds. This is a **breaking change** (semantic-release will 
 **Authenticated:** requires valid bearer token OR valid session cookie.
 
 **Request body:**
+
 ```json
 {
   "targetOrigin": "https://customer-b.example.com"
@@ -527,6 +534,7 @@ Expected: commit succeeds. This is a **breaking change** (semantic-release will 
 ```
 
 **Response 200:**
+
 ```json
 {
   "code": "h_9f3c8b2a1e7d4f5c6b8a9d0e1f2a3b4c5d6e7f8a",
@@ -538,6 +546,7 @@ Expected: commit succeeds. This is a **breaking change** (semantic-release will 
 **Response 401:** caller is not authenticated.
 
 **Backend requirements:**
+
 - Generate a cryptographically random code (≥ 32 bytes, URL-safe encoded).
 - Store in Redis (or equivalent) with `{ userId, targetOrigin, issuedAt, used: false }` and 60-second TTL.
 - Validate `targetOrigin` against an allowlist configured per tenant (prevents handoff to attacker-controlled origins).
@@ -548,6 +557,7 @@ Expected: commit succeeds. This is a **breaking change** (semantic-release will 
 **Unauthenticated** (the code itself is the credential). Must send `Origin` header (browsers do this automatically for cross-origin POSTs).
 
 **Request body:**
+
 ```json
 {
   "code": "h_9f3c8b2a1e7d4f5c6b8a9d0e1f2a3b4c5d6e7f8a"
@@ -555,6 +565,7 @@ Expected: commit succeeds. This is a **breaking change** (semantic-release will 
 ```
 
 **Response 200:**
+
 ```json
 {
   "accessToken": "...",
@@ -567,6 +578,7 @@ Expected: commit succeeds. This is a **breaking change** (semantic-release will 
 **Response 400:** code invalid, expired, or already used. The receiving origin MUST treat any non-200 as a hard failure and redirect to login.
 
 **Backend requirements:**
+
 - Atomically check `used == false` and set `used = true` in a single operation (Redis `SET IF NOT EXISTS` with a lock, or a SQL transaction with row lock) — prevents double-use under race.
 - Validate the request `Origin` header matches the `targetOrigin` stored with the code. Reject if mismatch (prevents a stolen code being redeemed from a different origin).
 - Validate the code is within TTL.
@@ -575,12 +587,14 @@ Expected: commit succeeds. This is a **breaking change** (semantic-release will 
 ### File Structure — Phase 2
 
 **Files to create:**
+
 - `src/utils/handoffCode.ts` — fragment read/write helpers (`extractHandoffCodeFromUrl`, `clearHandoffCodeFromUrl`)
 - `src/services/HandoffApiService.ts` — client for the two backend endpoints
 - `src/test/handoffCode.test.ts` — unit tests for the fragment utilities
 - `src/test/handoffApiService.test.ts` — unit tests for the API client
 
 **Files to modify:**
+
 - `src/providers/AuthProvider.tsx` — add handoff code init path (replaces the removed `_auth` init path, but reads from fragment and exchanges server-side)
 - `src/providers/TenantProvider.tsx` — add `switchTenant` option `{ targetOrigin?: string }` for cross-apex navigation via handoff code
 - `src/services/AuthApiService.ts` — optionally add the handoff methods here instead of a new service (decide in Task 8 Step 1)
@@ -589,6 +603,7 @@ Expected: commit succeeds. This is a **breaking change** (semantic-release will 
 ### Task 8: Design decision — separate service or extend `AuthApiService`
 
 **Files:**
+
 - Inspection only
 
 - [ ] **Step 1: Read the existing `AuthApiService`**
@@ -598,6 +613,7 @@ Run: read `src/services/AuthApiService.ts` to understand its existing method sha
 - [ ] **Step 2: Decide placement**
 
 Criteria:
+
 - If `AuthApiService` has ≤ 10 methods and the handoff methods are semantically "auth", add them there.
 - If `AuthApiService` is already large or the team prefers narrow services, create `HandoffApiService`.
 
@@ -610,6 +626,7 @@ Both endpoints must go through `HttpService` so they pick up standard retry, err
 ### Task 9: Add handoff API methods to `AuthApiService` (assuming decision in Task 8)
 
 **Files:**
+
 - Modify: `src/services/AuthApiService.ts`
 - Test: `src/test/authApiService.test.ts`
 
@@ -692,7 +709,9 @@ describe('exchangeHandoff', () => {
     };
     const service = new AuthApiService(mockHttp as any);
 
-    await expect(service.exchangeHandoff({ code: 'h_expired' })).rejects.toThrow('400: code expired');
+    await expect(service.exchangeHandoff({ code: 'h_expired' })).rejects.toThrow(
+      '400: code expired'
+    );
   });
 });
 ```
@@ -734,6 +753,7 @@ git commit -m "feat(auth): add createHandoff and exchangeHandoff API methods"
 ### Task 10: Create fragment helpers for handoff code
 
 **Files:**
+
 - Create: `src/utils/handoffCode.ts`
 - Create: `src/test/handoffCode.test.ts`
 
@@ -859,12 +879,14 @@ git commit -m "feat(auth): add handoff code URL fragment helpers"
 ### Task 11: Wire handoff code exchange into `AuthProvider` init
 
 **Files:**
+
 - Modify: `src/providers/AuthProvider.tsx`
 - Test: `src/test/authProvider.test.tsx` (or equivalent — check which existing file covers AuthProvider init)
 
 - [ ] **Step 1: Write a failing integration test**
 
 Create or append to an existing `AuthProvider` test file a test that:
+
 1. Mocks `AuthApiService.exchangeHandoff` to return valid tokens.
 2. Sets `window.location.hash = '#code=h_test123'` before rendering `AuthProvider`.
 3. Renders `AuthProvider` with children that read `useAuth()`.
@@ -1016,6 +1038,7 @@ git commit -m "feat(auth): exchange handoff code from URL fragment on mount"
 ### Task 12: Add `switchTenant` cross-apex flow using handoff code
 
 **Files:**
+
 - Modify: `src/providers/TenantProvider.tsx`
 - Modify: `src/providers/AuthProvider.tsx` (optional — `switchToTenant` callsite)
 
@@ -1065,7 +1088,9 @@ it('switchTenant with targetOrigin navigates to cross-apex URL with handoff code
   expect(mockCreateHandoff).toHaveBeenCalledWith({
     targetOrigin: 'https://customer-b.example.com',
   });
-  expect(hrefSetter).toHaveBeenCalledWith('https://customer-b.example.com/dashboard#code=h_crossapex');
+  expect(hrefSetter).toHaveBeenCalledWith(
+    'https://customer-b.example.com/dashboard#code=h_crossapex'
+  );
 });
 ```
 
@@ -1116,6 +1141,7 @@ git commit -m "feat(auth): add cross-apex tenant switching via handoff code"
 ### Task 13: Export new public API surface
 
 **Files:**
+
 - Modify: `src/index.ts`
 
 - [ ] **Step 1: Add exports**
@@ -1147,11 +1173,13 @@ git commit -m "feat(auth): export handoff code public API"
 ### Task 14: Integration test — full end-to-end cross-apex flow
 
 **Files:**
+
 - Create: `src/test/handoffIntegration.test.tsx`
 
 - [ ] **Step 1: Write the integration test**
 
 The test should:
+
 1. Simulate `origin-a.com` user logged in with a valid session.
 2. Mock `AuthApiService.createHandoff` to return a code.
 3. Call `switchTenant('tenant-b', { targetOrigin: 'https://origin-b.com' })` (or the chosen API shape from Task 12).
@@ -1179,12 +1207,14 @@ git commit -m "test(auth): add end-to-end cross-apex handoff integration test"
 ### Task 15: Documentation and final verification
 
 **Files:**
+
 - Create: `docs/guides/cross-apex-tenant-switching.md` (optional, if other guides follow this pattern)
 - Modify: `README.md` or `docs/advanced-usage.md` — document the new `createHandoff` / cross-apex switch
 
 - [ ] **Step 1: Write consumer-facing docs**
 
 Document:
+
 - When to use `enableCookieSession` (subdomain switching within a shared parent domain).
 - When to use the handoff code flow (cross-apex / white-label with per-tenant domains).
 - Required backend contract — link to the Phase 2 Backend Contract section of this plan.
