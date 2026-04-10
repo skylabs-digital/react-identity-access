@@ -1,12 +1,7 @@
 import React, { useState } from 'react';
 import { useAuth } from '../providers/AuthProvider';
 import { useAuthForm } from '../hooks/useAuthForm';
-import {
-  AuthFormBaseStyles,
-  buildFormStyles,
-  EyeIcon,
-  EyeOffIcon,
-} from './authFormShared';
+import { AuthFormBaseStyles, buildFormStyles, EyeIcon, EyeOffIcon } from './authFormShared';
 
 export interface LoginFormCopy {
   title?: string;
