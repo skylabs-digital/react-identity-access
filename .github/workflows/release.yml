@@ -22,8 +22,11 @@ jobs:
           node-version: '18'
           cache: 'yarn'
 
+      - name: Enable Corepack
+        run: corepack enable
+
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --immutable
 
       - name: Type check
         run: yarn type-check
@@ -76,8 +79,11 @@ jobs:
       - name: Update npm
         run: npm install -g npm@latest
 
+      - name: Enable Corepack
+        run: corepack enable
+
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --immutable
 
       - name: Build
         run: yarn build
@@ -131,8 +137,11 @@ jobs:
           node-version: '22'
           registry-url: 'https://npm.pkg.github.com'
 
+      - name: Enable Corepack
+        run: corepack enable
+
       - name: Install dependencies
-        run: yarn install --frozen-lockfile
+        run: yarn install --immutable
 
       - name: Build
         run: yarn build
