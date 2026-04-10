@@ -24,8 +24,7 @@
     "build": "NODE_NO_WARNINGS=1 tsc && NODE_NO_WARNINGS=1 vite build",
     "dev": "tsc --watch & vite build --watch",
     "dev:types": "tsc --watch",
-    "dev:template": "yarn dev:types & cd template && yarn start",
-    "dev:example": "yarn dev",
+    "dev:example": "yarn dev:types & cd example && yarn dev",
     "link:example": "yarn link && cd example && yarn link @skylabs-digital/react-identity-access",
     "unlink:example": "cd example && yarn unlink @skylabs-digital/react-identity-access && yarn install --force",
     "lint": "eslint \"src/**/*.{ts,tsx}\" --report-unused-disable-directives --max-warnings 0",
@@ -46,7 +45,7 @@
     "commit": "git-cz",
     "release": "semantic-release",
     "preview": "vite preview",
-    "demo": "cd template && yarn start"
+    "demo": "cd example && yarn dev"
   },
   "keywords": [
     "react",

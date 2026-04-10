@@ -80,7 +80,7 @@ export function ApiServicesPlayground() {
         setResult('users', `No userId in JWT. Payload:\n${JSON.stringify(payload, null, 2)}`);
         return;
       }
-      const svc = new UserApiService(authedHttp, sessionManager);
+      const svc = new UserApiService(authedHttp);
       const res = await svc.getUserById(userId);
       setResult('users', JSON.stringify(res, null, 2));
     } catch (e: any) {

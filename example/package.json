@@ -1,59 +1,26 @@
 {
-  "name": "template",
+  "name": "@skylabs-digital/react-identity-access-example",
   "version": "0.1.0",
   "private": true,
-  "dependencies": {
-    "@skylabs-digital/react-identity-access": "file:../",
-    "@testing-library/dom": "^10.4.1",
-    "@testing-library/jest-dom": "^6.8.0",
-    "@testing-library/react": "^16.3.0",
-    "@testing-library/user-event": "^13.5.0",
-    "@types/jest": "^27.5.2",
-    "@types/node": "^16.18.126",
-    "@types/react": "^19.1.12",
-    "@types/react-dom": "^19.1.9",
-    "react": "^19.1.1",
-    "react-dom": "^19.1.1",
-    "react-router-dom": "^6.26.0",
-    "react-scripts": "5.0.1",
-    "typescript": "^5.0.0",
-    "web-vitals": "^2.1.4"
-  },
+  "type": "module",
+  "description": "Example application for @skylabs-digital/react-identity-access — showcases every major feature with demo pages and API labs.",
   "scripts": {
-    "start": "PORT=3004 DISABLE_ESLINT_PLUGIN=true craco start",
-    "build": "DISABLE_ESLINT_PLUGIN=true craco build",
-    "test": "craco test",
-    "lint": "eslint --ext .ts,.tsx --report-unused-disable-directives --max-warnings 0 src",
-    "lint:fix": "eslint --ext .ts,.tsx --fix src",
-    "format": "prettier --write \"src/**/*.{ts,tsx,json,md}\"",
-    "format:check": "prettier --check \"src/**/*.{ts,tsx,json,md}\"",
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "preview": "vite preview",
     "type-check": "tsc --noEmit"
   },
-  "browserslist": {
-    "production": [
-      ">0.2%",
-      "not dead",
-      "not op_mini all"
-    ],
-    "development": [
-      "last 1 chrome version",
-      "last 1 firefox version",
-      "last 1 safari version"
-    ]
+  "dependencies": {
+    "@skylabs-digital/react-identity-access": "file:..",
+    "react": "^19.1.1",
+    "react-dom": "^19.1.1",
+    "react-router-dom": "^6.26.0"
   },
   "devDependencies": {
-    "@craco/craco": "^7.1.0",
-    "@eslint/js": "^9.34.0",
-    "@typescript-eslint/eslint-plugin": "^8.42.0",
-    "@typescript-eslint/parser": "^8.42.0",
-    "autoprefixer": "^10.4.21",
-    "eslint": "^9.0.0",
-    "eslint-plugin-prettier": "^5.5.4",
-    "eslint-plugin-react": "^7.37.5",
-    "postcss": "^8.5.6",
-    "prettier": "^3.6.2",
-    "tailwindcss": "^3.4.17",
-    "ts-loader": "^9.5.4"
-  },
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+    "@types/react": "^19.1.12",
+    "@types/react-dom": "^19.1.9",
+    "@vitejs/plugin-react": "^4.3.4",
+    "typescript": "^5.0.0",
+    "vite": "^5.4.19"
+  }
 }

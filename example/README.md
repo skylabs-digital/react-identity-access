@@ -1,46 +1,84 @@
-# Getting Started with Create React App
+# React Identity Access — Example App
 
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+A Vite-based React 19 application that demonstrates every major feature of `@skylabs-digital/react-identity-access`. It is the single starter devs can point at to see the library in action, and it doubles as a sandbox for exploring the public API.
 
-## Available Scripts
+The app has **two areas**:
 
-In the project directory, you can run:
+- [`/demo/*`](src/pages/) — real feature pages wired to the full provider stack (App → Tenant → Auth → FeatureFlag → Subscription).
+- [`/labs/*`](src/labs/) — low-level inspection labs for each provider and service. Useful while integrating with the library; not meant for end-users.
 
-### `npm start`
+---
 
-Runs the app in the development mode.\
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+## Running the example
 
-The page will reload if you make edits.\
-You will also see any lint errors in the console.
+```bash
+cd example
+yarn install
+yarn dev
+```
 
-### `npm test`
+Opens on http://localhost:3000. The nav bar links to both areas.
 
-Launches the test runner in the interactive watch mode.\
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+### Configuration
 
-### `npm run build`
+Set these in an `.env.local` file (or export them before running):
 
-Builds the app for production to the `build` folder.\
-It correctly bundles React in production mode and optimizes the build for the best performance.
+```env
+VITE_BASE_URL=https://your-api.example.com/api
+VITE_APP_ID=your-app-id
+```
 
-The build is minified and the filenames include the hashes.\
-Your app is ready to be deployed!
+If not provided, the app falls back to the public Skylabs development backend (`https://idachu-dev.skylabs.digital/api`) so you can click around immediately.
 
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
+---
 
-### `npm run eject`
+## Demo pages (`/demo/*`)
 
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
+| Route | File | Feature |
+|---|---|---|
+| `/demo` | [Home.tsx](src/pages/Home.tsx) | Landing page, links to every demo |
+| `/demo/login` | [Login.tsx](src/pages/Login.tsx) | `<LoginForm>` component with email/phone + password |
+| `/demo/signup` | [Signup.tsx](src/pages/Signup.tsx) | `<SignupForm>` component |
+| `/demo/password-recovery` | [ForgotPassword.tsx](src/pages/ForgotPassword.tsx) | `<PasswordRecoveryForm>` request + reset flow |
+| `/demo/magic-link` | [MagicLink.tsx](src/pages/MagicLink.tsx) | `<MagicLinkForm>` passwordless login |
+| `/demo/magic-link/verify` | [MagicLinkVerifyPage.tsx](src/pages/MagicLinkVerifyPage.tsx) | Auto-verification of magic link tokens from URL |
+| `/demo/dashboard` | [Dashboard.tsx](src/pages/Dashboard.tsx) | Authenticated dashboard, role-based view |
+| `/demo/profile` | [Profile.tsx](src/pages/Profile.tsx) | Current user info via `useAuth()` |
+| `/demo/settings` | [Settings.tsx](src/pages/Settings.tsx) | Tenant settings form with JSON Schema validation |
+| `/demo/subscription` | [SubscriptionDemo.tsx](src/pages/SubscriptionDemo.tsx) | `useSubscription()` + `SubscriptionGuard` |
+| `/demo/roles` | [RolePermissionTest.tsx](src/components/RolePermissionTest.tsx) | Interactive `Protected` / permission checks |
+| `/demo/tenant-switch` | [TenantSwitchDemo.tsx](src/pages/TenantSwitchDemo.tsx) | Multi-tenant switching via `TenantSelector` |
+| `/demo/standalone-auth` | [StandaloneAuthDemo.tsx](src/pages/StandaloneAuthDemo.tsx) | **v2.27+** — `<AuthProvider>` without App/Tenant providers |
+| `/demo/cookie-session` | [CookieSessionDemo.tsx](src/pages/CookieSessionDemo.tsx) | **v2.31+** — `enableCookieSession` walkthrough |
+| `/demo/zone-routing` | [ZoneRoutingDemo.tsx](src/pages/ZoneRoutingDemo.tsx) | **RFC-005** — `ZoneRoute`, `TenantZone`, `AdminZone` |
 
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
+---
 
-Instead, it will copy all the configuration files and the transitive dependencies (webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
+## Labs (`/labs/*`)
 
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
+Inspection surfaces for each provider and service. These are not polished UI — they are scratchpads that render the raw state of contexts, expose action buttons, and let you poke at edge cases.
 
-## Learn More
+| Route | File | Focus |
+|---|---|---|
+| `/labs/auth` | [AuthPlayground.tsx](src/labs/AuthPlayground.tsx) | `useAuth()` state, login/logout actions |
+| `/labs/session` | [SessionPlayground.tsx](src/labs/SessionPlayground.tsx) | Token lifecycle, refresh state |
+| `/labs/tenant` | [TenantPlayground.tsx](src/labs/TenantPlayground.tsx) | Tenant detection, switching, settings |
+| `/labs/user` | [UserPlayground.tsx](src/labs/UserPlayground.tsx) | Current user payload and roles |
+| `/labs/api-services` | [ApiServicesPlayground.tsx](src/labs/ApiServicesPlayground.tsx) | Low-level `AuthApiService`, `UserApiService`, etc. |
+| `/labs/providers` | [ProvidersPlayground.tsx](src/labs/ProvidersPlayground.tsx) | Provider readiness and context shapes |
+| `/labs/refresh` | [RefreshLabPlayground.tsx](src/labs/RefreshLabPlayground.tsx) | Manually trigger refreshes, watch race conditions |
 
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
+---
 
-To learn React, check out the [React documentation](https://reactjs.org/).
+## Build
+
+```bash
+yarn build      # outputs to example/build/
+yarn preview    # serve the production build locally
+```
+
+---
+
+## What this example replaces
+
+This single `example/` directory replaces the old `example/` (CRA) + `playground/` (Vite) split that existed before v2.31. Both were merged here, the build system was unified on Vite, and the demo pages and labs now live side by side under one nav bar.

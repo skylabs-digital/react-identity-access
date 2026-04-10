@@ -2,11 +2,12 @@ import React, { useState } from 'react';
 import { useSettings, JSONSchema } from '@skylabs-digital/react-identity-access';
 
 const Settings: React.FC = () => {
+  // useSettings currently exposes read-only access to the tenant settings.
+  // Writing settings is a tenant-admin operation handled by your backend; this
+  // page is intentionally a read + client-side validation demo only.
   const { settings, settingsSchema, isLoading, error, validateSettings } = useSettings();
-  // updateSettings removed from current API
   const [formData, setFormData] = useState<Record<string, any>>(settings || {});
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
   // Update form data when settings load
@@ -20,39 +21,31 @@ const Settings: React.FC = () => {
     const newFormData = { ...formData, [key]: value };
     setFormData(newFormData);
 
-    // Clear validation errors when user starts typing
     if (validationErrors.length > 0) {
       setValidationErrors([]);
     }
-
-    // Clear success message
     if (successMessage) {
       setSuccessMessage('');
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
 
-    // Validate settings
+    // Client-side validation against the settings JSON Schema published by the backend.
     const validation = validateSettings(formData);
     if (!validation.isValid) {
       setValidationErrors(validation.errors);
+      setSuccessMessage('');
       return;
     }
 
-    try {
-      setIsSubmitting(true);
-      setValidationErrors([]);
-      // await updateSettings(formData); // Removed from current API
-      setSuccessMessage('Settings update functionality not available in current demo');
-    } catch (err) {
-      const errorMessage = err instanceof Error ? err.message : 'Failed to update settings';
-      setValidationErrors([errorMessage]);
-    } finally {
-      setIsSubmitting(false);
-    }
+    setValidationErrors([]);
+    setSuccessMessage(
+      'Validation passed. (This demo is read-only — persisting settings is a backend admin operation.)'
+    );
   };
+  const isSubmitting = false;
 
   const renderFormField = (key: string, schema: JSONSchema) => {
     const value = formData[key] || '';
@@ -320,7 +313,7 @@ const Settings: React.FC = () => {
       </div>
 
       {/* Settings Schema Debug Info (only in development) */}
-      {process.env.NODE_ENV === 'development' && settingsSchema && (
+      {import.meta.env.DEV && settingsSchema && (
         <div className="mt-8 bg-gray-50 rounded-lg p-4">
           <h3 className="text-sm font-medium text-gray-900 mb-2">Settings Schema (Debug)</h3>
           <pre className="text-xs text-gray-600 overflow-auto">
@@ -330,7 +323,7 @@ const Settings: React.FC = () => {
       )}
 
       {/* Current Settings Debug Info (only in development) */}
-      {process.env.NODE_ENV === 'development' && settings && (
+      {import.meta.env.DEV && settings && (
         <div className="mt-4 bg-gray-50 rounded-lg p-4">
           <h3 className="text-sm font-medium text-gray-900 mb-2">Current Settings (Debug)</h3>
           <pre className="text-xs text-gray-600 overflow-auto">
