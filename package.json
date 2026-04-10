@@ -39,6 +39,7 @@
     "sim": "NODE_NO_WARNINGS=1 vitest run --config qa/vitest.config.ts",
     "sim:watch": "NODE_NO_WARNINGS=1 vitest --config qa/vitest.config.ts",
     "sim:verbose": "NODE_NO_WARNINGS=1 vitest run --config qa/vitest.config.ts --reporter=verbose",
+    "qa:agentic": "NODE_NO_WARNINGS=1 vitest run --config qa/vitest.config.ts --reporter=verbose",
     "ci": "NODE_NO_WARNINGS=1 sh -c 'yarn type-check && yarn test && yarn build'",
     "prepublishOnly": "yarn build",
     "prepare": "husky install",
