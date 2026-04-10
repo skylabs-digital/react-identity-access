@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import { AuthProvider, useAuth, useAuthOptional } from '../providers/AuthProvider';
 import { SessionManager } from '../services/SessionManager';
+import { ConfigurationError } from '../errors/SessionErrors';
 
 // Minimal stub that just reports auth readiness and the sessionManager baseUrl.
 function AuthProbe() {
@@ -72,6 +73,44 @@ describe('AuthProvider', () => {
         )
       ).toThrow(/baseUrl is required/);
 
+      spy.mockRestore();
+    });
+  });
+
+  describe('baseUrl validation', () => {
+    it('rejects javascript: baseUrl with ConfigurationError', () => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      expect(() =>
+        render(
+          <AuthProvider config={{ baseUrl: 'javascript:alert(1)', appId: 'app-1' }}>
+            <AuthProbe />
+          </AuthProvider>
+        )
+      ).toThrow(ConfigurationError);
+      spy.mockRestore();
+    });
+
+    it('rejects data: baseUrl', () => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      expect(() =>
+        render(
+          <AuthProvider config={{ baseUrl: 'data:text/html,evil', appId: 'app-1' }}>
+            <AuthProbe />
+          </AuthProvider>
+        )
+      ).toThrow(/dangerous URL scheme/);
+      spy.mockRestore();
+    });
+
+    it('rejects ftp: baseUrl', () => {
+      const spy = vi.spyOn(console, 'error').mockImplementation(() => {});
+      expect(() =>
+        render(
+          <AuthProvider config={{ baseUrl: 'ftp://host', appId: 'app-1' }}>
+            <AuthProbe />
+          </AuthProvider>
+        )
+      ).toThrow(/must start with http/);
       spy.mockRestore();
     });
   });

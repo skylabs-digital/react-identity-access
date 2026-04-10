@@ -5,6 +5,7 @@ import {
   SessionExpiredError,
   TokenRefreshTimeoutError,
   TokenRefreshError,
+  ConfigurationError,
 } from '../errors/SessionErrors';
 
 // Helper to create an in-memory TokenStorage
@@ -153,7 +154,7 @@ describe('SessionManager', () => {
         refreshThreshold: 300000,
         baseUrl: 'http://api',
         maxRefreshRetries: 0, // No retries for classification tests
-        retryBackoffBase: 0,
+        retryBackoffBase: 1,
       });
       // Set tokens that need refresh (near expiry)
       storage.set(makeTokens(10)); // 10s left, within 5min threshold
@@ -1584,7 +1585,7 @@ describe('SessionManager', () => {
       sm.setTokens({
         accessToken: 'old',
         refreshToken: 'rt-1',
-        expiresIn: -10, // already expired
+        expiresAt: Date.now() - 10_000, // already expired
       });
 
       await sm.getValidAccessToken();
@@ -1611,7 +1612,7 @@ describe('SessionManager', () => {
         baseUrl: 'http://api',
         autoRefresh: false,
       });
-      sm.setTokens({ accessToken: 'old', refreshToken: 'rt-1', expiresIn: -10 });
+      sm.setTokens({ accessToken: 'old', refreshToken: 'rt-1', expiresAt: Date.now() - 10_000 });
 
       // Should not throw, should still refresh
       const token = await sm.getValidAccessToken();
@@ -1643,7 +1644,7 @@ describe('SessionManager', () => {
       sm.setTokens({
         accessToken: 'old',
         refreshToken: 'rt-old',
-        expiresIn: -10, // expired
+        expiresAt: Date.now() - 10_000, // expired
       });
 
       // Start a refresh (caught — we expect SessionExpiredError)
@@ -1676,6 +1677,168 @@ describe('SessionManager', () => {
       sm.setTokens({ accessToken: 'b', refreshToken: 'r2', expiresIn: 3600 });
       expect(sm.getTokens()?.accessToken).toBe('b');
       sm.destroy();
+    });
+  });
+
+  describe('Config validation at construction', () => {
+    it('rejects javascript: baseUrl (XSS vector)', () => {
+      expect(
+        () =>
+          new SessionManager({
+            tokenStorage: storage,
+            baseUrl: 'javascript:alert(1)',
+            autoRefresh: false,
+          })
+      ).toThrow(ConfigurationError);
+    });
+
+    it('rejects ftp:// baseUrl', () => {
+      expect(
+        () =>
+          new SessionManager({ tokenStorage: storage, baseUrl: 'ftp://host', autoRefresh: false })
+      ).toThrow(/must start with http/);
+    });
+
+    it('accepts empty baseUrl (inherit from AppProvider)', () => {
+      expect(
+        () => new SessionManager({ tokenStorage: storage, baseUrl: '', autoRefresh: false })
+      ).not.toThrow();
+    });
+
+    it('rejects non-finite numeric config', () => {
+      expect(
+        () =>
+          new SessionManager({
+            tokenStorage: storage,
+            autoRefresh: false,
+            refreshThreshold: NaN,
+          })
+      ).toThrow(ConfigurationError);
+
+      expect(
+        () =>
+          new SessionManager({
+            tokenStorage: storage,
+            autoRefresh: false,
+            refreshQueueTimeout: Infinity,
+          })
+      ).toThrow(ConfigurationError);
+    });
+
+    it('rejects retryBackoffBase < 1 (would cause infinite tight retry loop)', () => {
+      expect(
+        () =>
+          new SessionManager({ tokenStorage: storage, autoRefresh: false, retryBackoffBase: 0 })
+      ).toThrow(/>= 1/);
+    });
+
+    it('rejects string passed where boolean expected', () => {
+      expect(
+        () =>
+          new SessionManager({
+            tokenStorage: storage,
+            // @ts-expect-error intentional wrong type
+            enableCookieSession: 'true',
+          })
+      ).toThrow(/must be a boolean/);
+    });
+  });
+
+  describe('setTokens validation', () => {
+    it('rejects malformed JWT (2 segments)', () => {
+      const sm = new SessionManager({ tokenStorage: storage, autoRefresh: false });
+      expect(() =>
+        sm.setTokens({ accessToken: 'header.payload', refreshToken: 'r', expiresIn: 3600 })
+      ).toThrow(/3 segments/);
+      sm.destroy();
+    });
+
+    it('rejects JWT with non-base64url header', () => {
+      const sm = new SessionManager({ tokenStorage: storage, autoRefresh: false });
+      expect(() =>
+        sm.setTokens({
+          accessToken: '!!!bad!!!.eyJhIjoxfQ.sig',
+          refreshToken: 'r',
+          expiresIn: 3600,
+        })
+      ).toThrow(/JWT header or payload is not valid/);
+      sm.destroy();
+    });
+
+    it('accepts opaque access tokens (no dots)', () => {
+      const sm = new SessionManager({ tokenStorage: storage, autoRefresh: false });
+      expect(() =>
+        sm.setTokens({ accessToken: 'opaque-abc', refreshToken: 'r', expiresIn: 3600 })
+      ).not.toThrow();
+      sm.destroy();
+    });
+
+    it('rejects negative expiresIn', () => {
+      const sm = new SessionManager({ tokenStorage: storage, autoRefresh: false });
+      expect(() =>
+        sm.setTokens({ accessToken: 'a', refreshToken: 'r', expiresIn: -10 })
+      ).toThrow(/expiresIn/);
+      sm.destroy();
+    });
+
+    it('rejects zero expiresIn', () => {
+      const sm = new SessionManager({ tokenStorage: storage, autoRefresh: false });
+      expect(() =>
+        sm.setTokens({ accessToken: 'a', refreshToken: 'r', expiresIn: 0 })
+      ).toThrow(/expiresIn/);
+      sm.destroy();
+    });
+
+    it('rejects NaN expiresAt', () => {
+      const sm = new SessionManager({ tokenStorage: storage, autoRefresh: false });
+      expect(() =>
+        sm.setTokens({ accessToken: 'a', refreshToken: 'r', expiresAt: NaN })
+      ).toThrow(/expiresAt/);
+      sm.destroy();
+    });
+  });
+
+  describe('Storage fallback on hostile localStorage', () => {
+    it('falls back to in-memory storage when localStorage rejects writes', () => {
+      const setItemSpy = vi.spyOn(window.localStorage, 'setItem').mockImplementation(() => {
+        throw new DOMException('QuotaExceededError', 'QuotaExceededError');
+      });
+
+      const sm = new SessionManager({ autoRefresh: false });
+
+      // Session continues to work against the in-memory store.
+      sm.setTokens({ accessToken: 'a', refreshToken: 'r', expiresIn: 3600 });
+      expect(sm.getTokens()?.accessToken).toBe('a');
+
+      // Multiple writes keep succeeding without re-throwing.
+      sm.setTokens({ accessToken: 'b', refreshToken: 'r', expiresIn: 3600 });
+      sm.setTokens({ accessToken: 'c', refreshToken: 'r', expiresIn: 3600 });
+      expect(sm.getTokens()?.accessToken).toBe('c');
+
+      sm.destroy();
+      setItemSpy.mockRestore();
+    });
+  });
+
+  describe('Visibility-aware rescheduling', () => {
+    it('attaches a visibilitychange listener at construction', () => {
+      const addSpy = vi.spyOn(document, 'addEventListener');
+      const sm = new SessionManager({ tokenStorage: storage, autoRefresh: false });
+      expect(
+        addSpy.mock.calls.some(([event]) => event === 'visibilitychange')
+      ).toBe(true);
+      sm.destroy();
+      addSpy.mockRestore();
+    });
+
+    it('detaches the listener on destroy', () => {
+      const removeSpy = vi.spyOn(document, 'removeEventListener');
+      const sm = new SessionManager({ tokenStorage: storage, autoRefresh: false });
+      sm.destroy();
+      expect(
+        removeSpy.mock.calls.some(([event]) => event === 'visibilitychange')
+      ).toBe(true);
+      removeSpy.mockRestore();
     });
   });
 });

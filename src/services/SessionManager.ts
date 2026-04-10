@@ -2,7 +2,17 @@ import {
   SessionExpiredError,
   TokenRefreshTimeoutError,
   TokenRefreshError,
+  ConfigurationError,
 } from '../errors/SessionErrors';
+import {
+  validateBaseUrl,
+  validateNumber,
+  validateBoolean,
+  validateTokenShape,
+  validateExpiresIn,
+  validateExpiresAt,
+} from '../utils/configValidation';
+import { decodeJwt, extractJwtClaim, extractJwtExpiry } from '../utils/jwt';
 
 export interface TokenData {
   accessToken: string;
@@ -112,6 +122,8 @@ export class SessionManager {
   private static readonly MAX_BACKGROUND_FAILURES = 3;
 
   constructor(config: SessionConfig = {}) {
+    SessionManager.validateConfig(config);
+
     this.storageKey = config.storageKey || 'auth_tokens';
 
     this.autoRefresh = config.autoRefresh ?? true;
@@ -129,8 +141,19 @@ export class SessionManager {
 
     this.tokenStorage = config.tokenStorage || this.createTokenStorage(this.storageKey);
 
-    // Schedule proactive refresh if we already have tokens
+    this.attachVisibilityListener();
     this.scheduleProactiveRefresh();
+  }
+
+  private static validateConfig(config: SessionConfig): void {
+    validateBaseUrl(config.baseUrl);
+    validateBoolean('enableCookieSession', config.enableCookieSession);
+    validateBoolean('autoRefresh', config.autoRefresh);
+    validateNumber('refreshThreshold', config.refreshThreshold, { min: 0 });
+    validateNumber('proactiveRefreshMargin', config.proactiveRefreshMargin, { min: 0 });
+    validateNumber('refreshQueueTimeout', config.refreshQueueTimeout, { min: 1 });
+    validateNumber('maxRefreshRetries', config.maxRefreshRetries, { min: 0 });
+    validateNumber('retryBackoffBase', config.retryBackoffBase, { min: 1 });
   }
 
   /** Update mutable config (callbacks, baseUrl) on an existing instance. */
@@ -144,61 +167,107 @@ export class SessionManager {
 
   // --- Storage helpers ---
 
+  // Lazily allocated when localStorage rejects a write. Non-null ⇒ fallback active.
+  private memoryStore: Map<string, string> | null = null;
+
   private createTokenStorage(storageKey: string): TokenStorage {
+    if (!SessionManager.probeLocalStorage()) {
+      this.activateMemoryFallback();
+    }
+
     return {
       get: () => {
+        const stored = this.storageGet(storageKey);
+        if (!stored) return null;
         try {
-          const stored = localStorage.getItem(storageKey);
-          return stored ? JSON.parse(stored) : null;
+          return JSON.parse(stored);
         } catch {
           return null;
         }
       },
       set: (data: any) => {
-        try {
-          localStorage.setItem(storageKey, JSON.stringify(data));
-        } catch {
-          // Handle storage errors silently
-        }
+        this.storageSet(storageKey, JSON.stringify(data));
       },
       clear: () => {
-        try {
-          localStorage.removeItem(storageKey);
-        } catch {
-          // Handle storage errors silently
-        }
+        this.storageRemove(storageKey);
       },
     };
   }
 
-  // --- Token CRUD ---
-
-  private static decodeJwtPayload(token: string): Record<string, unknown> | null {
+  private static probeLocalStorage(): boolean {
+    if (typeof localStorage === 'undefined') return false;
     try {
-      const parts = token.split('.');
-      if (parts.length !== 3) return null;
-      return JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
+      localStorage.setItem('__sm_probe__', '1');
+      localStorage.removeItem('__sm_probe__');
+      return true;
     } catch {
-      return null;
+      return false;
     }
   }
 
-  private static extractJwtExpiry(accessToken: string): number | undefined {
-    const payload = SessionManager.decodeJwtPayload(accessToken);
-    return typeof payload?.exp === 'number' ? payload.exp * 1000 : undefined;
+  private activateMemoryFallback(): Map<string, string> {
+    if (!this.memoryStore) {
+      this.memoryStore = new Map();
+      if (process.env.NODE_ENV === 'development') {
+        console.warn(
+          '[SessionManager] localStorage unavailable — falling back to in-memory session. Cross-tab and reload persistence are lost.'
+        );
+      }
+    }
+    return this.memoryStore;
   }
 
-  private static extractJwtClaim(token: string, claim: string): string | undefined {
-    const payload = SessionManager.decodeJwtPayload(token);
-    const value = payload?.[claim];
-    return typeof value === 'string' ? value : undefined;
+  private storageGet(key: string): string | null {
+    if (this.memoryStore) return this.memoryStore.get(key) ?? null;
+    try {
+      return localStorage.getItem(key);
+    } catch {
+      return this.activateMemoryFallback().get(key) ?? null;
+    }
   }
+
+  private storageSet(key: string, value: string): void {
+    if (this.memoryStore) {
+      this.memoryStore.set(key, value);
+      return;
+    }
+    try {
+      localStorage.setItem(key, value);
+    } catch {
+      // Mid-session storage failure (quota, policy change). Switch to memory
+      // so the current session keeps working, then replay the write.
+      this.activateMemoryFallback().set(key, value);
+    }
+  }
+
+  private storageRemove(key: string): void {
+    if (this.memoryStore) {
+      this.memoryStore.delete(key);
+      return;
+    }
+    try {
+      localStorage.removeItem(key);
+    } catch {
+      // Best-effort: remove failures are ignored; the next write will fall back.
+    }
+  }
+
+  // --- Token CRUD ---
 
   setTokens(tokens: TokenData): void {
+    validateTokenShape(tokens.accessToken, 'accessToken');
+    // Refresh tokens are often opaque, so we only reject obvious type errors.
+    // Empty string remains allowed for legacy cookie-session flows.
+    if (tokens.refreshToken !== undefined && typeof tokens.refreshToken !== 'string') {
+      throw new ConfigurationError('refreshToken', tokens.refreshToken, 'must be a string');
+    }
+    validateExpiresIn(tokens.expiresIn);
+    validateExpiresAt(tokens.expiresAt);
+
     const expiresAt =
       tokens.expiresAt ||
       (tokens.expiresIn ? Date.now() + tokens.expiresIn * 1000 : undefined) ||
-      SessionManager.extractJwtExpiry(tokens.accessToken);
+      extractJwtExpiry(tokens.accessToken);
 
     const tokenData: TokenData = {
       ...tokens,
@@ -222,7 +291,7 @@ export class SessionManager {
     }
 
     // Fallback: derive expiresAt from JWT exp claim when not stored
-    const resolvedExpiresAt = expiresAt || SessionManager.extractJwtExpiry(accessToken);
+    const resolvedExpiresAt = expiresAt || extractJwtExpiry(accessToken);
 
     return {
       accessToken,
@@ -286,6 +355,40 @@ export class SessionManager {
       clearTimeout(this.backgroundRetryTimerId);
       this.backgroundRetryTimerId = null;
     }
+  }
+
+  // --- Visibility-aware rescheduling ---
+
+  private visibilityListener: (() => void) | null = null;
+
+  private attachVisibilityListener(): void {
+    if (this.visibilityListener) return;
+    if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') {
+      return;
+    }
+    // Browsers throttle/drop setTimeout while the tab is hidden, and clock
+    // skew (NTP, laptop sleep) can make a pending timer miss its window.
+    // Rescheduling on visibility recomputes from current Date.now().
+    this.visibilityListener = () => {
+      if (document.visibilityState !== 'visible' || this.isDestroyed) return;
+      this.scheduleProactiveRefresh();
+    };
+    try {
+      document.addEventListener('visibilitychange', this.visibilityListener);
+    } catch {
+      this.visibilityListener = null;
+    }
+  }
+
+  private detachVisibilityListener(): void {
+    if (this.visibilityListener && typeof document !== 'undefined') {
+      try {
+        document.removeEventListener('visibilitychange', this.visibilityListener);
+      } catch {
+        // ignore
+      }
+    }
+    this.visibilityListener = null;
   }
 
   private backgroundRefresh(): void {
@@ -602,7 +705,7 @@ export class SessionManager {
 
     // Extract deviceId from the refresh token JWT if present.
     // Some backends require it as a separate body field for refresh.
-    const deviceId = SessionManager.extractJwtClaim(currentRefreshToken, 'deviceId');
+    const deviceId = extractJwtClaim(currentRefreshToken, 'deviceId');
     const refreshBody: Record<string, string> = { refreshToken: currentRefreshToken };
     if (deviceId) {
       refreshBody.deviceId = deviceId;
@@ -735,6 +838,7 @@ export class SessionManager {
     // Remove from singleton registry
     SessionManager.instances.delete(this.storageKey);
     this.cancelProactiveTimer();
+    this.detachVisibilityListener();
     const error = new SessionExpiredError('token_invalid', 'SessionManager destroyed');
     this.rejectQueue(error);
   }
@@ -744,7 +848,7 @@ export class SessionManager {
   getTokenPayload(): JwtPayload | null {
     const token = this.getTokens()?.accessToken;
     if (!token) return null;
-    return (SessionManager.decodeJwtPayload(token) as JwtPayload | null) ?? null;
+    return (decodeJwt(token)?.payload as unknown as JwtPayload) ?? null;
   }
 
   /**

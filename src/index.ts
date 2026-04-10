@@ -100,6 +100,7 @@ export {
   SessionExpiredError,
   TokenRefreshTimeoutError,
   TokenRefreshError,
+  ConfigurationError,
 } from './errors/SessionErrors';
 export type { SessionExpiredReason } from './errors/SessionErrors';
 

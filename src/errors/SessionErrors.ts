@@ -59,3 +59,31 @@ export class TokenRefreshError extends Error {
     this.lastError = lastError;
   }
 }
+
+/**
+ * Thrown synchronously when a configuration value is invalid (wrong type,
+ * out of range, dangerous scheme). Raised at construction time so callers
+ * get immediate feedback.
+ */
+export class ConfigurationError extends Error {
+  public readonly field: string;
+  public readonly received: unknown;
+
+  constructor(field: string, received: unknown, reason: string) {
+    super(`Invalid configuration "${field}": ${reason} (received: ${describeValue(received)})`);
+    this.name = 'ConfigurationError';
+    this.field = field;
+    this.received = received;
+  }
+}
+
+function describeValue(v: unknown): string {
+  if (v === undefined) return 'undefined';
+  try {
+    const json = JSON.stringify(v);
+    if (json === undefined) return typeof v;
+    return json.length > 50 ? `${json.slice(0, 47)}...` : json;
+  } catch {
+    return typeof v;
+  }
+}

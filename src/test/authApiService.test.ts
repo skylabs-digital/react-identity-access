@@ -1,8 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { AuthApiService } from '../services/AuthApiService';
 import type { HttpService } from '../services/HttpService';
-import type { VerifyMagicLinkResponse } from '../types/api';
+import type { MagicLinkResponse, VerifyMagicLinkResponse } from '../types/api';
 import { UserType } from '../types/api';
+
+const mockSendMagicLinkResponse: MagicLinkResponse = {
+  message: 'sent',
+  emailSent: true,
+};
 
 const mockVerifyResponse: VerifyMagicLinkResponse = {
   user: {
@@ -154,6 +159,63 @@ describe('AuthApiService', () => {
       expect(results[1].status).toBe('rejected');
       expect((results[0] as PromiseRejectedResult).reason).toBe(error);
       expect((results[1] as PromiseRejectedResult).reason).toBe(error);
+    });
+  });
+
+  describe('sendMagicLink — dedup guard', () => {
+    let httpService: HttpService;
+
+    beforeEach(() => {
+      httpService = createMockHttpService();
+      (httpService.post as ReturnType<typeof vi.fn>).mockResolvedValue(mockSendMagicLinkResponse);
+    });
+
+    it('deduplicates concurrent calls with identical payload', async () => {
+      const service = new AuthApiService(httpService);
+      const request = {
+        email: 'a@example.com',
+        tenantId: 't1',
+        frontendUrl: 'https://app.example.com',
+        appId: 'app-1',
+      };
+
+      const [r1, r2, r3] = await Promise.all([
+        service.sendMagicLink(request),
+        service.sendMagicLink(request),
+        service.sendMagicLink(request),
+      ]);
+
+      expect(httpService.post).toHaveBeenCalledTimes(1);
+      expect(r1).toEqual(r2);
+      expect(r2).toEqual(r3);
+    });
+
+    it('does not dedup across different emails', async () => {
+      const service = new AuthApiService(httpService);
+      await Promise.all([
+        service.sendMagicLink({ email: 'a@example.com', tenantId: 't', frontendUrl: 'x' }),
+        service.sendMagicLink({ email: 'b@example.com', tenantId: 't', frontendUrl: 'x' }),
+      ]);
+      expect(httpService.post).toHaveBeenCalledTimes(2);
+    });
+
+    it('does not dedup across different tenants', async () => {
+      const service = new AuthApiService(httpService);
+      await Promise.all([
+        service.sendMagicLink({ email: 'a@example.com', tenantId: 't1', frontendUrl: 'x' }),
+        service.sendMagicLink({ email: 'a@example.com', tenantId: 't2', frontendUrl: 'x' }),
+      ]);
+      expect(httpService.post).toHaveBeenCalledTimes(2);
+    });
+
+    it('allows a new call after the first completes', async () => {
+      const service = new AuthApiService(httpService);
+      const request = { email: 'a@example.com', tenantId: 't', frontendUrl: 'x' };
+
+      await service.sendMagicLink(request);
+      await service.sendMagicLink(request);
+
+      expect(httpService.post).toHaveBeenCalledTimes(2);
     });
   });
 });

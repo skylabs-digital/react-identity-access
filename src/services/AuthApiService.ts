@@ -20,6 +20,8 @@ import type {
 export class AuthApiService {
   // Prevents duplicate verifyMagicLink calls (React StrictMode double-mount)
   private pendingVerifications = new Map<string, Promise<VerifyMagicLinkResponse>>();
+  // Prevents duplicate sendMagicLink calls (double-click, StrictMode double-invoke)
+  private pendingMagicLinks = new Map<string, Promise<MagicLinkResponse>>();
 
   constructor(private httpService: HttpService) {}
 
@@ -72,11 +74,23 @@ export class AuthApiService {
   }
 
   async sendMagicLink(request: MagicLinkRequest): Promise<MagicLinkResponse> {
-    const response = await this.httpService.post<MagicLinkResponse>(
-      '/auth/magic-link/send',
-      request
-    );
-    return response;
+    const key = JSON.stringify([
+      request.email,
+      request.tenantId,
+      request.appId ?? '',
+      request.frontendUrl ?? '',
+    ]);
+    const pending = this.pendingMagicLinks.get(key);
+    if (pending) return pending;
+
+    const promise = this.httpService
+      .post<MagicLinkResponse>('/auth/magic-link/send', request)
+      .finally(() => {
+        this.pendingMagicLinks.delete(key);
+      });
+
+    this.pendingMagicLinks.set(key, promise);
+    return promise;
   }
 
   async verifyMagicLink(request: VerifyMagicLinkRequest): Promise<VerifyMagicLinkResponse> {
