@@ -1,9 +1,17 @@
 import '@testing-library/jest-dom';
+import { cleanup } from '@testing-library/react';
 
 // Global test setup
 beforeEach(() => {
   // Clear any mocks between tests
   vi.clearAllMocks();
+});
+
+// Tear down the rendered DOM between tests. With vitest `isolate: false`
+// this is required — without it, rendered components from previous tests
+// accumulate in document.body and break role/text queries.
+afterEach(() => {
+  cleanup();
 });
 
 // Mock window.matchMedia for tests

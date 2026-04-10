@@ -34,6 +34,9 @@ jobs:
       - name: Run tests
         run: yarn test:coverage
 
+      - name: Run QA simulator scenarios
+        run: yarn sim
+
       - name: Build
         run: yarn build
 

@@ -1541,4 +1541,141 @@ describe('SessionManager', () => {
       });
     });
   });
+
+  // ─── Web Locks API coordination (multi-tab refresh serialization) ───
+  describe('Web Locks API coordination', () => {
+    let originalLocks: LockManager | undefined;
+
+    beforeEach(() => {
+      originalLocks = (navigator as unknown as { locks?: LockManager }).locks;
+    });
+
+    afterEach(() => {
+      if (originalLocks === undefined) {
+        delete (navigator as unknown as { locks?: LockManager }).locks;
+      } else {
+        (navigator as unknown as { locks: LockManager }).locks = originalLocks;
+      }
+    });
+
+    it('wraps performTokenRefresh in navigator.locks.request when available', async () => {
+      vi.useRealTimers();
+
+      const lockRequestSpy = vi
+        .fn()
+        .mockImplementation(async (_name: string, cb: () => Promise<void>) => cb());
+      (navigator as unknown as { locks: { request: typeof lockRequestSpy } }).locks = {
+        request: lockRequestSpy,
+      };
+
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({ accessToken: 'new-access', expiresIn: 3600 }),
+        })
+      );
+
+      const sm = new SessionManager({
+        tokenStorage: storage,
+        baseUrl: 'http://api',
+        autoRefresh: false,
+      });
+      sm.setTokens({
+        accessToken: 'old',
+        refreshToken: 'rt-1',
+        expiresIn: -10, // already expired
+      });
+
+      await sm.getValidAccessToken();
+
+      expect(lockRequestSpy).toHaveBeenCalledTimes(1);
+      expect(lockRequestSpy.mock.calls[0][0]).toMatch(/^session-refresh:/);
+      sm.destroy();
+    });
+
+    it('falls back gracefully when navigator.locks is not available', async () => {
+      vi.useRealTimers();
+      delete (navigator as unknown as { locks?: LockManager }).locks;
+
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: true,
+          json: async () => ({ accessToken: 'new-access', expiresIn: 3600 }),
+        })
+      );
+
+      const sm = new SessionManager({
+        tokenStorage: storage,
+        baseUrl: 'http://api',
+        autoRefresh: false,
+      });
+      sm.setTokens({ accessToken: 'old', refreshToken: 'rt-1', expiresIn: -10 });
+
+      // Should not throw, should still refresh
+      const token = await sm.getValidAccessToken();
+      expect(token).toBe('new-access');
+      sm.destroy();
+    });
+  });
+
+  // ─── Session generation tracking (prevents zombie sessions after logout) ───
+  describe('Session generation tracking', () => {
+    it('discards refresh response that completes after a clearSession()', async () => {
+      vi.useRealTimers();
+
+      let resolveRefresh!: (value: Response) => void;
+      const refreshPromise = new Promise<Response>(resolve => {
+        resolveRefresh = resolve;
+      });
+
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockImplementation(() => refreshPromise)
+      );
+
+      const sm = new SessionManager({
+        tokenStorage: storage,
+        baseUrl: 'http://api',
+        autoRefresh: false,
+      });
+      sm.setTokens({
+        accessToken: 'old',
+        refreshToken: 'rt-old',
+        expiresIn: -10, // expired
+      });
+
+      // Start a refresh (caught — we expect SessionExpiredError)
+      const refreshAttempt = sm.getValidAccessToken().catch(() => null);
+
+      // Simulate logout mid-refresh: clearSession bumps the generation counter
+      sm.clearSession();
+
+      // Resolve the in-flight refresh AFTER the clear
+      resolveRefresh({
+        ok: true,
+        json: async () => ({ accessToken: 'new-access', expiresIn: 3600 }),
+      } as Response);
+
+      await refreshAttempt;
+
+      // Tokens should NOT have been rehydrated — generation mismatch discards them
+      expect(sm.getTokens()).toBeNull();
+      sm.destroy();
+    });
+
+    it('clearSession leaves storage empty and allows fresh setTokens afterwards', () => {
+      const sm = new SessionManager({ tokenStorage: storage, autoRefresh: false });
+      sm.setTokens({ accessToken: 'a', refreshToken: 'r', expiresIn: 3600 });
+
+      sm.clearSession();
+      expect(sm.getTokens()).toBeNull();
+
+      // After clearSession, a fresh login should work normally (new session generation)
+      sm.setTokens({ accessToken: 'b', refreshToken: 'r2', expiresIn: 3600 });
+      expect(sm.getTokens()?.accessToken).toBe('b');
+      sm.destroy();
+    });
+  });
 });
