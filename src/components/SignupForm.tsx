@@ -83,13 +83,7 @@ const defaultCopy: Required<SignupFormCopy> = {
   dividerBullet: '•',
 };
 
-type SignupField =
-  | 'name'
-  | 'email'
-  | 'phoneNumber'
-  | 'password'
-  | 'confirmPassword'
-  | 'tenantName';
+type SignupField = 'name' | 'email' | 'phoneNumber' | 'password' | 'confirmPassword' | 'tenantName';
 
 export function SignupForm({
   copy = {},

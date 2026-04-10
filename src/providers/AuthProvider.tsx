@@ -7,7 +7,6 @@ import { TenantApiService } from '../services/TenantApiService';
 import { HttpService } from '../services/HttpService';
 import { useAppOptional } from './AppProvider';
 import { useTenantOptional } from './TenantProvider';
-import { extractAuthTokensFromUrl, clearAuthTokensFromUrl } from '../utils/crossDomainAuth';
 import { SessionExpiredError } from '../errors/SessionErrors';
 import type {
   Role,
@@ -148,25 +147,15 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
   const [userTenants, setUserTenants] = useState<UserTenantMembership[]>(() => readUserTenants());
 
   // === SYNCHRONOUS INITIALIZATION ===
-  // Process URL tokens and localStorage BEFORE first render completes
-  // This ensures guards see valid session immediately
-  const initRef = useRef<{
-    done: boolean;
-    urlTokens: ReturnType<typeof extractAuthTokensFromUrl>;
-  }>({ done: false, urlTokens: null });
+  // Marks first-render init so downstream effects can gate on it.
+  const initRef = useRef<{ done: boolean }>({ done: false });
 
   if (!initRef.current.done) {
     initRef.current.done = true;
-    initRef.current.urlTokens = extractAuthTokensFromUrl();
   }
 
-  // CRITICAL: Initialize to TRUE if we have URL tokens, so isAuthReady stays false until user is loaded
-  const [isLoadingAfterUrlTokens, setIsLoadingAfterUrlTokens] = useState(
-    () => initRef.current.urlTokens !== null
-  );
-
   const sessionManager = useMemo(() => {
-    const manager = SessionManager.getInstance({
+    return SessionManager.getInstance({
       baseUrl,
       enableCookieSession: config.enableCookieSession,
       refreshQueueTimeout: config.refreshQueueTimeout,
@@ -183,16 +172,6 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
         }
       },
     });
-
-    if (initRef.current.urlTokens) {
-      manager.setTokens({
-        accessToken: initRef.current.urlTokens.accessToken,
-        refreshToken: initRef.current.urlTokens.refreshToken,
-        expiresIn: initRef.current.urlTokens.expiresIn,
-      });
-    }
-
-    return manager;
   }, [
     baseUrl,
     config.enableCookieSession,
@@ -204,7 +183,6 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
   // refreshable (backgroundRefresh is pending). This keeps isAuthReady false until
   // the refresh attempt settles, preventing premature redirects to login.
   const [isRestoringSession, setIsRestoringSession] = useState(() => {
-    if (initRef.current.urlTokens) return false;
     const tokens = sessionManager.getTokens();
     if (tokens) {
       return sessionManager.hasValidSession() || !!tokens.refreshToken;
@@ -213,7 +191,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     return false;
   });
 
-  const isAuthReady = initRef.current.done && !isLoadingAfterUrlTokens && !isRestoringSession;
+  const isAuthReady = initRef.current.done && !isRestoringSession;
 
   const authenticatedHttpService = useMemo(() => {
     const service = new HttpService(baseUrl);
@@ -335,19 +313,13 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
     const hasTenant = loginResponse.user?.tenantId !== null;
 
-    const tokens = {
-      accessToken: loginResponse.accessToken,
-      refreshToken: loginResponse.refreshToken,
-      expiresIn: loginResponse.expiresIn,
-    };
-
     if (shouldSwitch && targetTenantSlug) {
-      switchTenant(targetTenantSlug, { tokens, redirectPath });
+      switchTenant(targetTenantSlug, { redirectPath });
       return loginResponse;
     }
 
     if (redirectPath && redirectPath !== window.location.pathname) {
-      switchTenant(targetTenantSlug || tenantSlug || '', { tokens, redirectPath });
+      switchTenant(targetTenantSlug || tenantSlug || '', { redirectPath });
       return loginResponse;
     }
 
@@ -356,7 +328,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
       if (loginResponse.tenants.length === 1 && autoSwitch) {
         const singleTenant = loginResponse.tenants[0];
-        switchTenant(singleTenant.subdomain, { tokens, redirectPath });
+        switchTenant(singleTenant.subdomain, { redirectPath });
         return loginResponse;
       } else if (loginResponse.tenants.length > 1 && config.onTenantSelectionRequired) {
         config.onTenantSelectionRequired(loginResponse.tenants);
@@ -481,22 +453,13 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
         await loadUserData();
       } catch (error) {
         if (process.env.NODE_ENV === 'development') {
-          console.warn(
-            '[AuthProvider] Failed to load complete user data after magic link:',
-            error
-          );
+          console.warn('[AuthProvider] Failed to load complete user data after magic link:', error);
         }
       }
     }
 
     if (shouldSwitch && targetTenantSlug && targetTenantSlug !== tenantSlug) {
-      switchTenant(targetTenantSlug, {
-        tokens: {
-          accessToken: verifyResponse.accessToken,
-          refreshToken: verifyResponse.refreshToken,
-          expiresIn: verifyResponse.expiresIn,
-        },
-      });
+      switchTenant(targetTenantSlug);
     }
 
     return verifyResponse;
@@ -527,11 +490,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     clearUserTenants();
   };
 
-  const setTokens = (tokens: {
-    accessToken: string;
-    refreshToken: string;
-    expiresIn: number;
-  }) => {
+  const setTokens = (tokens: { accessToken: string; refreshToken: string; expiresIn: number }) => {
     sessionManager.setTokens(tokens);
   };
 
@@ -585,14 +544,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
     const targetTenant = userTenants.find(t => t.id === tenantId);
     if (targetTenant) {
-      switchTenant(targetTenant.subdomain, {
-        tokens: {
-          accessToken: response.accessToken,
-          refreshToken: tokens.refreshToken,
-          expiresIn: response.expiresIn,
-        },
-        redirectPath,
-      });
+      switchTenant(targetTenant.subdomain, { redirectPath });
     }
   };
 
@@ -723,29 +675,6 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     };
   }, [appId, config.initialRoles, roleApiService]);
 
-  // Cross-subdomain auth: Clean URL and load user data after sync token processing
-  const [urlTokensCleanedUp, setUrlTokensCleanedUp] = useState(false);
-  useEffect(() => {
-    if (urlTokensCleanedUp) return;
-    setUrlTokensCleanedUp(true);
-
-    if (initRef.current.urlTokens) {
-      clearAuthTokensFromUrl();
-      setIsLoadingAfterUrlTokens(true);
-
-      actionsImplRef.current
-        .loadUserData()
-        .catch(error => {
-          if (process.env.NODE_ENV === 'development') {
-            console.error('[AuthProvider] Failed to load user data after URL tokens:', error);
-          }
-        })
-        .finally(() => {
-          setIsLoadingAfterUrlTokens(false);
-        });
-    }
-  }, [urlTokensCleanedUp]);
-
   // Initialize user data from session on mount.
   // If a background refresh is in progress (expired token being renewed), wait for it
   // before checking session validity — prevents premature redirect to login.
@@ -782,9 +711,6 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
   // Auto-load user data if we have tokens but no currentUser
   useEffect(() => {
-    if (!urlTokensCleanedUp) return;
-    if (initRef.current.urlTokens) return;
-
     if (!currentUser && !isUserLoading && !userError && sessionManager.hasValidSession()) {
       actionsImplRef.current
         .loadUserData()
@@ -797,7 +723,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     } else {
       setIsRestoringSession(false);
     }
-  }, [currentUser, isUserLoading, userError, sessionManager, urlTokensCleanedUp]);
+  }, [currentUser, isUserLoading, userError, sessionManager]);
 
   return (
     <AuthActionsContext.Provider value={actions}>
