@@ -1,3 +1,10 @@
+# [2.32.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.31.0...v2.32.0) (2026-04-10)
+
+
+### Features
+
+* add cross-subdomain shared cookie session support (enableCookieSession) ([575ffe1](https://github.com/skylabs-digital/react-identity-access/commit/575ffe1e03e128df26f2810e43f84716e8e78dc2))
+
 # [2.31.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.30.0...v2.31.0) (2026-04-08)
 
 
