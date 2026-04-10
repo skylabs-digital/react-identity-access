@@ -1,3 +1,12 @@
+# [3.1.0](https://github.com/skylabs-digital/react-identity-access/compare/v3.0.0...v3.1.0) (2026-04-10)
+
+
+### Features
+
+* **example:** consolidate example/ + playground/ into a single Vite starter ([1ea5170](https://github.com/skylabs-digital/react-identity-access/commit/1ea517063f853d5efd221be6f0c6811dd1e1eff0))
+* **qa:** add agentic QA harness with flows, agents, helpers, and DSL ([a25ef7b](https://github.com/skylabs-digital/react-identity-access/commit/a25ef7b75a4402743d12ffd1dc85d88d881ec3ed))
+* **session:** harden config validation, storage fallback, and add QA scenarios ([8483bfc](https://github.com/skylabs-digital/react-identity-access/commit/8483bfca08e8cf8ade4c8caa52ca4d891b7c9509))
+
 # [3.0.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.32.0...v3.0.0) (2026-04-10)
 
 
