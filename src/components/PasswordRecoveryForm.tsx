@@ -1,6 +1,8 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { useAuth } from '../providers/AuthProvider';
 import { useTenantOptional } from '../providers/TenantProvider';
+import { useAuthForm } from '../hooks/useAuthForm';
+import { AuthFormBaseStyles, buildFormStyles } from './authFormShared';
 
 export interface PasswordRecoveryFormCopy {
   title?: string;
@@ -12,7 +14,6 @@ export interface PasswordRecoveryFormCopy {
   successMessage?: string;
   errorMessage?: string;
   loadingText?: string;
-  // Reset form copy
   resetTitle?: string;
   resetSubtitle?: string;
   tokenLabel?: string;
@@ -31,24 +32,7 @@ export interface PasswordRecoveryFormCopy {
   dividerBullet?: string;
 }
 
-export interface PasswordRecoveryFormStyles {
-  container?: React.CSSProperties;
-  title?: React.CSSProperties;
-  subtitle?: React.CSSProperties;
-  form?: React.CSSProperties;
-  fieldGroup?: React.CSSProperties;
-  label?: React.CSSProperties;
-  input?: React.CSSProperties;
-  inputError?: React.CSSProperties;
-  button?: React.CSSProperties;
-  buttonDisabled?: React.CSSProperties;
-  buttonLoading?: React.CSSProperties;
-  errorText?: React.CSSProperties;
-  successText?: React.CSSProperties;
-  linkContainer?: React.CSSProperties;
-  link?: React.CSSProperties;
-  modeSwitchDivider?: React.CSSProperties;
-}
+export type PasswordRecoveryFormStyles = AuthFormBaseStyles;
 
 export interface PasswordRecoveryFormProps {
   copy?: PasswordRecoveryFormCopy;
@@ -90,103 +74,6 @@ const defaultCopy: Required<PasswordRecoveryFormCopy> = {
   dividerBullet: '•',
 };
 
-const defaultStyles: Required<PasswordRecoveryFormStyles> = {
-  container: {
-    maxWidth: '400px',
-    margin: '0 auto',
-    padding: '2rem',
-    backgroundColor: '#ffffff',
-    borderRadius: '8px',
-    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
-  },
-  title: {
-    fontSize: '1.5rem',
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: '0.5rem',
-    color: '#333333',
-  },
-  subtitle: {
-    fontSize: '0.875rem',
-    textAlign: 'center',
-    marginBottom: '1.5rem',
-    color: '#6b7280',
-    lineHeight: '1.4',
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1rem',
-  },
-  fieldGroup: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.5rem',
-  },
-  label: {
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    color: '#374151',
-  },
-  input: {
-    padding: '0.75rem',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    fontSize: '1rem',
-    transition: 'border-color 0.15s ease-in-out',
-    outline: 'none',
-  },
-  inputError: {
-    borderColor: '#ef4444',
-    boxShadow: '0 0 0 3px rgba(239, 68, 68, 0.1)',
-  },
-  button: {
-    padding: '0.75rem 1rem',
-    backgroundColor: '#f59e0b',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    fontSize: '1rem',
-    fontWeight: '500',
-    cursor: 'pointer',
-    transition: 'background-color 0.15s ease-in-out',
-    marginTop: '0.5rem',
-  },
-  buttonDisabled: {
-    backgroundColor: '#9ca3af',
-    cursor: 'not-allowed',
-  },
-  buttonLoading: {
-    backgroundColor: '#6b7280',
-  },
-  errorText: {
-    color: '#ef4444',
-    fontSize: '0.875rem',
-    textAlign: 'center',
-    marginTop: '0.5rem',
-  },
-  successText: {
-    color: '#10b981',
-    fontSize: '0.875rem',
-    textAlign: 'center',
-    marginTop: '0.5rem',
-  },
-  linkContainer: {
-    textAlign: 'center',
-    marginTop: '1rem',
-  },
-  link: {
-    color: '#3b82f6',
-    textDecoration: 'none',
-    fontSize: '0.875rem',
-    cursor: 'pointer',
-  },
-  modeSwitchDivider: {
-    margin: '0 0.5rem',
-    color: '#6b7280',
-  },
-};
-
 export function PasswordRecoveryForm({
   copy = {},
   styles = {},
@@ -202,111 +89,84 @@ export function PasswordRecoveryForm({
   const [token, setToken] = useState(initialToken);
   const [newPassword, setNewPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [fieldErrors, setFieldErrors] = useState<{
-    email?: boolean;
-    token?: boolean;
-    newPassword?: boolean;
-    confirmPassword?: boolean;
-  }>({});
 
   const { requestPasswordReset, confirmPasswordReset } = useAuth();
   const tenant = useTenantOptional()?.tenant ?? null;
 
   const mergedCopy = { ...defaultCopy, ...copy };
-  const mergedStyles = { ...defaultStyles, ...styles };
+  const mergedStyles = buildFormStyles('#f59e0b', styles);
 
-  const validateRequestForm = () => {
-    const errors: { email?: boolean } = {};
-    if (!email.trim()) errors.email = true;
-    setFieldErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const validateResetForm = () => {
-    const errors: { token?: boolean; newPassword?: boolean; confirmPassword?: boolean } = {};
-    if (!token.trim()) errors.token = true;
-    if (!newPassword.trim()) errors.newPassword = true;
-    if (!confirmPassword.trim()) errors.confirmPassword = true;
-    setFieldErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleRequestSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validateRequestForm()) return;
-    if (!tenant?.id) {
-      setError(mergedCopy.tenantNotFoundError);
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      await requestPasswordReset({ email, tenantId: tenant.id });
+  type RequestField = 'email';
+  const requestForm = useAuthForm<void, RequestField>({
+    defaultErrorMessage: mergedCopy.errorMessage,
+    validate: () => {
+      if (!email.trim()) {
+        requestForm.setFieldError('email', true);
+        return false;
+      }
+      if (!tenant?.id) {
+        requestForm.setError(mergedCopy.tenantNotFoundError);
+        return false;
+      }
+      return true;
+    },
+    submit: async () => {
+      setSuccess('');
+      await requestPasswordReset({ email, tenantId: tenant!.id });
       setSuccess(mergedCopy.successMessage);
-      onSuccess?.();
-    } catch (err: any) {
-      const errorMessage = err.message || mergedCopy.errorMessage;
-      setError(errorMessage);
-      onError?.(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleResetSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validateResetForm()) return;
-
-    if (newPassword !== confirmPassword) {
-      setError(mergedCopy.passwordMismatchError);
-      setFieldErrors({ confirmPassword: true });
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    try {
-      await confirmPasswordReset({ token, newPassword });
-      setSuccess(mergedCopy.resetSuccessMessage);
-      onSuccess?.();
-    } catch (err: any) {
-      const errorMessage = err.message || mergedCopy.errorMessage;
-      setError(errorMessage);
-      onError?.(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getInputStyle = (field: keyof typeof fieldErrors) => ({
-    ...mergedStyles.input,
-    ...(fieldErrors[field] ? mergedStyles.inputError : {}),
+    },
+    onSuccess: () => onSuccess?.(),
+    onError,
   });
 
-  const getButtonStyle = () => ({
-    ...mergedStyles.button,
-    ...(loading ? mergedStyles.buttonLoading : {}),
+  type ResetField = 'token' | 'newPassword' | 'confirmPassword';
+  const resetForm = useAuthForm<void, ResetField>({
+    defaultErrorMessage: mergedCopy.errorMessage,
+    validate: () => {
+      const missing: ResetField[] = [];
+      if (!token.trim()) missing.push('token');
+      if (!newPassword.trim()) missing.push('newPassword');
+      if (!confirmPassword.trim()) missing.push('confirmPassword');
+      missing.forEach(f => resetForm.setFieldError(f, true));
+      if (missing.length > 0) return false;
+
+      if (newPassword !== confirmPassword) {
+        resetForm.setError(mergedCopy.passwordMismatchError);
+        resetForm.setFieldError('confirmPassword', true);
+        return false;
+      }
+      return true;
+    },
+    submit: async () => {
+      setSuccess('');
+      await confirmPasswordReset({ token, newPassword });
+      setSuccess(mergedCopy.resetSuccessMessage);
+    },
+    onSuccess: () => onSuccess?.(),
+    onError,
   });
 
   if (mode === 'reset') {
-    const isFormValid = token && newPassword && confirmPassword;
+    const getInputStyle = (field: ResetField) => ({
+      ...mergedStyles.input,
+      ...(resetForm.fieldErrors[field] ? mergedStyles.inputError : {}),
+    });
+
+    const isFormValid = !!token && !!newPassword && !!confirmPassword;
+    const isDisabled = !isFormValid || resetForm.loading;
+    const buttonStyle = {
+      ...mergedStyles.button,
+      ...(resetForm.loading ? mergedStyles.buttonLoading : {}),
+      ...(isDisabled ? mergedStyles.buttonDisabled : {}),
+    };
 
     return (
       <div className={className} style={mergedStyles.container}>
         <h2 style={mergedStyles.title}>{mergedCopy.resetTitle}</h2>
         <p style={mergedStyles.subtitle}>{mergedCopy.resetSubtitle}</p>
 
-        <form onSubmit={handleResetSubmit} style={mergedStyles.form}>
+        <form onSubmit={resetForm.handleSubmit} style={mergedStyles.form}>
           <div style={mergedStyles.fieldGroup}>
             <label style={mergedStyles.label}>{mergedCopy.tokenLabel}</label>
             <input
@@ -314,13 +174,11 @@ export function PasswordRecoveryForm({
               value={token}
               onChange={e => {
                 setToken(e.target.value);
-                if (fieldErrors.token) {
-                  setFieldErrors(prev => ({ ...prev, token: false }));
-                }
+                resetForm.clearFieldError('token');
               }}
               placeholder={mergedCopy.tokenPlaceholder}
               style={getInputStyle('token')}
-              disabled={loading}
+              disabled={resetForm.loading}
             />
           </div>
 
@@ -331,13 +189,11 @@ export function PasswordRecoveryForm({
               value={newPassword}
               onChange={e => {
                 setNewPassword(e.target.value);
-                if (fieldErrors.newPassword) {
-                  setFieldErrors(prev => ({ ...prev, newPassword: false }));
-                }
+                resetForm.clearFieldError('newPassword');
               }}
               placeholder={mergedCopy.newPasswordPlaceholder}
               style={getInputStyle('newPassword')}
-              disabled={loading}
+              disabled={resetForm.loading}
             />
           </div>
 
@@ -348,31 +204,22 @@ export function PasswordRecoveryForm({
               value={confirmPassword}
               onChange={e => {
                 setConfirmPassword(e.target.value);
-                if (fieldErrors.confirmPassword) {
-                  setFieldErrors(prev => ({ ...prev, confirmPassword: false }));
-                }
-                if (error === mergedCopy.passwordMismatchError) {
-                  setError('');
+                resetForm.clearFieldError('confirmPassword');
+                if (resetForm.error === mergedCopy.passwordMismatchError) {
+                  resetForm.setError('');
                 }
               }}
               placeholder={mergedCopy.confirmPasswordPlaceholder}
               style={getInputStyle('confirmPassword')}
-              disabled={loading}
+              disabled={resetForm.loading}
             />
           </div>
 
-          <button
-            type="submit"
-            disabled={!isFormValid || loading}
-            style={{
-              ...getButtonStyle(),
-              ...(!isFormValid || loading ? mergedStyles.buttonDisabled : {}),
-            }}
-          >
-            {loading ? mergedCopy.resetLoadingText : mergedCopy.resetSubmitButton}
+          <button type="submit" disabled={isDisabled} style={buttonStyle}>
+            {resetForm.loading ? mergedCopy.resetLoadingText : mergedCopy.resetSubmitButton}
           </button>
 
-          {error && <div style={mergedStyles.errorText}>{error}</div>}
+          {resetForm.error && <div style={mergedStyles.errorText}>{resetForm.error}</div>}
           {success && <div style={mergedStyles.successText}>{success}</div>}
         </form>
 
@@ -394,14 +241,24 @@ export function PasswordRecoveryForm({
   }
 
   // Request mode
-  const isFormValid = email;
+  const getInputStyle = (field: RequestField) => ({
+    ...mergedStyles.input,
+    ...(requestForm.fieldErrors[field] ? mergedStyles.inputError : {}),
+  });
+
+  const isDisabled = !email || requestForm.loading;
+  const buttonStyle = {
+    ...mergedStyles.button,
+    ...(requestForm.loading ? mergedStyles.buttonLoading : {}),
+    ...(isDisabled ? mergedStyles.buttonDisabled : {}),
+  };
 
   return (
     <div className={className} style={mergedStyles.container}>
       <h2 style={mergedStyles.title}>{mergedCopy.title}</h2>
       <p style={mergedStyles.subtitle}>{mergedCopy.subtitle}</p>
 
-      <form onSubmit={handleRequestSubmit} style={mergedStyles.form}>
+      <form onSubmit={requestForm.handleSubmit} style={mergedStyles.form}>
         <div style={mergedStyles.fieldGroup}>
           <label style={mergedStyles.label}>{mergedCopy.emailLabel}</label>
           <input
@@ -409,28 +266,19 @@ export function PasswordRecoveryForm({
             value={email}
             onChange={e => {
               setEmail(e.target.value);
-              if (fieldErrors.email) {
-                setFieldErrors(prev => ({ ...prev, email: false }));
-              }
+              requestForm.clearFieldError('email');
             }}
             placeholder={mergedCopy.emailPlaceholder}
             style={getInputStyle('email')}
-            disabled={loading}
+            disabled={requestForm.loading}
           />
         </div>
 
-        <button
-          type="submit"
-          disabled={!isFormValid || loading}
-          style={{
-            ...getButtonStyle(),
-            ...(!isFormValid || loading ? mergedStyles.buttonDisabled : {}),
-          }}
-        >
-          {loading ? mergedCopy.loadingText : mergedCopy.submitButton}
+        <button type="submit" disabled={isDisabled} style={buttonStyle}>
+          {requestForm.loading ? mergedCopy.loadingText : mergedCopy.submitButton}
         </button>
 
-        {error && <div style={mergedStyles.errorText}>{error}</div>}
+        {requestForm.error && <div style={mergedStyles.errorText}>{requestForm.error}</div>}
         {success && <div style={mergedStyles.successText}>{success}</div>}
       </form>
 

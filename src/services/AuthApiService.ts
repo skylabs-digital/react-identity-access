@@ -17,10 +17,10 @@ import type {
   UserTenantMembership,
 } from '../types/api';
 
-// Module-level guard: prevents duplicate verifyMagicLink calls (React StrictMode double-mount)
-const _pendingVerifications = new Map<string, Promise<VerifyMagicLinkResponse>>();
-
 export class AuthApiService {
+  // Prevents duplicate verifyMagicLink calls (React StrictMode double-mount)
+  private pendingVerifications = new Map<string, Promise<VerifyMagicLinkResponse>>();
+
   constructor(private httpService: HttpService) {}
 
   // Public endpoints - no auth required
@@ -63,11 +63,8 @@ export class AuthApiService {
     return response;
   }
 
-  async getUserTenants(authHeaders: Record<string, string>): Promise<UserTenantMembership[]> {
-    const response = await this.httpService.get<UserTenantMembership[]>('/auth/tenants', {
-      headers: authHeaders,
-    });
-    return response;
+  async getUserTenants(): Promise<UserTenantMembership[]> {
+    return this.httpService.get<UserTenantMembership[]>('/auth/tenants');
   }
 
   async requestPasswordReset(request: { email: string; tenantId: string }): Promise<void> {
@@ -84,18 +81,16 @@ export class AuthApiService {
 
   async verifyMagicLink(request: VerifyMagicLinkRequest): Promise<VerifyMagicLinkResponse> {
     const key = request.token;
-
-    // If there's already an in-flight request for this token, return the same promise
-    const pending = _pendingVerifications.get(key);
+    const pending = this.pendingVerifications.get(key);
     if (pending) return pending;
 
     const promise = this.httpService
       .post<VerifyMagicLinkResponse>('/auth/magic-link/verify', request)
       .finally(() => {
-        _pendingVerifications.delete(key);
+        this.pendingVerifications.delete(key);
       });
 
-    _pendingVerifications.set(key, promise);
+    this.pendingVerifications.set(key, promise);
     return promise;
   }
 
@@ -103,13 +98,7 @@ export class AuthApiService {
     await this.httpService.post<void>('/auth/password-reset/confirm', request);
   }
 
-  // Protected endpoints - auth required
-  async changePassword(
-    request: ChangePasswordRequest,
-    authHeaders: Record<string, string>
-  ): Promise<void> {
-    await this.httpService.post<ApiResponse<null>>('/auth/change-password', request, {
-      headers: authHeaders,
-    });
+  async changePassword(request: ChangePasswordRequest): Promise<void> {
+    await this.httpService.post<ApiResponse<null>>('/auth/change-password', request);
   }
 }

@@ -14,7 +14,7 @@ import { detectTenantSlug as detectTenant, buildTenantHostname } from '../utils/
 import { encodeAuthTokens, type AuthTokens, AUTH_TRANSFER_PARAM } from '../utils/crossDomainAuth';
 import type { TenantSettings, JSONSchema, PublicTenantInfo } from '../types/api';
 
-// RFC-003: Cache interface for tenant info
+// Cache interface for tenant info
 interface CachedTenantInfo {
   data: PublicTenantInfo;
   timestamp: number;
@@ -27,7 +27,7 @@ export interface TenantConfig {
   fixedTenantSlug?: string; // Required when tenantMode is 'fixed' — always uses this slug
   baseDomain?: string; // Base domain for subdomain mode (e.g., 'kommi.click')
   selectorParam?: string; // Default: 'tenant', used when tenantMode is 'selector'
-  // RFC-003: Cache configuration
+  // Cache configuration
   cache?: {
     enabled?: boolean; // Default: true
     ttl?: number; // Time to live in milliseconds, default: 5 minutes
@@ -91,17 +91,16 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
   // Detect tenant slug on mount and on URL changes
   const [tenantSlug, setTenantSlug] = useState<string | null>(() => detectTenantSlug());
 
-  // RFC-003: Cache configuration with defaults
+  const cacheEnabled = config.cache?.enabled ?? true;
+  const cacheTtl = config.cache?.ttl ?? 5 * 60 * 1000;
+  const cacheStorageKey =
+    config.cache?.storageKey ?? `tenant_cache_${tenantSlug || 'default'}`;
   const cacheConfig = useMemo(
-    () => ({
-      enabled: config.cache?.enabled ?? true,
-      ttl: config.cache?.ttl ?? 5 * 60 * 1000, // 5 minutes default
-      storageKey: config.cache?.storageKey ?? `tenant_cache_${tenantSlug || 'default'}`,
-    }),
-    [config.cache, tenantSlug]
+    () => ({ enabled: cacheEnabled, ttl: cacheTtl, storageKey: cacheStorageKey }),
+    [cacheEnabled, cacheTtl, cacheStorageKey]
   );
 
-  // RFC-003: Try to load from cache on initialization
+  // Try to load from cache on initialization
   const [tenant, setTenant] = useState<PublicTenantInfo | null>(() => {
     if (config.initialTenant) return config.initialTenant;
     if (!cacheConfig.enabled || !tenantSlug) return null;
@@ -145,12 +144,11 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
   // Get settings schema from app info
   const settingsSchema = appInfo?.settingsSchema || null;
 
-  // RFC-003: Load tenant info with caching
+  // Load tenant info with caching
   const loadTenant = useCallback(
     async (slug: string, bypassCache = false) => {
-      // Check cache first (unless bypassing)
-      if (!bypassCache && cacheConfig.enabled && tenant && tenant.domain === slug) {
-        return; // Already have valid cached data
+      if (!bypassCache && cacheConfig.enabled && tenant && tenant.subdomain === slug) {
+        return;
       }
 
       try {
@@ -162,7 +160,7 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
         const tenantInfo = await tenantApi.getPublicTenantInfo(slug);
         setTenant(tenantInfo);
 
-        // RFC-003: Save to cache
+        // Save to cache
         if (cacheConfig.enabled) {
           try {
             const cacheData: CachedTenantInfo = {
@@ -188,7 +186,7 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
     [baseUrl, appId, cacheConfig, tenant]
   );
 
-  // RFC-003: Background refresh for stale-while-revalidate
+  // Background refresh for stale-while-revalidate
   const backgroundRefresh = useCallback(async () => {
     if (!cacheConfig.enabled || !tenant || !tenantSlug) return;
 
@@ -356,7 +354,7 @@ export function TenantProvider({ config, children }: TenantProviderProps) {
     [settingsSchema]
   );
 
-  // RFC-003: Load tenant on mount or do background refresh
+  // Load tenant on mount or do background refresh
   useEffect(() => {
     if (!config.initialTenant && tenantSlug) {
       if (!tenant) {

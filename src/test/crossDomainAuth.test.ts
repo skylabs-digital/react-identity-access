@@ -2,8 +2,6 @@ import { describe, it, expect } from 'vitest';
 import {
   encodeAuthTokens,
   decodeAuthTokens,
-  buildUrlWithAuthTokens,
-  appendAuthTokensToUrl,
   AUTH_TRANSFER_PARAM,
 } from '../utils/crossDomainAuth';
 
@@ -63,71 +61,6 @@ describe('crossDomainAuth', () => {
       const decoded = decodeAuthTokens(extractedEncoded!);
 
       expect(decoded).toEqual(sampleTokens);
-    });
-  });
-
-  describe('buildUrlWithAuthTokens', () => {
-    it('should build URL with auth tokens', () => {
-      const result = buildUrlWithAuthTokens(
-        'https://tenant.example.com',
-        sampleTokens,
-        '/dashboard'
-      );
-
-      expect(result).toContain('https://tenant.example.com/dashboard');
-      expect(result).toContain(`${AUTH_TRANSFER_PARAM}=`);
-
-      // Verify tokens can be decoded from URL
-      const url = new URL(result);
-      const encoded = url.searchParams.get(AUTH_TRANSFER_PARAM);
-      expect(decodeAuthTokens(encoded!)).toEqual(sampleTokens);
-    });
-
-    it('should use root path when path not provided', () => {
-      const result = buildUrlWithAuthTokens('https://tenant.example.com', sampleTokens);
-
-      expect(result).toContain('https://tenant.example.com/');
-    });
-
-    it('should preserve protocol', () => {
-      const httpResult = buildUrlWithAuthTokens('http://tenant.example.com', sampleTokens);
-      const httpsResult = buildUrlWithAuthTokens('https://tenant.example.com', sampleTokens);
-
-      expect(httpResult).toMatch(/^http:\/\//);
-      expect(httpsResult).toMatch(/^https:\/\//);
-    });
-  });
-
-  describe('appendAuthTokensToUrl', () => {
-    it('should append auth tokens to existing URL', () => {
-      const result = appendAuthTokensToUrl(
-        'https://tenant.example.com/dashboard?existing=param',
-        sampleTokens
-      );
-
-      expect(result).toContain('existing=param');
-      expect(result).toContain(`${AUTH_TRANSFER_PARAM}=`);
-
-      // Verify tokens can be decoded
-      const url = new URL(result);
-      const encoded = url.searchParams.get(AUTH_TRANSFER_PARAM);
-      expect(decodeAuthTokens(encoded!)).toEqual(sampleTokens);
-    });
-
-    it('should work with URL without existing params', () => {
-      const result = appendAuthTokensToUrl('https://tenant.example.com/dashboard', sampleTokens);
-
-      expect(result).toContain(`${AUTH_TRANSFER_PARAM}=`);
-    });
-
-    it('should preserve path and hash', () => {
-      const result = appendAuthTokensToUrl(
-        'https://tenant.example.com/path/to/page#section',
-        sampleTokens
-      );
-
-      expect(result).toContain('/path/to/page');
-      expect(result).toContain('#section');
     });
   });
 

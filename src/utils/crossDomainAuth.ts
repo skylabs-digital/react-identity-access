@@ -79,22 +79,4 @@ export function clearAuthTokensFromUrl(): void {
   window.history.replaceState({}, '', url.toString());
 }
 
-/**
- * Build URL with auth tokens for cross-subdomain redirect
- */
-export function buildUrlWithAuthTokens(baseUrl: string, tokens: AuthTokens, path?: string): string {
-  const url = new URL(path || '/', baseUrl);
-  url.searchParams.set(AUTH_TRANSFER_PARAM, encodeAuthTokens(tokens));
-  return url.toString();
-}
-
-/**
- * Append auth tokens to an existing URL
- */
-export function appendAuthTokensToUrl(url: string, tokens: AuthTokens): string {
-  const urlObj = new URL(url);
-  urlObj.searchParams.set(AUTH_TRANSFER_PARAM, encodeAuthTokens(tokens));
-  return urlObj.toString();
-}
-
 export { AUTH_TRANSFER_PARAM };
