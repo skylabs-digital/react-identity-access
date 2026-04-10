@@ -199,7 +199,12 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     }
 
     return manager;
-  }, [baseUrl, config.enableCookieSession, config.refreshQueueTimeout, config.proactiveRefreshMargin]);
+  }, [
+    baseUrl,
+    config.enableCookieSession,
+    config.refreshQueueTimeout,
+    config.proactiveRefreshMargin,
+  ]);
 
   // Track if we're restoring an existing session (tokens in localStorage but user not loaded yet)
   // CRITICAL: Initialize to TRUE if there's a valid session OR if tokens are expired but
@@ -859,7 +864,11 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       if (cancelled) return;
 
       // No local session — attempt cookie-based session restore if enabled
-      if (!sessionManager.hasValidSession() && !sessionManager.getTokens() && config.enableCookieSession) {
+      if (
+        !sessionManager.hasValidSession() &&
+        !sessionManager.getTokens() &&
+        config.enableCookieSession
+      ) {
         await sessionManager.attemptCookieSessionRestore();
         if (cancelled) return;
         // If restore succeeded, the auto-load effect will pick up the valid session

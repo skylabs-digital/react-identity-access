@@ -138,7 +138,8 @@ export class SessionManager {
     if (config.onSessionExpired !== undefined) this.onSessionExpired = config.onSessionExpired;
     if (config.onRefreshFailed !== undefined) this.onRefreshFailed = config.onRefreshFailed;
     if (config.baseUrl) this.baseUrl = config.baseUrl;
-    if (config.enableCookieSession !== undefined) this.enableCookieSession = config.enableCookieSession;
+    if (config.enableCookieSession !== undefined)
+      this.enableCookieSession = config.enableCookieSession;
   }
 
   // --- Storage helpers ---

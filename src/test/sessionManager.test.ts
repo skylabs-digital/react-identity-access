@@ -1477,10 +1477,7 @@ describe('SessionManager', () => {
       });
 
       it('should return false on 401 response', async () => {
-        vi.stubGlobal(
-          'fetch',
-          vi.fn().mockResolvedValue({ ok: false, status: 401 })
-        );
+        vi.stubGlobal('fetch', vi.fn().mockResolvedValue({ ok: false, status: 401 }));
 
         const sm = new SessionManager({
           tokenStorage: storage,
@@ -1496,10 +1493,7 @@ describe('SessionManager', () => {
       });
 
       it('should return false on network error', async () => {
-        vi.stubGlobal(
-          'fetch',
-          vi.fn().mockRejectedValue(new TypeError('Failed to fetch'))
-        );
+        vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new TypeError('Failed to fetch')));
 
         const sm = new SessionManager({
           tokenStorage: storage,
