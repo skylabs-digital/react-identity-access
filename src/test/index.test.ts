@@ -1,7 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { UserType } from '../types/api';
 import { HttpService } from '../services/HttpService';
-import { ApiMappers } from '../utils/mappers';
 import { SessionManager } from '../services/SessionManager';
 
 describe('react-identity-access', () => {
@@ -17,13 +16,6 @@ describe('react-identity-access', () => {
     it('should create instance with base URL', () => {
       const httpService = new HttpService('https://api.example.com');
       expect(httpService).toBeInstanceOf(HttpService);
-    });
-  });
-
-  describe('ApiMappers', () => {
-    it('should exist and be accessible', () => {
-      expect(ApiMappers).toBeDefined();
-      expect(typeof ApiMappers).toBe('function');
     });
   });
 
@@ -107,7 +99,6 @@ describe('react-identity-access', () => {
       // Check that main exports exist
       expect(exports.HttpService).toBeDefined();
       expect(exports.UserType).toBeDefined();
-      expect(exports.ApiMappers).toBeDefined();
       expect(exports.AppProvider).toBeDefined();
       expect(exports.AuthProvider).toBeDefined();
       expect(exports.FeatureFlagProvider).toBeDefined();

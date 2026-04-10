@@ -173,37 +173,25 @@ export class SessionManager {
 
   // --- Token CRUD ---
 
-  /**
-   * Extract the `exp` claim from a JWT and convert to milliseconds.
-   * Returns undefined if the token cannot be decoded or has no exp.
-   */
-  private static extractJwtExpiry(accessToken: string): number | undefined {
+  private static decodeJwtPayload(token: string): Record<string, unknown> | null {
     try {
-      const parts = accessToken.split('.');
-      if (parts.length !== 3) return undefined;
-      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-      if (typeof payload.exp === 'number') {
-        return payload.exp * 1000; // JWT exp is in seconds
-      }
-      return undefined;
+      const parts = token.split('.');
+      if (parts.length !== 3) return null;
+      return JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
     } catch {
-      return undefined;
+      return null;
     }
   }
 
-  /**
-   * Extract an arbitrary claim from a JWT token.
-   * Returns undefined if the token cannot be decoded or the claim is missing.
-   */
+  private static extractJwtExpiry(accessToken: string): number | undefined {
+    const payload = SessionManager.decodeJwtPayload(accessToken);
+    return typeof payload?.exp === 'number' ? payload.exp * 1000 : undefined;
+  }
+
   private static extractJwtClaim(token: string, claim: string): string | undefined {
-    try {
-      const parts = token.split('.');
-      if (parts.length !== 3) return undefined;
-      const payload = JSON.parse(atob(parts[1].replace(/-/g, '+').replace(/_/g, '/')));
-      return typeof payload[claim] === 'string' ? payload[claim] : undefined;
-    } catch {
-      return undefined;
-    }
+    const payload = SessionManager.decodeJwtPayload(token);
+    const value = payload?.[claim];
+    return typeof value === 'string' ? value : undefined;
   }
 
   setTokens(tokens: TokenData): void {
@@ -753,27 +741,10 @@ export class SessionManager {
 
   // --- JWT helpers ---
 
-  /**
-   * Decode JWT token and extract payload
-   * Returns null if token is invalid or cannot be decoded
-   */
   getTokenPayload(): JwtPayload | null {
-    try {
-      const tokens = this.getTokens();
-      if (!tokens?.accessToken) return null;
-
-      // JWT structure: header.payload.signature
-      const parts = tokens.accessToken.split('.');
-      if (parts.length !== 3) return null;
-
-      // Decode base64 payload (second part)
-      const payload = parts[1];
-      const decodedPayload = atob(payload.replace(/-/g, '+').replace(/_/g, '/'));
-      return JSON.parse(decodedPayload) as JwtPayload;
-    } catch {
-      // Silent fail - invalid token format
-      return null;
-    }
+    const token = this.getTokens()?.accessToken;
+    if (!token) return null;
+    return (SessionManager.decodeJwtPayload(token) as JwtPayload | null) ?? null;
   }
 
   /**

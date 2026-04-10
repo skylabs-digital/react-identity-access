@@ -1,8 +1,19 @@
 // Export providers
 export { AppProvider, useApp, useApi } from './providers/AppProvider';
 export type { AppConfig } from './providers/AppProvider';
-export { AuthProvider, useAuth } from './providers/AuthProvider';
-export type { AuthConfig, AuthContextValue } from './providers/AuthProvider';
+export {
+  AuthProvider,
+  useAuth,
+  useAuthOptional,
+  useAuthState,
+  useAuthActions,
+} from './providers/AuthProvider';
+export type {
+  AuthConfig,
+  AuthContextValue,
+  AuthStateValue,
+  AuthActionsValue,
+} from './providers/AuthProvider';
 export { FeatureFlagProvider, useFeatureFlags } from './providers/FeatureFlagProvider';
 export type { FeatureFlagConfig, FeatureFlagContextValue } from './providers/FeatureFlagProvider';
 export type { FeatureFlag as FeatureFlagType } from './types/api';
@@ -127,9 +138,6 @@ export type {
   ConfirmPasswordResetParams,
   ChangePasswordParams,
 } from './types/authParams';
-
-// Utilities
-export { ApiMappers } from './utils/mappers';
 
 // Zone routing hooks and types (RFC-005)
 export { useZoneNavigation, buildRedirectUrl } from './hooks/useZoneNavigation';

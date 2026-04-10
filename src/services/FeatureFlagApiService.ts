@@ -1,5 +1,4 @@
 import { HttpService } from './HttpService';
-import { SessionManager } from './SessionManager';
 import type {
   ApiResponse,
   FeatureFlagItem,
@@ -8,24 +7,15 @@ import type {
   CreateFeatureFlagRequest,
   PaginationParams,
 } from '../types/api';
+import { buildPaginationQuery } from '../utils/query';
 
 export class FeatureFlagApiService {
-  constructor(
-    private httpService: HttpService,
-    private sessionManager?: SessionManager
-  ) {}
+  constructor(private httpService: HttpService) {}
 
   async createFeatureFlag(request: CreateFeatureFlagRequest): Promise<FeatureFlag> {
-    if (!this.sessionManager) {
-      throw new Error('SessionManager is required for private endpoints');
-    }
-    const authHeaders = await this.sessionManager.getAuthHeaders();
     const response = await this.httpService.post<ApiResponse<FeatureFlag>>(
       '/feature-flags/',
-      request,
-      {
-        headers: authHeaders,
-      }
+      request
     );
     return response.data;
   }
@@ -33,36 +23,14 @@ export class FeatureFlagApiService {
   async getFeatureFlags(
     params?: PaginationParams
   ): Promise<{ featureFlags: FeatureFlag[]; meta: any }> {
-    if (!this.sessionManager) {
-      throw new Error('SessionManager is required for private endpoints');
-    }
-    const authHeaders = await this.sessionManager.getAuthHeaders();
-    const queryParams = new URLSearchParams();
-
-    if (params?.page) queryParams.append('page', params.page.toString());
-    if (params?.limit) queryParams.append('limit', params.limit.toString());
-    if (params?.sortBy) queryParams.append('sortBy', params.sortBy);
-    if (params?.sortOrder) queryParams.append('sortOrder', params.sortOrder);
-
-    const url = `/feature-flags/${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    const response = await this.httpService.get<ApiResponse<FeatureFlag[]>>(url, {
-      headers: authHeaders,
-    });
-
-    return {
-      featureFlags: response.data,
-      meta: response.meta,
-    };
+    const response = await this.httpService.get<ApiResponse<FeatureFlag[]>>(
+      `/feature-flags/${buildPaginationQuery(params)}`
+    );
+    return { featureFlags: response.data, meta: response.meta };
   }
 
   async getFeatureFlagById(id: string): Promise<FeatureFlag> {
-    if (!this.sessionManager) {
-      throw new Error('SessionManager is required for private endpoints');
-    }
-    const authHeaders = await this.sessionManager.getAuthHeaders();
-    const response = await this.httpService.get<ApiResponse<FeatureFlag>>(`/feature-flags/${id}`, {
-      headers: authHeaders,
-    });
+    const response = await this.httpService.get<ApiResponse<FeatureFlag>>(`/feature-flags/${id}`);
     return response.data;
   }
 
@@ -70,49 +38,30 @@ export class FeatureFlagApiService {
     id: string,
     request: Partial<CreateFeatureFlagRequest>
   ): Promise<FeatureFlag> {
-    if (!this.sessionManager) {
-      throw new Error('SessionManager is required for private endpoints');
-    }
-    const authHeaders = await this.sessionManager.getAuthHeaders();
     const response = await this.httpService.put<ApiResponse<FeatureFlag>>(
       `/feature-flags/${id}`,
-      request,
-      {
-        headers: authHeaders,
-      }
+      request
     );
     return response.data;
   }
 
   async deleteFeatureFlag(id: string): Promise<void> {
-    if (!this.sessionManager) {
-      throw new Error('SessionManager is required for private endpoints');
-    }
-    const authHeaders = await this.sessionManager.getAuthHeaders();
-    await this.httpService.delete<void>(`/feature-flags/${id}`, {
-      headers: authHeaders,
-    });
+    await this.httpService.delete<void>(`/feature-flags/${id}`);
   }
 
-  // Public endpoint - no auth required
   async getTenantFeatureFlags(tenantId: string, appId: string): Promise<FeatureFlagItem[]> {
     if (!tenantId || !appId) {
       throw new Error('Tenant ID and App ID are required');
     }
 
-    const queryParams = new URLSearchParams();
-    queryParams.append('tenantId', tenantId);
-    queryParams.append('appId', appId);
-
-    const url = `/tenant-feature-flags${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    const response = await this.httpService.get<ApiResponse<FeatureFlagItem[]>>(url, {
-      headers: { 'X-Tenant-ID': tenantId },
-    });
-
+    const query = buildPaginationQuery({ tenantId, appId });
+    const response = await this.httpService.get<ApiResponse<FeatureFlagItem[]>>(
+      `/tenant-feature-flags${query}`,
+      { headers: { 'X-Tenant-ID': tenantId }, skipAuth: true }
+    );
     return response.data;
   }
 
-  // Public endpoint - no auth required
   async getTenantFeatureFlag(
     flagKey: string,
     tenantId: string,
@@ -122,15 +71,11 @@ export class FeatureFlagApiService {
       throw new Error('Flag Key, Tenant ID and App ID are required');
     }
 
-    const queryParams = new URLSearchParams();
-    queryParams.append('tenantId', tenantId);
-    queryParams.append('appId', appId);
-
-    const url = `/tenant-feature-flags/${flagKey}${queryParams.toString() ? `?${queryParams.toString()}` : ''}`;
-    const response = await this.httpService.get<ApiResponse<FeatureFlagValueResponse>>(url, {
-      headers: { 'X-Tenant-ID': tenantId },
-    });
-
+    const query = buildPaginationQuery({ tenantId, appId });
+    const response = await this.httpService.get<ApiResponse<FeatureFlagValueResponse>>(
+      `/tenant-feature-flags/${flagKey}${query}`,
+      { headers: { 'X-Tenant-ID': tenantId }, skipAuth: true }
+    );
     return response.data;
   }
 }

@@ -29,37 +29,74 @@ import type {
   ChangePasswordParams,
 } from '../types/authParams';
 
+const USER_TENANTS_STORAGE_KEY = 'userTenants';
+
+function readUserTenants(): UserTenantMembership[] {
+  try {
+    const cached = localStorage.getItem(USER_TENANTS_STORAGE_KEY);
+    return cached ? JSON.parse(cached) : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeUserTenants(tenants: UserTenantMembership[]): void {
+  try {
+    localStorage.setItem(USER_TENANTS_STORAGE_KEY, JSON.stringify(tenants));
+  } catch {
+    // Ignore storage errors
+  }
+}
+
+function clearUserTenants(): void {
+  try {
+    localStorage.removeItem(USER_TENANTS_STORAGE_KEY);
+  } catch {
+    // Ignore storage errors
+  }
+}
+
 export interface AuthConfig {
   /** @deprecated Use onSessionExpired instead */
   onRefreshFailed?: () => void;
   onSessionExpired?: (error: SessionExpiredError) => void;
-  initialRoles?: Role[]; // For SSR injection
-  // Session config
-  refreshQueueTimeout?: number; // ms before queued requests timeout (default: 10000)
-  proactiveRefreshMargin?: number; // ms before expiry to trigger proactive refresh (default: 60000)
-  // Multi-tenant options (RFC-004)
-  autoSwitchSingleTenant?: boolean; // Auto-switch if user has only one tenant (default: true)
-  onTenantSelectionRequired?: (tenants: UserTenantMembership[]) => void; // Callback when user needs to select tenant
-  // Cross-subdomain cookie session: when enabled, the lib attempts a speculative refresh
-  // with credentials: 'include' when no local session exists, allowing a backend-set
-  // HttpOnly cookie to restore the session across subdomains
+  initialRoles?: Role[];
+  refreshQueueTimeout?: number;
+  proactiveRefreshMargin?: number;
+  autoSwitchSingleTenant?: boolean;
+  onTenantSelectionRequired?: (tenants: UserTenantMembership[]) => void;
   enableCookieSession?: boolean;
-  // Standalone mode: use these when AuthProvider is used without AppProvider/TenantProvider
-  // (e.g., internal backoffice with system users)
-  baseUrl?: string; // Required when no AppProvider is present
-  appId?: string; // Optional, omit for system user login (no app context)
+  baseUrl?: string;
+  appId?: string;
 }
 
-export interface AuthContextValue {
-  // RFC-003: Authentication state
+/** Reactive auth state + permission helpers. Subscribe via useAuthState(). */
+export interface AuthStateValue {
   isAuthenticated: boolean;
+  isAuthInitializing: boolean;
+  isAuthReady: boolean;
+  currentUser: User | null;
+  isUserLoading: boolean;
+  userError: Error | null;
+  userRole: Role | null;
+  userPermissions: string[];
+  availableRoles: Role[];
+  rolesLoading: boolean;
+  userTenants: UserTenantMembership[];
+  hasTenantContext: boolean;
   sessionManager: SessionManager;
-  authenticatedHttpService: HttpService; // Authenticated HttpService for protected endpoints
-  // Auth methods (RFC-002: Object parameters)
+  authenticatedHttpService: HttpService;
+  hasPermission: (permission: string | Permission) => boolean;
+  hasAnyPermission: (permissions: (string | Permission)[]) => boolean;
+  hasAllPermissions: (permissions: (string | Permission)[]) => boolean;
+  getUserPermissionStrings: () => string[];
+}
+
+/** Stable auth action methods. Subscribe via useAuthActions() — never re-renders. */
+export interface AuthActionsValue {
   login: (params: LoginParams) => Promise<LoginResponse>;
   signup: (params: SignupParams) => Promise<User>;
   signupTenantAdmin: (params: SignupTenantAdminParams) => Promise<{ user: User; tenant: any }>;
-  // Magic Link methods
   sendMagicLink: (params: SendMagicLinkParams) => Promise<MagicLinkResponse>;
   verifyMagicLink: (params: VerifyMagicLinkParams) => Promise<VerifyMagicLinkResponse>;
   changePassword: (params: ChangePasswordParams) => Promise<void>;
@@ -67,37 +104,20 @@ export interface AuthContextValue {
   confirmPasswordReset: (params: ConfirmPasswordResetParams) => Promise<void>;
   refreshToken: () => Promise<void>;
   logout: () => void;
-  // Session methods
   setTokens: (tokens: { accessToken: string; refreshToken: string; expiresIn: number }) => void;
   hasValidSession: () => boolean;
   clearSession: () => void;
-  // User data
-  currentUser: User | null;
-  isUserLoading: boolean;
-  userError: Error | null;
   loadUserData: (forceRefresh?: boolean) => Promise<void>;
   refreshUser: () => Promise<void>;
-  // Initialization state (for cross-subdomain auth)
-  isAuthInitializing: boolean;
-  isAuthReady: boolean;
-  // Role and Permission methods
-  userRole: Role | null;
-  userPermissions: string[];
-  availableRoles: Role[];
-  rolesLoading: boolean;
-  hasPermission: (permission: string | Permission) => boolean;
-  hasAnyPermission: (permissions: (string | Permission)[]) => boolean;
-  hasAllPermissions: (permissions: (string | Permission)[]) => boolean;
-  getUserPermissionStrings: () => string[];
   refreshRoles: () => Promise<void>;
-  // RFC-004: Multi-tenant user membership
-  userTenants: UserTenantMembership[];
-  hasTenantContext: boolean;
   switchToTenant: (tenantId: string, options?: { redirectPath?: string }) => Promise<void>;
   refreshUserTenants: () => Promise<UserTenantMembership[]>;
 }
 
-const AuthContext = createContext<AuthContextValue | null>(null);
+export type AuthContextValue = AuthStateValue & AuthActionsValue;
+
+const AuthStateContext = createContext<AuthStateValue | null>(null);
+const AuthActionsContext = createContext<AuthActionsValue | null>(null);
 
 interface AuthProviderProps {
   config?: AuthConfig;
@@ -105,40 +125,27 @@ interface AuthProviderProps {
 }
 
 export function AuthProvider({ config = {}, children }: AuthProviderProps) {
-  // Use optional hooks — AuthProvider works with or without AppProvider/TenantProvider
   const appContext = useAppOptional();
   const tenantContext = useTenantOptional();
 
-  // Derive values: prefer provider context, fall back to config
   const baseUrl = appContext?.baseUrl ?? config.baseUrl ?? '';
   const appId = appContext?.appId ?? config.appId;
   const tenant = tenantContext?.tenant ?? null;
   const tenantSlug = tenantContext?.tenantSlug ?? null;
   const switchTenant = tenantContext?.switchTenant ?? (() => {});
 
-  // Validate: baseUrl is required from either AppProvider or config
   if (!baseUrl) {
     throw new Error(
       '[AuthProvider] baseUrl is required. Provide it via AppProvider or AuthConfig.baseUrl.'
     );
   }
+
   const [availableRoles, setAvailableRoles] = useState<Role[]>(config.initialRoles || []);
   const [rolesLoading, setRolesLoading] = useState(!config.initialRoles);
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [isUserLoading, setIsUserLoading] = useState(false);
   const [userError, setUserError] = useState<Error | null>(null);
-
-  // RFC-004: Multi-tenant user membership state
-  const [userTenants, setUserTenants] = useState<UserTenantMembership[]>(() => {
-    // Try to load cached tenants from localStorage
-    try {
-      const cached = localStorage.getItem('userTenants');
-      return cached ? JSON.parse(cached) : [];
-    } catch {
-      return [];
-    }
-  });
-  const [hasTenantContext, setHasTenantContext] = useState<boolean>(false);
+  const [userTenants, setUserTenants] = useState<UserTenantMembership[]>(() => readUserTenants());
 
   // === SYNCHRONOUS INITIALIZATION ===
   // Process URL tokens and localStorage BEFORE first render completes
@@ -148,39 +155,27 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     urlTokens: ReturnType<typeof extractAuthTokensFromUrl>;
   }>({ done: false, urlTokens: null });
 
-  // Extract URL tokens synchronously on first render
   if (!initRef.current.done) {
     initRef.current.done = true;
     initRef.current.urlTokens = extractAuthTokensFromUrl();
-    // URL tokens found — will block isAuthReady until user is loaded
   }
 
-  // Track if we're loading user after URL token consumption
   // CRITICAL: Initialize to TRUE if we have URL tokens, so isAuthReady stays false until user is loaded
-  const [isLoadingAfterUrlTokens, setIsLoadingAfterUrlTokens] = useState(() => {
-    const hasUrlTokens = initRef.current.urlTokens !== null;
-    return hasUrlTokens;
-  });
+  const [isLoadingAfterUrlTokens, setIsLoadingAfterUrlTokens] = useState(
+    () => initRef.current.urlTokens !== null
+  );
 
-  // Create services with stable references — singleton per tenantSlug
   const sessionManager = useMemo(() => {
     const manager = SessionManager.getInstance({
-      baseUrl: baseUrl,
+      baseUrl,
       enableCookieSession: config.enableCookieSession,
       refreshQueueTimeout: config.refreshQueueTimeout,
       proactiveRefreshMargin: config.proactiveRefreshMargin,
       onSessionExpired: (error: SessionExpiredError) => {
-        // Clear React auth state when session expires
         setCurrentUser(null);
         setUserError(null);
         setUserTenants([]);
-        setHasTenantContext(false);
-        try {
-          localStorage.removeItem('userTenants');
-        } catch {
-          // Ignore localStorage errors
-        }
-        // Call user callbacks
+        clearUserTenants();
         if (config.onSessionExpired) {
           config.onSessionExpired(error);
         } else if (config.onRefreshFailed) {
@@ -189,7 +184,6 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       },
     });
 
-    // If we have URL tokens, save them immediately (sync)
     if (initRef.current.urlTokens) {
       manager.setTokens({
         accessToken: initRef.current.urlTokens.accessToken,
@@ -206,26 +200,19 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     config.proactiveRefreshMargin,
   ]);
 
-  // Track if we're restoring an existing session (tokens in localStorage but user not loaded yet)
-  // CRITICAL: Initialize to TRUE if there's a valid session OR if tokens are expired but
+  // CRITICAL: Initialize isRestoringSession to TRUE if there's a valid session OR if tokens are expired but
   // refreshable (backgroundRefresh is pending). This keeps isAuthReady false until
   // the refresh attempt settles, preventing premature redirects to login.
   const [isRestoringSession, setIsRestoringSession] = useState(() => {
-    if (initRef.current.urlTokens) return false; // URL tokens path handles its own blocking
+    if (initRef.current.urlTokens) return false;
     const tokens = sessionManager.getTokens();
     if (tokens) {
-      // Valid session (need to load user) OR expired but has refreshToken (refresh pending)
       return sessionManager.hasValidSession() || !!tokens.refreshToken;
     }
-    // No local tokens — if cookie session is enabled, block until speculative refresh resolves
     if (config.enableCookieSession) return true;
     return false;
   });
 
-  // Auth is ready when:
-  // 1. Initial token check is done AND
-  // 2. If we had URL tokens, user data must be loaded (not loading) AND
-  // 3. If we had an existing session, user data must be restored
   const isAuthReady = initRef.current.done && !isLoadingAfterUrlTokens && !isRestoringSession;
 
   const authenticatedHttpService = useMemo(() => {
@@ -234,595 +221,507 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     return service;
   }, [baseUrl, sessionManager]);
 
-  const authApiService = useMemo(() => {
-    return new AuthApiService(new HttpService(baseUrl));
-  }, [baseUrl]);
+  const authApiService = useMemo(
+    () => new AuthApiService(authenticatedHttpService),
+    [authenticatedHttpService]
+  );
 
-  const userApiService = useMemo(() => {
-    return new UserApiService(authenticatedHttpService, sessionManager);
-  }, [authenticatedHttpService, sessionManager]);
+  const userApiService = useMemo(
+    () => new UserApiService(authenticatedHttpService),
+    [authenticatedHttpService]
+  );
 
-  const roleApiService = useMemo(() => {
-    return new RoleApiService(new HttpService(baseUrl));
-  }, [baseUrl]);
-
-  // Calculate derived values with useMemo to prevent recalculation
-  const user = useMemo(() => {
-    return currentUser || sessionManager.getUser();
-  }, [currentUser, sessionManager]);
+  const roleApiService = useMemo(
+    () => new RoleApiService(authenticatedHttpService),
+    [authenticatedHttpService]
+  );
 
   const userRole = useMemo(() => {
-    return user?.roleId ? availableRoles.find(role => role.id === user.roleId) || null : null;
-  }, [user, availableRoles]);
+    return currentUser?.roleId
+      ? availableRoles.find(role => role.id === currentUser.roleId) || null
+      : null;
+  }, [currentUser, availableRoles]);
 
-  const userPermissions = useMemo(() => {
-    const permissions = userRole?.permissions || [];
-    // Permissions from API are already strings in 'resource.action' format
-    return permissions;
-  }, [userRole]);
+  const userPermissions = useMemo(() => userRole?.permissions || [], [userRole]);
 
-  // RFC-003: Compute isAuthenticated from session state
-  const isAuthenticated = useMemo(() => {
-    return sessionManager.hasValidSession() && currentUser !== null;
-  }, [sessionManager, currentUser]);
+  const isAuthenticated = useMemo(
+    () => sessionManager.hasValidSession() && currentUser !== null,
+    [sessionManager, currentUser]
+  );
 
-  // Stable ref so effects can call loadUserData without depending on contextValue
-  const loadUserDataRef = useRef<(forceRefresh?: boolean) => Promise<void>>(async () => {});
+  const hasTenantContext = useMemo(() => currentUser?.tenantId != null, [currentUser]);
 
-  const contextValue = useMemo(() => {
-    // Load user data from API with cache control
-    const loadUserData = async (forceRefresh = false) => {
-      try {
-        // 1. Check if we have a valid session
-        if (!sessionManager.hasValidSession()) {
-          return;
-        }
+  // --- Actions: stable references, read latest state via impl ref ---
 
-        // 2. Skip if we already have user data (unless forced)
-        if (!forceRefresh && currentUser) {
-          return;
-        }
+  // Live implementation of every action. Rebuilt each render so closures
+  // capture latest state, but the exposed `actions` proxy stays stable.
+  const actionsImplRef = useRef<AuthActionsValue>(null as unknown as AuthActionsValue);
 
-        // 3. Get userId from token (source of truth) or fallback to stored user
-        const userId = sessionManager.getUserId();
-        if (!userId) {
-          if (process.env.NODE_ENV === 'development') {
-            console.warn('[AuthProvider] No userId available in token or storage');
-          }
-          return;
-        }
+  const loadUserData = async (forceRefresh = false) => {
+    try {
+      if (!sessionManager.hasValidSession()) return;
+      if (!forceRefresh && currentUser) return;
 
-        setIsUserLoading(true);
-        setUserError(null);
-
-        const userData = await userApiService.getUserById(userId);
-        setCurrentUser(userData);
-        sessionManager.setUser(userData); // Update session with fresh data
-      } catch (err) {
-        const error = err instanceof Error ? err : new Error('Failed to load user data');
-        setUserError(error);
+      const userId = sessionManager.getUserId();
+      if (!userId) {
         if (process.env.NODE_ENV === 'development') {
-          console.error('[AuthProvider] Failed to load user data:', error);
+          console.warn('[AuthProvider] No userId available in token or storage');
         }
-      } finally {
-        setIsUserLoading(false);
-      }
-    };
-
-    const refreshUser = async () => {
-      await loadUserData();
-    };
-
-    // Auth methods (RFC-002: Object parameters + RFC-001: Auto-switch + RFC-004: Multi-tenant)
-    const login = async (params: LoginParams): Promise<LoginResponse> => {
-      const { username, password, tenantSlug: targetSlug, redirectPath } = params;
-
-      // RFC-001: Get tenantId from slug if provided, otherwise use current context
-      let resolvedTenantId = tenant?.id;
-      let targetTenantSlug = tenantSlug;
-
-      if (targetSlug) {
-        // Get tenant ID from public endpoint using slug
-        const tenantApi = new TenantApiService(authenticatedHttpService, appId);
-        const tenantInfo = await tenantApi.getPublicTenantInfo(targetSlug);
-        resolvedTenantId = tenantInfo.id;
-        targetTenantSlug = targetSlug;
+        return;
       }
 
-      const loginResponse = await authApiService.login({
-        username,
-        password,
-        appId,
-        tenantId: resolvedTenantId,
-      });
-
-      // Check if we need to switch
-      const shouldSwitch = targetSlug && targetSlug !== tenantSlug;
-
-      // Save tokens (always to the same storage key)
-      sessionManager.setTokens({
-        accessToken: loginResponse.accessToken,
-        refreshToken: loginResponse.refreshToken,
-        expiresIn: loginResponse.expiresIn,
-      });
-
-      // Store user data if available in the response
-      if (loginResponse.user) {
-        sessionManager.setUser(loginResponse.user);
-        setCurrentUser(loginResponse.user);
-
-        // Load complete user data from API after login
-        try {
-          await loadUserData();
-        } catch (error) {
-          if (process.env.NODE_ENV === 'development') {
-            console.warn('[AuthProvider] Failed to load complete user data after login:', error);
-          }
-        }
-      }
-
-      // RFC-004: Store user tenants from login response
-      if (loginResponse.tenants && loginResponse.tenants.length > 0) {
-        setUserTenants(loginResponse.tenants);
-        // Cache in localStorage
-        try {
-          localStorage.setItem('userTenants', JSON.stringify(loginResponse.tenants));
-        } catch {
-          // Ignore localStorage errors
-        }
-      }
-
-      // RFC-004: Determine if we have tenant context
-      const hasTenant = loginResponse.user?.tenantId !== null;
-      setHasTenantContext(hasTenant);
-
-      // Build tokens object for redirect
-      const tokens = {
-        accessToken: loginResponse.accessToken,
-        refreshToken: loginResponse.refreshToken,
-        expiresIn: loginResponse.expiresIn,
-      };
-
-      // Handle navigation after login
-      if (shouldSwitch && targetTenantSlug) {
-        // Switching to different tenant - use switchTenant for cross-subdomain auth
-        switchTenant(targetTenantSlug, { tokens, redirectPath });
-        return loginResponse; // Code after this won't execute due to page reload
-      }
-
-      // Same tenant or no tenant switch - navigate to redirectPath if provided
-      if (redirectPath && redirectPath !== window.location.pathname) {
-        // Use switchTenant even for same tenant to handle redirect consistently
-        switchTenant(targetTenantSlug || tenantSlug || '', { tokens, redirectPath });
-        return loginResponse;
-      }
-
-      // RFC-004: Handle global login (no tenantId) - auto-switch or callback
-      if (!hasTenant && loginResponse.tenants && loginResponse.tenants.length > 0) {
-        const autoSwitch = params.autoSwitch !== false && config.autoSwitchSingleTenant !== false; // default true
-
-        if (loginResponse.tenants.length === 1 && autoSwitch) {
-          // Auto-switch to the only tenant
-          const singleTenant = loginResponse.tenants[0];
-          switchTenant(singleTenant.subdomain, { tokens, redirectPath });
-          return loginResponse;
-        } else if (loginResponse.tenants.length > 1 && config.onTenantSelectionRequired) {
-          // Multiple tenants - trigger callback for tenant selection
-          config.onTenantSelectionRequired(loginResponse.tenants);
-        }
-      }
-
-      return loginResponse;
-    };
-
-    const signup = async (params: SignupParams): Promise<User> => {
-      const { email, phoneNumber, name, password, lastName, tenantId } = params;
-
-      if (!email && !phoneNumber) {
-        throw new Error('Either email or phoneNumber is required');
-      }
-      if (!name || !password) {
-        throw new Error('Name and password are required');
-      }
-
-      const resolvedTenantId = tenantId ?? tenant?.id;
-
-      const signupResponse = await authApiService.signup({
-        email,
-        phoneNumber,
-        name,
-        password,
-        tenantId: resolvedTenantId,
-        lastName,
-        appId,
-      });
-      return signupResponse;
-    };
-
-    const signupTenantAdmin = async (
-      params: SignupTenantAdminParams
-    ): Promise<{ user: User; tenant: any }> => {
-      const { email, phoneNumber, name, password, tenantName, lastName } = params;
-
-      if (!email && !phoneNumber) {
-        throw new Error('Either email or phoneNumber is required');
-      }
-      if (!name || !password || !tenantName) {
-        throw new Error('Name, password, and tenantName are required');
-      }
-
-      const signupResponse = await authApiService.signupTenantAdmin({
-        email,
-        phoneNumber,
-        name,
-        password,
-        tenantName,
-        appId,
-        lastName,
-      });
-      return signupResponse;
-    };
-
-    const changePassword = async (params: ChangePasswordParams): Promise<void> => {
-      const { currentPassword, newPassword } = params;
-      const authHeaders = await sessionManager.getAuthHeaders();
-      await authApiService.changePassword({ currentPassword, newPassword }, authHeaders);
-    };
-
-    const requestPasswordReset = async (params: RequestPasswordResetParams): Promise<void> => {
-      const { email, tenantId } = params;
-      const resolvedTenantId = tenantId ?? tenant?.id;
-
-      if (!resolvedTenantId) {
-        throw new Error('tenantId is required for password reset');
-      }
-
-      await authApiService.requestPasswordReset({ email, tenantId: resolvedTenantId });
-    };
-
-    const confirmPasswordReset = async (params: ConfirmPasswordResetParams): Promise<void> => {
-      const { token, newPassword } = params;
-      await authApiService.confirmPasswordReset({ token, newPassword });
-    };
-
-    // Magic Link methods
-    const sendMagicLink = async (params: SendMagicLinkParams): Promise<MagicLinkResponse> => {
-      const { email, frontendUrl, name, lastName, tenantId } = params;
-      const resolvedTenantId = tenantId ?? tenant?.id;
-
-      if (!resolvedTenantId) {
-        throw new Error('tenantId is required for magic link authentication');
-      }
-
-      const response = await authApiService.sendMagicLink({
-        email,
-        tenantId: resolvedTenantId,
-        frontendUrl,
-        name,
-        lastName,
-        appId,
-      });
-      return response;
-    };
-
-    const verifyMagicLink = async (
-      params: VerifyMagicLinkParams
-    ): Promise<VerifyMagicLinkResponse> => {
-      const { token, email, tenantSlug: targetSlug } = params;
-
-      // RFC-001: Get tenantId from slug if provided, otherwise use current context
-      let resolvedTenantId = tenant?.id;
-      let targetTenantSlug = tenantSlug;
-
-      if (targetSlug) {
-        // Get tenant ID from public endpoint using slug
-        const tenantApi = new TenantApiService(authenticatedHttpService, appId);
-        const tenantInfo = await tenantApi.getPublicTenantInfo(targetSlug);
-        resolvedTenantId = tenantInfo.id;
-        targetTenantSlug = targetSlug;
-      }
-
-      const verifyResponse = await authApiService.verifyMagicLink({
-        token,
-        email,
-        appId,
-        tenantId: resolvedTenantId,
-      });
-
-      // Check if we need to switch
-      const shouldSwitch = targetSlug && targetSlug !== tenantSlug;
-
-      // Save tokens (always to the same storage key)
-      sessionManager.setTokens({
-        accessToken: verifyResponse.accessToken,
-        refreshToken: verifyResponse.refreshToken,
-        expiresIn: verifyResponse.expiresIn,
-      });
-
-      // Store user data
-      if (verifyResponse.user) {
-        sessionManager.setUser(verifyResponse.user);
-        setCurrentUser(verifyResponse.user);
-
-        // Load complete user data from API after magic link login
-        try {
-          await loadUserData();
-        } catch (error) {
-          if (process.env.NODE_ENV === 'development') {
-            console.warn(
-              '[AuthProvider] Failed to load complete user data after magic link:',
-              error
-            );
-          }
-        }
-      }
-
-      // Now perform the switch if needed
-      if (shouldSwitch && targetTenantSlug && targetTenantSlug !== tenantSlug) {
-        // Pass tokens for cross-subdomain auth
-        switchTenant(targetTenantSlug, {
-          tokens: {
-            accessToken: verifyResponse.accessToken,
-            refreshToken: verifyResponse.refreshToken,
-            expiresIn: verifyResponse.expiresIn,
-          },
-        });
-        // Code after this won't execute due to page reload
-      }
-
-      return verifyResponse;
-    };
-
-    const refreshToken = async () => {
-      const tokens = sessionManager.getTokens();
-      if (!tokens?.refreshToken) {
-        throw new Error('No refresh token available');
-      }
-
-      const refreshResponse = await authApiService.refreshToken({
-        refreshToken: tokens.refreshToken,
-      });
-
-      sessionManager.setTokens({
-        accessToken: refreshResponse.accessToken,
-        refreshToken: refreshResponse.refreshToken || tokens.refreshToken,
-        expiresIn: refreshResponse.expiresIn,
-      });
-    };
-
-    const logout = () => {
-      sessionManager.clearSession();
-      setCurrentUser(null);
+      setIsUserLoading(true);
       setUserError(null);
-      // RFC-004: Clear multi-tenant state
-      setUserTenants([]);
-      setHasTenantContext(false);
-      try {
-        localStorage.removeItem('userTenants');
-      } catch {
-        // Ignore localStorage errors
+
+      const userData = await userApiService.getUserById(userId);
+      setCurrentUser(userData);
+      sessionManager.setUser(userData);
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Failed to load user data');
+      setUserError(error);
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[AuthProvider] Failed to load user data:', error);
       }
-    };
+    } finally {
+      setIsUserLoading(false);
+    }
+  };
 
-    const setTokens = (tokens: {
-      accessToken: string;
-      refreshToken: string;
-      expiresIn: number;
-    }) => {
-      sessionManager.setTokens(tokens);
-    };
+  const login = async (params: LoginParams): Promise<LoginResponse> => {
+    const { username, password, tenantSlug: targetSlug, redirectPath } = params;
 
-    const hasValidSession = () => {
-      return sessionManager.hasValidSession();
-    };
+    let resolvedTenantId = tenant?.id;
+    let targetTenantSlug = tenantSlug;
 
-    const clearSession = () => {
-      sessionManager.clearSession();
-      setCurrentUser(null);
-      setUserError(null);
-    };
+    if (targetSlug) {
+      const tenantApi = new TenantApiService(authenticatedHttpService, appId);
+      const tenantInfo = await tenantApi.getPublicTenantInfo(targetSlug);
+      resolvedTenantId = tenantInfo.id;
+      targetTenantSlug = targetSlug;
+    }
 
-    // Role and Permission methods
-    const fetchRoles = async () => {
-      if (!appId) return;
+    const loginResponse = await authApiService.login({
+      username,
+      password,
+      appId,
+      tenantId: resolvedTenantId,
+    });
+
+    const shouldSwitch = targetSlug && targetSlug !== tenantSlug;
+
+    sessionManager.setTokens({
+      accessToken: loginResponse.accessToken,
+      refreshToken: loginResponse.refreshToken,
+      expiresIn: loginResponse.expiresIn,
+    });
+
+    if (loginResponse.user) {
+      sessionManager.setUser(loginResponse.user);
+      setCurrentUser(loginResponse.user);
 
       try {
-        setRolesLoading(true);
-        const { roles } = await roleApiService.getRolesByApp(appId);
-        setAvailableRoles(roles);
+        await loadUserData();
       } catch (error) {
         if (process.env.NODE_ENV === 'development') {
-          console.error('[AuthProvider] Failed to fetch roles:', error);
+          console.warn('[AuthProvider] Failed to load complete user data after login:', error);
         }
-      } finally {
-        setRolesLoading(false);
       }
+    }
+
+    if (loginResponse.tenants && loginResponse.tenants.length > 0) {
+      setUserTenants(loginResponse.tenants);
+      writeUserTenants(loginResponse.tenants);
+    }
+
+    const hasTenant = loginResponse.user?.tenantId !== null;
+
+    const tokens = {
+      accessToken: loginResponse.accessToken,
+      refreshToken: loginResponse.refreshToken,
+      expiresIn: loginResponse.expiresIn,
     };
 
-    const refreshRoles = async () => {
-      await fetchRoles();
-    };
+    if (shouldSwitch && targetTenantSlug) {
+      switchTenant(targetTenantSlug, { tokens, redirectPath });
+      return loginResponse;
+    }
 
-    // Helper functions for permission checks
-    const hasPermission = (permission: string | Permission): boolean => {
-      if (!userPermissions || userPermissions.length === 0) {
-        return false;
+    if (redirectPath && redirectPath !== window.location.pathname) {
+      switchTenant(targetTenantSlug || tenantSlug || '', { tokens, redirectPath });
+      return loginResponse;
+    }
+
+    if (!hasTenant && loginResponse.tenants && loginResponse.tenants.length > 0) {
+      const autoSwitch = params.autoSwitch !== false && config.autoSwitchSingleTenant !== false;
+
+      if (loginResponse.tenants.length === 1 && autoSwitch) {
+        const singleTenant = loginResponse.tenants[0];
+        switchTenant(singleTenant.subdomain, { tokens, redirectPath });
+        return loginResponse;
+      } else if (loginResponse.tenants.length > 1 && config.onTenantSelectionRequired) {
+        config.onTenantSelectionRequired(loginResponse.tenants);
       }
+    }
 
-      if (typeof permission === 'string') {
-        // userPermissions is now an array of strings in 'resource.action' format
-        return userPermissions.includes(permission);
-      }
+    return loginResponse;
+  };
 
-      // For Permission objects, convert to string and check
-      const permissionString = `${permission.resource}.${permission.action}`;
-      return userPermissions.includes(permissionString);
-    };
+  const signup = async (params: SignupParams): Promise<User> => {
+    const { email, phoneNumber, name, password, lastName, tenantId } = params;
 
-    const hasAnyPermission = (permissions: (string | Permission)[]): boolean => {
-      return permissions.some(permission => hasPermission(permission));
-    };
+    if (!email && !phoneNumber) {
+      throw new Error('Either email or phoneNumber is required');
+    }
+    if (!name || !password) {
+      throw new Error('Name and password are required');
+    }
 
-    const hasAllPermissions = (permissions: (string | Permission)[]): boolean => {
-      return permissions.every(permission => hasPermission(permission));
-    };
+    return authApiService.signup({
+      email,
+      phoneNumber,
+      name,
+      password,
+      tenantId: tenantId ?? tenant?.id,
+      lastName,
+      appId,
+    });
+  };
 
-    // Utility function to get all user permissions in resource.action format
-    const getUserPermissionStrings = (): string[] => {
-      if (!userPermissions) return [];
-      // userPermissions is already an array of strings
-      return userPermissions;
-    };
+  const signupTenantAdmin = async (
+    params: SignupTenantAdminParams
+  ): Promise<{ user: User; tenant: any }> => {
+    const { email, phoneNumber, name, password, tenantName, lastName } = params;
 
-    // RFC-004: Switch to a different tenant without re-authentication
-    const switchToTenant = async (
-      tenantId: string,
-      options?: { redirectPath?: string }
-    ): Promise<void> => {
-      const { redirectPath } = options || {};
+    if (!email && !phoneNumber) {
+      throw new Error('Either email or phoneNumber is required');
+    }
+    if (!name || !password || !tenantName) {
+      throw new Error('Name, password, and tenantName are required');
+    }
 
-      // Get refresh token from session
-      const tokens = sessionManager.getTokens();
-      if (!tokens?.refreshToken) {
-        throw new Error('No refresh token available for tenant switch');
-      }
+    return authApiService.signupTenantAdmin({
+      email,
+      phoneNumber,
+      name,
+      password,
+      tenantName,
+      appId,
+      lastName,
+    });
+  };
 
-      // Call switch-tenant endpoint
-      const response = await authApiService.switchTenant({
-        refreshToken: tokens.refreshToken,
-        tenantId,
-      });
+  const changePassword = async (params: ChangePasswordParams): Promise<void> => {
+    await authApiService.changePassword(params);
+  };
 
-      // Update tokens with tenant-scoped token
-      sessionManager.setTokens({
-        accessToken: response.accessToken,
-        refreshToken: tokens.refreshToken, // Keep the same refresh token
-        expiresIn: response.expiresIn,
-      });
+  const requestPasswordReset = async (params: RequestPasswordResetParams): Promise<void> => {
+    const { email, tenantId } = params;
+    const resolvedTenantId = tenantId ?? tenant?.id;
+    if (!resolvedTenantId) {
+      throw new Error('tenantId is required for password reset');
+    }
+    await authApiService.requestPasswordReset({ email, tenantId: resolvedTenantId });
+  };
 
-      // Update user with tenant context
-      setCurrentUser(response.user);
-      sessionManager.setUser(response.user);
-      setHasTenantContext(true);
+  const confirmPasswordReset = async (params: ConfirmPasswordResetParams): Promise<void> => {
+    await authApiService.confirmPasswordReset(params);
+  };
 
-      // Find target tenant info from userTenants
-      const targetTenant = userTenants.find(t => t.id === tenantId);
+  const sendMagicLink = async (params: SendMagicLinkParams): Promise<MagicLinkResponse> => {
+    const { email, frontendUrl, name, lastName, tenantId } = params;
+    const resolvedTenantId = tenantId ?? tenant?.id;
+    if (!resolvedTenantId) {
+      throw new Error('tenantId is required for magic link authentication');
+    }
+    return authApiService.sendMagicLink({
+      email,
+      tenantId: resolvedTenantId,
+      frontendUrl,
+      name,
+      lastName,
+      appId,
+    });
+  };
 
-      if (targetTenant) {
-        // Use TenantProvider's switchTenant for URL handling
-        switchTenant(targetTenant.subdomain, {
-          tokens: {
-            accessToken: response.accessToken,
-            refreshToken: tokens.refreshToken,
-            expiresIn: response.expiresIn,
-          },
-          redirectPath,
-        });
-        // Code after this won't execute due to page reload
-      }
-    };
+  const verifyMagicLink = async (
+    params: VerifyMagicLinkParams
+  ): Promise<VerifyMagicLinkResponse> => {
+    const { token, email, tenantSlug: targetSlug } = params;
 
-    // RFC-004: Refresh user tenants from backend
-    const refreshUserTenants = async (): Promise<UserTenantMembership[]> => {
-      const authHeaders = await sessionManager.getAuthHeaders();
-      const tenants = await authApiService.getUserTenants(authHeaders);
-      setUserTenants(tenants);
-      // Cache in localStorage
+    let resolvedTenantId = tenant?.id;
+    let targetTenantSlug = tenantSlug;
+
+    if (targetSlug) {
+      const tenantApi = new TenantApiService(authenticatedHttpService, appId);
+      const tenantInfo = await tenantApi.getPublicTenantInfo(targetSlug);
+      resolvedTenantId = tenantInfo.id;
+      targetTenantSlug = targetSlug;
+    }
+
+    const verifyResponse = await authApiService.verifyMagicLink({
+      token,
+      email,
+      appId,
+      tenantId: resolvedTenantId,
+    });
+
+    const shouldSwitch = targetSlug && targetSlug !== tenantSlug;
+
+    sessionManager.setTokens({
+      accessToken: verifyResponse.accessToken,
+      refreshToken: verifyResponse.refreshToken,
+      expiresIn: verifyResponse.expiresIn,
+    });
+
+    if (verifyResponse.user) {
+      sessionManager.setUser(verifyResponse.user);
+      setCurrentUser(verifyResponse.user);
+
       try {
-        localStorage.setItem('userTenants', JSON.stringify(tenants));
-      } catch {
-        // Ignore localStorage errors
+        await loadUserData();
+      } catch (error) {
+        if (process.env.NODE_ENV === 'development') {
+          console.warn(
+            '[AuthProvider] Failed to load complete user data after magic link:',
+            error
+          );
+        }
       }
-      return tenants;
+    }
+
+    if (shouldSwitch && targetTenantSlug && targetTenantSlug !== tenantSlug) {
+      switchTenant(targetTenantSlug, {
+        tokens: {
+          accessToken: verifyResponse.accessToken,
+          refreshToken: verifyResponse.refreshToken,
+          expiresIn: verifyResponse.expiresIn,
+        },
+      });
+    }
+
+    return verifyResponse;
+  };
+
+  const refreshToken = async () => {
+    const tokens = sessionManager.getTokens();
+    if (!tokens?.refreshToken) {
+      throw new Error('No refresh token available');
+    }
+
+    const refreshResponse = await authApiService.refreshToken({
+      refreshToken: tokens.refreshToken,
+    });
+
+    sessionManager.setTokens({
+      accessToken: refreshResponse.accessToken,
+      refreshToken: refreshResponse.refreshToken || tokens.refreshToken,
+      expiresIn: refreshResponse.expiresIn,
+    });
+  };
+
+  const logout = () => {
+    sessionManager.clearSession();
+    setCurrentUser(null);
+    setUserError(null);
+    setUserTenants([]);
+    clearUserTenants();
+  };
+
+  const setTokens = (tokens: {
+    accessToken: string;
+    refreshToken: string;
+    expiresIn: number;
+  }) => {
+    sessionManager.setTokens(tokens);
+  };
+
+  const hasValidSession = () => sessionManager.hasValidSession();
+
+  const clearSession = () => {
+    sessionManager.clearSession();
+    setCurrentUser(null);
+    setUserError(null);
+  };
+
+  const refreshRoles = async () => {
+    if (!appId) return;
+    try {
+      setRolesLoading(true);
+      const { roles } = await roleApiService.getRolesByApp(appId);
+      setAvailableRoles(roles);
+    } catch (error) {
+      if (process.env.NODE_ENV === 'development') {
+        console.error('[AuthProvider] Failed to fetch roles:', error);
+      }
+    } finally {
+      setRolesLoading(false);
+    }
+  };
+
+  const switchToTenant = async (
+    tenantId: string,
+    options?: { redirectPath?: string }
+  ): Promise<void> => {
+    const { redirectPath } = options || {};
+
+    const tokens = sessionManager.getTokens();
+    if (!tokens?.refreshToken) {
+      throw new Error('No refresh token available for tenant switch');
+    }
+
+    const response = await authApiService.switchTenant({
+      refreshToken: tokens.refreshToken,
+      tenantId,
+    });
+
+    sessionManager.setTokens({
+      accessToken: response.accessToken,
+      refreshToken: tokens.refreshToken,
+      expiresIn: response.expiresIn,
+    });
+
+    setCurrentUser(response.user);
+    sessionManager.setUser(response.user);
+
+    const targetTenant = userTenants.find(t => t.id === tenantId);
+    if (targetTenant) {
+      switchTenant(targetTenant.subdomain, {
+        tokens: {
+          accessToken: response.accessToken,
+          refreshToken: tokens.refreshToken,
+          expiresIn: response.expiresIn,
+        },
+        redirectPath,
+      });
+    }
+  };
+
+  const refreshUserTenants = async (): Promise<UserTenantMembership[]> => {
+    const tenants = await authApiService.getUserTenants();
+    setUserTenants(tenants);
+    writeUserTenants(tenants);
+    return tenants;
+  };
+
+  // Refresh the live action impl on every render — closures capture latest state
+  actionsImplRef.current = {
+    login,
+    signup,
+    signupTenantAdmin,
+    sendMagicLink,
+    verifyMagicLink,
+    changePassword,
+    requestPasswordReset,
+    confirmPasswordReset,
+    refreshToken,
+    logout,
+    setTokens,
+    hasValidSession,
+    clearSession,
+    loadUserData,
+    refreshUser: () => loadUserData(),
+    refreshRoles,
+    switchToTenant,
+    refreshUserTenants,
+  };
+
+  // Stable proxy — same reference across every render. Delegates to
+  // the live impl ref so each call sees the freshest closures.
+  const actions = useMemo<AuthActionsValue>(
+    () => ({
+      login: params => actionsImplRef.current.login(params),
+      signup: params => actionsImplRef.current.signup(params),
+      signupTenantAdmin: params => actionsImplRef.current.signupTenantAdmin(params),
+      sendMagicLink: params => actionsImplRef.current.sendMagicLink(params),
+      verifyMagicLink: params => actionsImplRef.current.verifyMagicLink(params),
+      changePassword: params => actionsImplRef.current.changePassword(params),
+      requestPasswordReset: params => actionsImplRef.current.requestPasswordReset(params),
+      confirmPasswordReset: params => actionsImplRef.current.confirmPasswordReset(params),
+      refreshToken: () => actionsImplRef.current.refreshToken(),
+      logout: () => actionsImplRef.current.logout(),
+      setTokens: tokens => actionsImplRef.current.setTokens(tokens),
+      hasValidSession: () => actionsImplRef.current.hasValidSession(),
+      clearSession: () => actionsImplRef.current.clearSession(),
+      loadUserData: forceRefresh => actionsImplRef.current.loadUserData(forceRefresh),
+      refreshUser: () => actionsImplRef.current.refreshUser(),
+      refreshRoles: () => actionsImplRef.current.refreshRoles(),
+      switchToTenant: (tenantId, options) =>
+        actionsImplRef.current.switchToTenant(tenantId, options),
+      refreshUserTenants: () => actionsImplRef.current.refreshUserTenants(),
+    }),
+    []
+  );
+
+  // --- State value with permission helpers ---
+
+  const stateValue = useMemo<AuthStateValue>(() => {
+    const hasPermission = (permission: string | Permission): boolean => {
+      if (!userPermissions || userPermissions.length === 0) return false;
+      if (typeof permission === 'string') return userPermissions.includes(permission);
+      return userPermissions.includes(`${permission.resource}.${permission.action}`);
     };
 
     return {
-      // RFC-003: Authentication state
       isAuthenticated,
-      sessionManager,
-      authenticatedHttpService,
-      login,
-      signup,
-      signupTenantAdmin,
-      sendMagicLink,
-      verifyMagicLink,
-      changePassword,
-      requestPasswordReset,
-      confirmPasswordReset,
-      refreshToken,
-      logout,
-      setTokens,
-      hasValidSession,
-      clearSession,
+      isAuthInitializing: !isAuthReady,
+      isAuthReady,
       currentUser,
       isUserLoading,
       userError,
-      loadUserData,
-      refreshUser,
-      isAuthInitializing: !isAuthReady,
-      isAuthReady,
       userRole,
       userPermissions,
       availableRoles,
       rolesLoading,
-      hasPermission,
-      hasAnyPermission,
-      hasAllPermissions,
-      getUserPermissionStrings,
-      refreshRoles,
-      // RFC-004: Multi-tenant user membership
       userTenants,
       hasTenantContext,
-      switchToTenant,
-      refreshUserTenants,
+      sessionManager,
+      authenticatedHttpService,
+      hasPermission,
+      hasAnyPermission: permissions => permissions.some(p => hasPermission(p)),
+      hasAllPermissions: permissions => permissions.every(p => hasPermission(p)),
+      getUserPermissionStrings: () => userPermissions || [],
     };
   }, [
     isAuthenticated,
-    sessionManager,
-    authenticatedHttpService,
-    authApiService,
-    userApiService,
-    roleApiService,
-    appId,
-    tenant,
-    tenantSlug,
-    switchTenant,
-    availableRoles,
+    isAuthReady,
     currentUser,
     isUserLoading,
     userError,
-    userTenants,
-    hasTenantContext,
-    isAuthReady,
     userRole,
     userPermissions,
+    availableRoles,
+    rolesLoading,
+    userTenants,
+    hasTenantContext,
+    sessionManager,
+    authenticatedHttpService,
   ]);
 
-  // Keep loadUserDataRef in sync with the latest contextValue.loadUserData
-  loadUserDataRef.current = contextValue.loadUserData;
+  // --- Effects ---
 
-  // Fetch roles on mount if not provided via SSR
   useEffect(() => {
-    if (!config.initialRoles && appId) {
-      const fetchRoles = async () => {
-        try {
-          setRolesLoading(true);
-          const internalHttpService = new HttpService(baseUrl);
-          const roleApiService = new RoleApiService(internalHttpService);
-          const { roles } = await roleApiService.getRolesByApp(appId);
-          setAvailableRoles(roles);
-        } catch (error) {
-          if (process.env.NODE_ENV === 'development') {
-            console.error('[AuthProvider] Failed to fetch roles:', error);
-          }
-        } finally {
-          setRolesLoading(false);
-        }
-      };
+    if (config.initialRoles || !appId) return;
 
-      fetchRoles();
-    }
-  }, [appId, baseUrl, config.initialRoles]);
+    let cancelled = false;
+    setRolesLoading(true);
+    roleApiService
+      .getRolesByApp(appId)
+      .then(({ roles }) => {
+        if (!cancelled) setAvailableRoles(roles);
+      })
+      .catch(error => {
+        if (process.env.NODE_ENV === 'development') {
+          console.error('[AuthProvider] Failed to fetch roles:', error);
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setRolesLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [appId, config.initialRoles, roleApiService]);
 
   // Cross-subdomain auth: Clean URL and load user data after sync token processing
   const [urlTokensCleanedUp, setUrlTokensCleanedUp] = useState(false);
@@ -830,14 +729,11 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     if (urlTokensCleanedUp) return;
     setUrlTokensCleanedUp(true);
 
-    // Clean URL if we had tokens (tokens already saved to sessionManager synchronously)
     if (initRef.current.urlTokens) {
       clearAuthTokensFromUrl();
-
-      // Block auth ready until user data is loaded
       setIsLoadingAfterUrlTokens(true);
 
-      contextValue
+      actionsImplRef.current
         .loadUserData()
         .catch(error => {
           if (process.env.NODE_ENV === 'development') {
@@ -848,7 +744,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
           setIsLoadingAfterUrlTokens(false);
         });
     }
-  }, [contextValue, urlTokensCleanedUp]);
+  }, [urlTokensCleanedUp]);
 
   // Initialize user data from session on mount.
   // If a background refresh is in progress (expired token being renewed), wait for it
@@ -857,13 +753,11 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     let cancelled = false;
 
     const init = async () => {
-      // If token is expired but a refresh is pending, wait for it
       if (!sessionManager.hasValidSession() && sessionManager.getTokens()?.refreshToken) {
         await sessionManager.waitForPendingRefresh();
       }
       if (cancelled) return;
 
-      // No local session — attempt cookie-based session restore if enabled
       if (
         !sessionManager.hasValidSession() &&
         !sessionManager.getTokens() &&
@@ -871,15 +765,12 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       ) {
         await sessionManager.attemptCookieSessionRestore();
         if (cancelled) return;
-        // If restore succeeded, the auto-load effect will pick up the valid session
       }
 
       const user = sessionManager.getUser();
       if (user && sessionManager.hasValidSession()) {
         setCurrentUser(user);
       }
-      // Always release — valid session with no cached user will be handled
-      // by the auto-load effect (triggered via contextValue change when isAuthReady flips)
       setIsRestoringSession(false);
     };
     init();
@@ -891,45 +782,71 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
   // Auto-load user data if we have tokens but no currentUser
   useEffect(() => {
-    // Wait until URL tokens cleanup is done before auto-loading
     if (!urlTokensCleanedUp) return;
-
-    // If we had URL tokens, user data is already being loaded by the cleanup effect
     if (initRef.current.urlTokens) return;
 
-    // Only trigger auto-load if we don't have currentUser and not already loading
     if (!currentUser && !isUserLoading && !userError && sessionManager.hasValidSession()) {
-      loadUserDataRef
-        .current()
+      actionsImplRef.current
+        .loadUserData()
         .catch(() => {
           // Silent fail - error already logged in loadUserData
         })
         .finally(() => {
           setIsRestoringSession(false);
         });
-    } else if (currentUser) {
-      setIsRestoringSession(false);
     } else {
-      // No valid session or error — release
       setIsRestoringSession(false);
     }
   }, [currentUser, isUserLoading, userError, sessionManager, urlTokensCleanedUp]);
 
-  return <AuthContext.Provider value={contextValue}>{children}</AuthContext.Provider>;
+  return (
+    <AuthActionsContext.Provider value={actions}>
+      <AuthStateContext.Provider value={stateValue}>{children}</AuthStateContext.Provider>
+    </AuthActionsContext.Provider>
+  );
 }
 
-export function useAuth(): AuthContextValue {
-  const context = useContext(AuthContext);
-  if (!context) {
-    throw new Error('useAuth must be used within an AuthProvider');
+/** Fine-grained subscription to reactive auth state. */
+export function useAuthState(): AuthStateValue {
+  const state = useContext(AuthStateContext);
+  if (!state) {
+    throw new Error('useAuthState must be used within an AuthProvider');
   }
-  return context;
+  return state;
 }
 
 /**
- * Optional hook that returns AuthContext if available, null otherwise.
- * Useful for components that may or may not be inside an AuthProvider.
+ * Fine-grained subscription to stable auth actions.
+ * The returned object has a stable reference — subscribers never re-render
+ * when auth state changes.
  */
+export function useAuthActions(): AuthActionsValue {
+  const actions = useContext(AuthActionsContext);
+  if (!actions) {
+    throw new Error('useAuthActions must be used within an AuthProvider');
+  }
+  return actions;
+}
+
+/**
+ * Backward-compatible hook that exposes state + actions together.
+ * Prefer useAuthState() or useAuthActions() for fine-grained re-render control.
+ */
+export function useAuth(): AuthContextValue {
+  const state = useContext(AuthStateContext);
+  const actions = useContext(AuthActionsContext);
+  if (!state || !actions) {
+    throw new Error('useAuth must be used within an AuthProvider');
+  }
+  return useMemo(() => ({ ...state, ...actions }), [state, actions]);
+}
+
+/** Optional variant of useAuth — returns null when not inside a provider. */
 export function useAuthOptional(): AuthContextValue | null {
-  return useContext(AuthContext);
+  const state = useContext(AuthStateContext);
+  const actions = useContext(AuthActionsContext);
+  return useMemo(() => {
+    if (!state || !actions) return null;
+    return { ...state, ...actions };
+  }, [state, actions]);
 }

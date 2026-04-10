@@ -25,6 +25,16 @@ export interface RoutingContextValue {
 
 const RoutingContext = createContext<RoutingContextValue | null>(null);
 
+const DEFAULT_ROUTING_CONTEXT: RoutingContextValue = {
+  zoneRoots: DEFAULT_ZONE_ROOTS,
+  presets: DEFAULT_ZONE_PRESETS,
+  loadingFallback: null,
+  accessDeniedFallback: null,
+  onAccessDenied: undefined,
+  returnToParam: 'returnTo',
+  returnToStorage: 'url',
+};
+
 export interface RoutingProviderProps {
   config?: RoutingConfig;
   children: ReactNode;
@@ -95,22 +105,7 @@ export function useRouting(): RoutingContextValue {
  * Useful for ZoneRoute which should work with or without RoutingProvider.
  */
 export function useRoutingOptional(): RoutingContextValue {
-  const context = useContext(RoutingContext);
-
-  // Return defaults if no provider
-  if (!context) {
-    return {
-      zoneRoots: DEFAULT_ZONE_ROOTS,
-      presets: DEFAULT_ZONE_PRESETS,
-      loadingFallback: null,
-      accessDeniedFallback: null,
-      onAccessDenied: undefined,
-      returnToParam: 'returnTo',
-      returnToStorage: 'url',
-    };
-  }
-
-  return context;
+  return useContext(RoutingContext) ?? DEFAULT_ROUTING_CONTEXT;
 }
 
 /**

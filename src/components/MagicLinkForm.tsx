@@ -1,6 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useAuth } from '../providers/AuthProvider';
 import { useTenantOptional } from '../providers/TenantProvider';
+import { useAuthForm } from '../hooks/useAuthForm';
+import { AuthFormBaseStyles, buildFormStyles } from './authFormShared';
 
 export interface MagicLinkFormCopy {
   title?: string;
@@ -28,28 +30,7 @@ export interface MagicLinkFormCopy {
   dividerBullet?: string;
 }
 
-export interface MagicLinkFormStyles {
-  container?: React.CSSProperties;
-  title?: React.CSSProperties;
-  description?: React.CSSProperties;
-  form?: React.CSSProperties;
-  fieldGroup?: React.CSSProperties;
-  label?: React.CSSProperties;
-  input?: React.CSSProperties;
-  inputError?: React.CSSProperties;
-  button?: React.CSSProperties;
-  buttonDisabled?: React.CSSProperties;
-  buttonLoading?: React.CSSProperties;
-  errorText?: React.CSSProperties;
-  successText?: React.CSSProperties;
-  linkContainer?: React.CSSProperties;
-  link?: React.CSSProperties;
-  divider?: React.CSSProperties;
-  verifyingContainer?: React.CSSProperties;
-  verifyingText?: React.CSSProperties;
-  toggleContainer?: React.CSSProperties;
-  toggleLink?: React.CSSProperties;
-}
+export type MagicLinkFormStyles = AuthFormBaseStyles;
 
 export interface MagicLinkFormProps {
   copy?: MagicLinkFormCopy;
@@ -60,9 +41,7 @@ export interface MagicLinkFormProps {
   onSignupClick?: () => void;
   showTraditionalLinks?: boolean;
   className?: string;
-  // Auto-verify magic link if token is provided (e.g., from URL params)
   verifyToken?: string;
-  // Frontend URL for magic link callback (if not provided, will use window.location.origin)
   frontendUrl?: string;
 }
 
@@ -93,130 +72,6 @@ const defaultCopy: Required<MagicLinkFormCopy> = {
   dividerBullet: '•',
 };
 
-const defaultStyles: Required<MagicLinkFormStyles> = {
-  container: {
-    maxWidth: '400px',
-    width: '100%',
-    margin: '0 auto',
-    padding: '2rem',
-    backgroundColor: '#ffffff',
-    borderRadius: '8px',
-    boxShadow: '0 2px 10px rgba(0, 0, 0, 0.1)',
-  },
-  title: {
-    fontSize: '1.5rem',
-    fontWeight: 'bold',
-    textAlign: 'center',
-    marginBottom: '1rem',
-    color: '#333333',
-  },
-  description: {
-    fontSize: '0.875rem',
-    color: '#6b7280',
-    textAlign: 'center',
-    marginBottom: '1.5rem',
-    lineHeight: '1.5',
-  },
-  form: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '1rem',
-  },
-  fieldGroup: {
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '0.5rem',
-  },
-  label: {
-    fontSize: '0.875rem',
-    fontWeight: '500',
-    color: '#374151',
-  },
-  input: {
-    padding: '0.75rem',
-    border: '1px solid #d1d5db',
-    borderRadius: '6px',
-    fontSize: '1rem',
-    transition: 'border-color 0.15s ease-in-out',
-    outline: 'none',
-    width: '100%',
-  },
-  inputError: {
-    borderColor: '#ef4444',
-    boxShadow: '0 0 0 3px rgba(239, 68, 68, 0.1)',
-  },
-  button: {
-    padding: '0.75rem 1rem',
-    backgroundColor: '#3b82f6',
-    color: 'white',
-    border: 'none',
-    borderRadius: '6px',
-    fontSize: '1rem',
-    fontWeight: '500',
-    cursor: 'pointer',
-    transition: 'background-color 0.15s ease-in-out',
-    marginTop: '0.5rem',
-  },
-  buttonDisabled: {
-    backgroundColor: '#9ca3af',
-    cursor: 'not-allowed',
-  },
-  buttonLoading: {
-    backgroundColor: '#6b7280',
-  },
-  errorText: {
-    color: '#ef4444',
-    fontSize: '0.875rem',
-    textAlign: 'center',
-    marginTop: '0.5rem',
-  },
-  successText: {
-    color: '#10b981',
-    fontSize: '0.875rem',
-    textAlign: 'center',
-    marginTop: '0.5rem',
-    padding: '0.75rem',
-    backgroundColor: '#f0fdf4',
-    borderRadius: '6px',
-    border: '1px solid #bbf7d0',
-  },
-  linkContainer: {
-    textAlign: 'center',
-    marginTop: '1rem',
-  },
-  link: {
-    color: '#3b82f6',
-    textDecoration: 'none',
-    fontSize: '0.875rem',
-    cursor: 'pointer',
-  },
-  divider: {
-    margin: '0.5rem 0',
-    color: '#6b7280',
-    fontSize: '0.875rem',
-  },
-  verifyingContainer: {
-    textAlign: 'center',
-    padding: '2rem',
-  },
-  verifyingText: {
-    fontSize: '1rem',
-    color: '#6b7280',
-  },
-  toggleContainer: {
-    textAlign: 'center',
-    marginTop: '0.5rem',
-  },
-  toggleLink: {
-    background: 'none',
-    border: 'none',
-    color: '#3b82f6',
-    fontSize: '0.875rem',
-    cursor: 'pointer',
-    textDecoration: 'underline',
-  },
-};
-
 export function MagicLinkForm({
   copy = {},
   styles = {},
@@ -232,105 +87,86 @@ export function MagicLinkForm({
   const [email, setEmail] = useState('');
   const [name, setName] = useState('');
   const [lastName, setLastName] = useState('');
-  const [loading, setLoading] = useState(false);
   const [verifying, setVerifying] = useState(false);
-  const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
-  const [fieldErrors, setFieldErrors] = useState<{ email?: boolean; name?: boolean }>({});
   const [showNameFields, setShowNameFields] = useState(false);
 
   const { sendMagicLink, verifyMagicLink } = useAuth();
   const tenant = useTenantOptional()?.tenant ?? null;
 
   const mergedCopy = { ...defaultCopy, ...copy };
-  const mergedStyles = { ...defaultStyles, ...styles };
+  const mergedStyles = buildFormStyles('#3b82f6', styles);
 
-  // Auto-verify magic link if token is provided
-  useEffect(() => {
-    if (verifyToken) {
-      handleVerifyMagicLink(verifyToken);
-    }
-  }, [verifyToken]);
-
-  const handleVerifyMagicLink = async (token: string) => {
-    if (!tenant || !email) {
-      setError(mergedCopy.missingTenantOrEmailError);
-      return;
-    }
-
-    setVerifying(true);
-    setError('');
-
-    try {
-      const result = await verifyMagicLink({
-        token,
-        email,
-        // tenantId inferred from context automatically
-      });
-      onSuccess?.(result);
-    } catch (err: any) {
-      const errorMessage = err.message || 'Failed to verify magic link';
-      setError(errorMessage);
-      onError?.(errorMessage);
-    } finally {
-      setVerifying(false);
-    }
-  };
-
-  const validateForm = () => {
-    const errors: { email?: boolean; name?: boolean } = {};
-
-    if (!email.trim()) errors.email = true;
-    if (showNameFields && !name.trim()) errors.name = true;
-
-    setFieldErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!validateForm()) return;
-    if (!tenant?.id) {
-      setError(mergedCopy.tenantNotFoundError);
-      return;
-    }
-
-    setLoading(true);
-    setError('');
-    setSuccess('');
-
-    try {
+  type Field = 'email' | 'name';
+  const form = useAuthForm<unknown, Field>({
+    defaultErrorMessage: mergedCopy.errorMessage,
+    validate: () => {
+      const missing: Field[] = [];
+      if (!email.trim()) missing.push('email');
+      if (showNameFields && !name.trim()) missing.push('name');
+      missing.forEach(f => form.setFieldError(f, true));
+      if (missing.length > 0) return false;
+      if (!tenant?.id) {
+        form.setError(mergedCopy.tenantNotFoundError);
+        return false;
+      }
+      return true;
+    },
+    submit: async () => {
+      setSuccess('');
       const finalFrontendUrl =
         frontendUrl || (typeof window !== 'undefined' ? window.location.origin : '');
       const result = await sendMagicLink({
         email,
-        tenantId: tenant.id,
+        tenantId: tenant!.id,
         frontendUrl: finalFrontendUrl,
         name: showNameFields ? name : undefined,
         lastName: showNameFields ? lastName : undefined,
       });
       setSuccess(mergedCopy.successMessage);
-      onSuccess?.(result);
-    } catch (err: any) {
-      const errorMessage = err.message || mergedCopy.errorMessage;
-      setError(errorMessage);
-      onError?.(errorMessage);
-    } finally {
-      setLoading(false);
-    }
-  };
+      return result;
+    },
+    onSuccess,
+    onError,
+  });
 
-  const getInputStyle = (field: 'email' | 'name') => ({
+  useEffect(() => {
+    if (!verifyToken) return;
+
+    const run = async () => {
+      if (!tenant || !email) {
+        form.setError(mergedCopy.missingTenantOrEmailError);
+        return;
+      }
+      setVerifying(true);
+      form.setError('');
+      try {
+        const result = await verifyMagicLink({ token: verifyToken, email });
+        onSuccess?.(result);
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to verify magic link';
+        form.setError(message);
+        onError?.(message);
+      } finally {
+        setVerifying(false);
+      }
+    };
+
+    run();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [verifyToken]);
+
+  const getInputStyle = (field: Field) => ({
     ...mergedStyles.input,
-    ...(fieldErrors[field] ? mergedStyles.inputError : {}),
+    ...(form.fieldErrors[field] ? mergedStyles.inputError : {}),
   });
 
-  const getButtonStyle = () => ({
+  const isDisabled = !email || form.loading || verifying;
+  const buttonStyle = {
     ...mergedStyles.button,
-    ...(loading || verifying ? mergedStyles.buttonLoading : {}),
-    ...(!email || loading || verifying ? mergedStyles.buttonDisabled : {}),
-  });
+    ...(form.loading || verifying ? mergedStyles.buttonLoading : {}),
+    ...(isDisabled ? mergedStyles.buttonDisabled : {}),
+  };
 
   if (verifying) {
     return (
@@ -348,7 +184,7 @@ export function MagicLinkForm({
       <h2 style={mergedStyles.title}>{mergedCopy.title}</h2>
       <p style={mergedStyles.description}>{mergedCopy.description}</p>
 
-      <form onSubmit={handleSubmit} style={mergedStyles.form}>
+      <form onSubmit={form.handleSubmit} style={mergedStyles.form}>
         <div style={mergedStyles.fieldGroup}>
           <label style={mergedStyles.label}>{mergedCopy.emailLabel}</label>
           <input
@@ -358,17 +194,14 @@ export function MagicLinkForm({
             value={email}
             onChange={e => {
               setEmail(e.target.value);
-              if (fieldErrors.email) {
-                setFieldErrors(prev => ({ ...prev, email: false }));
-              }
+              form.clearFieldError('email');
             }}
             placeholder={mergedCopy.emailPlaceholder}
             style={getInputStyle('email')}
-            disabled={loading || verifying}
+            disabled={form.loading || verifying}
           />
         </div>
 
-        {/* Toggle to show name fields for new users */}
         {!showNameFields && (
           <div style={mergedStyles.toggleContainer}>
             <button
@@ -392,13 +225,11 @@ export function MagicLinkForm({
                 value={name}
                 onChange={e => {
                   setName(e.target.value);
-                  if (fieldErrors.name) {
-                    setFieldErrors(prev => ({ ...prev, name: false }));
-                  }
+                  form.clearFieldError('name');
                 }}
                 placeholder={mergedCopy.namePlaceholder}
                 style={getInputStyle('name')}
-                disabled={loading || verifying}
+                disabled={form.loading || verifying}
               />
             </div>
 
@@ -412,7 +243,7 @@ export function MagicLinkForm({
                 onChange={e => setLastName(e.target.value)}
                 placeholder={mergedCopy.lastNamePlaceholder}
                 style={mergedStyles.input}
-                disabled={loading || verifying}
+                disabled={form.loading || verifying}
               />
             </div>
 
@@ -432,11 +263,11 @@ export function MagicLinkForm({
           </>
         )}
 
-        <button type="submit" disabled={!email || loading || verifying} style={getButtonStyle()}>
-          {loading ? mergedCopy.loadingText : mergedCopy.submitButton}
+        <button type="submit" disabled={isDisabled} style={buttonStyle}>
+          {form.loading ? mergedCopy.loadingText : mergedCopy.submitButton}
         </button>
 
-        {error && <div style={mergedStyles.errorText}>{error}</div>}
+        {form.error && <div style={mergedStyles.errorText}>{form.error}</div>}
         {success && <div style={mergedStyles.successText}>{success}</div>}
       </form>
 
