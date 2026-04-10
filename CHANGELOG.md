@@ -1,3 +1,10 @@
+## [3.1.1](https://github.com/skylabs-digital/react-identity-access/compare/v3.1.0...v3.1.1) (2026-04-10)
+
+
+### Bug Fixes
+
+* **auth:** skip auth header injection for public AuthApiService endpoints ([24e687d](https://github.com/skylabs-digital/react-identity-access/commit/24e687d8164565799f61fc4c4c77b2d2e5235b25))
+
 # [3.1.0](https://github.com/skylabs-digital/react-identity-access/compare/v3.0.0...v3.1.0) (2026-04-10)
 
 
