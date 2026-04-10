@@ -117,6 +117,51 @@ describe('Auth form components', () => {
       );
       expect(screen.queryByText(/magic link/i)).not.toBeInTheDocument();
     });
+
+    // Regression: in v3.0.0/v3.1.0, submitting the login form with empty
+    // localStorage threw "No tokens available" before POST /auth/login fired,
+    // because HttpService auto-injected auth for every request — including the
+    // login endpoint itself. Root cause: AuthApiService didn't pass
+    // `{ skipAuth: true }` to public endpoints after the d17c7a3 refactor.
+    it('submits to /auth/login even when no session tokens exist', async () => {
+      const onSuccess = vi.fn();
+      render(
+        <Harness>
+          <LoginForm onSuccess={onSuccess} />
+        </Harness>
+      );
+
+      const usernameInput = document.querySelector('input[name="username"]') as HTMLInputElement;
+      const passwordInput = document.querySelector('input[name="password"]') as HTMLInputElement;
+      fireEvent.change(usernameInput, { target: { value: 'admin@resuelto.ar' } });
+      fireEvent.change(passwordInput, { target: { value: 'secret' } });
+
+      const submit = screen.getByRole('button', { name: /sign in/i });
+      fireEvent.click(submit);
+
+      await waitFor(() => {
+        expect(fetch).toHaveBeenCalledWith(
+          expect.stringContaining('/auth/login'),
+          expect.objectContaining({ method: 'POST' })
+        );
+      });
+
+      // And the form does NOT render the "No tokens available" message
+      expect(screen.queryByText(/no tokens available/i)).not.toBeInTheDocument();
+
+      // Verify the login request did NOT include an Authorization header —
+      // confirming skipAuth bypassed the auto-inject path.
+      const loginCall = (fetch as unknown as ReturnType<typeof vi.fn>).mock.calls.find(call =>
+        String(call[0]).includes('/auth/login')
+      );
+      expect(loginCall).toBeDefined();
+      const headers = (loginCall![1] as RequestInit).headers as Record<string, string>;
+      expect(headers.Authorization).toBeUndefined();
+
+      await waitFor(() => {
+        expect(onSuccess).toHaveBeenCalled();
+      });
+    });
   });
 
   // ─── SignupForm ───

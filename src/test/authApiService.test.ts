@@ -61,7 +61,9 @@ describe('AuthApiService', () => {
 
       // Assert
       expect(httpService.post).toHaveBeenCalledTimes(1);
-      expect(httpService.post).toHaveBeenCalledWith('/auth/magic-link/verify', request);
+      expect(httpService.post).toHaveBeenCalledWith('/auth/magic-link/verify', request, {
+        skipAuth: true,
+      });
       expect(result1).toEqual(mockVerifyResponse);
       expect(result2).toEqual(mockVerifyResponse);
     });
@@ -115,8 +117,12 @@ describe('AuthApiService', () => {
 
       // Assert — each token triggers its own HTTP call
       expect(httpService.post).toHaveBeenCalledTimes(2);
-      expect(httpService.post).toHaveBeenCalledWith('/auth/magic-link/verify', request1);
-      expect(httpService.post).toHaveBeenCalledWith('/auth/magic-link/verify', request2);
+      expect(httpService.post).toHaveBeenCalledWith('/auth/magic-link/verify', request1, {
+        skipAuth: true,
+      });
+      expect(httpService.post).toHaveBeenCalledWith('/auth/magic-link/verify', request2, {
+        skipAuth: true,
+      });
     });
 
     it('should clean up pending map after error and allow retry', async () => {
@@ -216,6 +222,144 @@ describe('AuthApiService', () => {
       await service.sendMagicLink(request);
 
       expect(httpService.post).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  // Regression: d17c7a3 refactor consolidated HttpService so AuthApiService now
+  // reuses the authenticated instance. Public endpoints must opt out via
+  // `{ skipAuth: true }` or HttpService calls SessionManager.getValidAccessToken()
+  // which throws "No tokens available" before the fetch ever runs.
+  describe('public endpoints skip auth injection', () => {
+    let httpService: HttpService;
+    let service: AuthApiService;
+
+    beforeEach(() => {
+      httpService = createMockHttpService();
+      (httpService.post as ReturnType<typeof vi.fn>).mockResolvedValue({});
+      service = new AuthApiService(httpService);
+    });
+
+    it('login passes skipAuth: true', async () => {
+      await service.login({ username: 'u', password: 'p', appId: 'a', tenantId: 't' });
+      expect(httpService.post).toHaveBeenCalledWith('/auth/login', expect.any(Object), {
+        skipAuth: true,
+      });
+    });
+
+    it('signup passes skipAuth: true', async () => {
+      await service.signup({
+        email: 'a@b.co',
+        name: 'N',
+        password: 'pwd',
+        appId: 'a',
+      });
+      expect(httpService.post).toHaveBeenCalledWith('/auth/signup', expect.any(Object), {
+        skipAuth: true,
+      });
+    });
+
+    it('signupTenantAdmin passes skipAuth: true', async () => {
+      await service.signupTenantAdmin({
+        email: 'a@b.co',
+        name: 'N',
+        password: 'pwd',
+        tenantName: 'T',
+        appId: 'a',
+      });
+      expect(httpService.post).toHaveBeenCalledWith(
+        '/auth/signup/tenant-admin',
+        expect.any(Object),
+        { skipAuth: true }
+      );
+    });
+
+    it('refreshToken passes skipAuth: true', async () => {
+      (httpService.post as ReturnType<typeof vi.fn>).mockResolvedValue({
+        accessToken: 'a',
+        refreshToken: 'r',
+        expiresIn: 3600,
+      });
+      await service.refreshToken({ refreshToken: 'r' });
+      expect(httpService.post).toHaveBeenCalledWith('/auth/refresh', expect.any(Object), {
+        skipAuth: true,
+      });
+    });
+
+    it('requestPasswordReset passes skipAuth: true', async () => {
+      await service.requestPasswordReset({ email: 'a@b.co', tenantId: 't' });
+      expect(httpService.post).toHaveBeenCalledWith(
+        '/auth/password-reset/request',
+        expect.any(Object),
+        { skipAuth: true }
+      );
+    });
+
+    it('confirmPasswordReset passes skipAuth: true', async () => {
+      await service.confirmPasswordReset({ token: 'tok', newPassword: 'pwd' });
+      expect(httpService.post).toHaveBeenCalledWith(
+        '/auth/password-reset/confirm',
+        expect.any(Object),
+        { skipAuth: true }
+      );
+    });
+
+    it('sendMagicLink passes skipAuth: true', async () => {
+      (httpService.post as ReturnType<typeof vi.fn>).mockResolvedValue(mockSendMagicLinkResponse);
+      await service.sendMagicLink({
+        email: 'a@b.co',
+        tenantId: 't',
+        frontendUrl: 'https://x',
+        appId: 'a',
+      });
+      expect(httpService.post).toHaveBeenCalledWith('/auth/magic-link/send', expect.any(Object), {
+        skipAuth: true,
+      });
+    });
+
+    it('verifyMagicLink passes skipAuth: true', async () => {
+      (httpService.post as ReturnType<typeof vi.fn>).mockResolvedValue(mockVerifyResponse);
+      await service.verifyMagicLink({
+        token: 'tok',
+        email: 'a@b.co',
+        appId: 'a',
+      });
+      expect(httpService.post).toHaveBeenCalledWith('/auth/magic-link/verify', expect.any(Object), {
+        skipAuth: true,
+      });
+    });
+  });
+
+  describe('protected endpoints do NOT skip auth', () => {
+    let httpService: HttpService;
+    let service: AuthApiService;
+
+    beforeEach(() => {
+      httpService = createMockHttpService();
+      (httpService.post as ReturnType<typeof vi.fn>).mockResolvedValue({});
+      (httpService.get as ReturnType<typeof vi.fn>).mockResolvedValue([]);
+      service = new AuthApiService(httpService);
+    });
+
+    it('changePassword does not pass skipAuth', async () => {
+      await service.changePassword({ currentPassword: 'old', newPassword: 'new' });
+      const call = (httpService.post as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(call[0]).toBe('/auth/change-password');
+      // No third arg, or third arg without skipAuth
+      expect(call[2]?.skipAuth).toBeUndefined();
+    });
+
+    it('switchTenant does not pass skipAuth', async () => {
+      await service.switchTenant({ tenantId: 't', refreshToken: 'r' });
+      const call = (httpService.post as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(call[0]).toBe('/auth/switch-tenant');
+      expect(call[2]?.skipAuth).toBeUndefined();
+    });
+
+    it('getUserTenants does not pass skipAuth', async () => {
+      await service.getUserTenants();
+      const call = (httpService.get as ReturnType<typeof vi.fn>).mock.calls[0];
+      expect(call[0]).toBe('/auth/tenants');
+      expect(call[1]?.skipAuth).toBeUndefined();
     });
   });
 });
