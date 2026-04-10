@@ -1,3 +1,39 @@
+# [3.0.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.32.0...v3.0.0) (2026-04-10)
+
+
+* feat!: remove insecure _auth URL token transfer ([ed15f42](https://github.com/skylabs-digital/react-identity-access/commit/ed15f42131cd35d752d1b50899751d5016aef20d))
+
+
+### BREAKING CHANGES
+
+* cross-subdomain tenant switching now requires
+enableCookieSession to be enabled. The _auth URL query parameter
+mechanism has been removed because it allowed (1) session fixation
+via URL-injected tokens and (2) refresh token leakage to server
+access logs and Referer headers.
+
+Consumers that rely on cross-subdomain tenant switching must set
+enableCookieSession: true in their AuthProvider config and ensure
+their backend sets the HttpOnly refresh cookie on the parent domain
+so it is shared across all tenant subdomains.
+
+Cross-apex tenant switching (different top-level domains per tenant)
+is no longer supported. See the companion plan in
+docs/superpowers/plans/ for the planned replacement using
+backend-issued single-use handoff codes.
+
+Removes:
+- src/utils/crossDomainAuth.ts
+- src/test/crossDomainAuth.test.ts
+- src/test/crossSubdomainAuth.test.ts
+
+Modifies:
+- src/providers/AuthProvider.tsx
+- src/providers/TenantProvider.tsx
+- src/test/providerReadiness.test.tsx (drops _auth tests, keeps hook/params tests)
+
+Co-Authored-By: Claude Opus 4.6 (1M context) <noreply@anthropic.com>
+
 # [2.32.0](https://github.com/skylabs-digital/react-identity-access/compare/v2.31.0...v2.32.0) (2026-04-10)
 
 
