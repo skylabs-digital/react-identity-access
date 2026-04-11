@@ -1,3 +1,10 @@
+## [3.2.1](https://github.com/skylabs-digital/react-identity-access/compare/v3.2.0...v3.2.1) (2026-04-11)
+
+
+### Bug Fixes
+
+* **ci:** detect real semantic-release bump before GH Packages publish ([109db1f](https://github.com/skylabs-digital/react-identity-access/commit/109db1f276ad98bba4755ad3ba5a92b4dc9df543))
+
 # [3.2.0](https://github.com/skylabs-digital/react-identity-access/compare/v3.1.1...v3.2.0) (2026-04-11)
 
 
