@@ -1,3 +1,10 @@
+# [3.2.0](https://github.com/skylabs-digital/react-identity-access/compare/v3.1.1...v3.2.0) (2026-04-11)
+
+
+### Features
+
+* **app:** allow AppProvider to mount without appId for SUPERUSER flows ([7ba3b58](https://github.com/skylabs-digital/react-identity-access/commit/7ba3b582e9cbaa2eb594a82eb27cf522c67e25d7))
+
 ## [3.1.1](https://github.com/skylabs-digital/react-identity-access/compare/v3.1.0...v3.1.1) (2026-04-10)
 
 
