@@ -49,7 +49,6 @@ describe('AppProvider', () => {
       expect(screen.getByTestId('isLoading').textContent).toBe('false');
       expect(screen.getByTestId('appError').textContent).toBe('null');
 
-      // Give microtasks/effects a chance to run
       await waitFor(() => {
         expect(fetchMock).not.toHaveBeenCalled();
       });

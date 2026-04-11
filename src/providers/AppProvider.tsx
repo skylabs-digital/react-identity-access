@@ -54,11 +54,9 @@ const DEFAULT_CACHE_TTL = 5 * 60 * 1000;
 
 export function AppProvider({ config, children }: AppProviderProps) {
   const { appId, baseUrl } = config;
-  // When no appId is provided (system-level / SUPERUSER flows), caching is
-  // disabled because there's nothing to key the cache on.
   const cacheEnabled = (config.cache?.enabled ?? true) && !!appId;
   const cacheTtl = config.cache?.ttl ?? DEFAULT_CACHE_TTL;
-  const cacheStorageKey = config.cache?.storageKey ?? `app_cache_${appId}`;
+  const cacheStorageKey = config.cache?.storageKey ?? (appId ? `app_cache_${appId}` : '');
 
   const [appInfo, setAppInfo] = useState<PublicAppInfo | null>(() => {
     if (!cacheEnabled) return null;
@@ -84,11 +82,7 @@ export function AppProvider({ config, children }: AppProviderProps) {
 
   const loadApp = useCallback(
     async (bypassCache = false) => {
-      if (!appId) {
-        setIsAppLoading(false);
-        setAppError(null);
-        return;
-      }
+      if (!appId) return;
       if (!bypassCache && cacheEnabled && appInfoRef.current) return;
 
       try {
