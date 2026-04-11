@@ -20,7 +20,13 @@ interface CachedAppInfo {
 
 export interface AppConfig {
   baseUrl: string;
-  appId: string;
+  /**
+   * Identifier of the app whose public info should be loaded. Optional to
+   * support system-level flows (e.g. SUPERUSER backoffices) that operate
+   * cross-app and don't belong to a single app. When omitted, AppProvider
+   * acts as a baseUrl pass-through: no fetch, no cache, appInfo stays null.
+   */
+  appId?: string;
   cache?: {
     enabled?: boolean;
     ttl?: number;
@@ -29,7 +35,7 @@ export interface AppConfig {
 }
 
 interface AppContextValue {
-  appId: string;
+  appId: string | undefined;
   baseUrl: string;
   appInfo: PublicAppInfo | null;
   isAppLoading: boolean;
@@ -48,7 +54,9 @@ const DEFAULT_CACHE_TTL = 5 * 60 * 1000;
 
 export function AppProvider({ config, children }: AppProviderProps) {
   const { appId, baseUrl } = config;
-  const cacheEnabled = config.cache?.enabled ?? true;
+  // When no appId is provided (system-level / SUPERUSER flows), caching is
+  // disabled because there's nothing to key the cache on.
+  const cacheEnabled = (config.cache?.enabled ?? true) && !!appId;
   const cacheTtl = config.cache?.ttl ?? DEFAULT_CACHE_TTL;
   const cacheStorageKey = config.cache?.storageKey ?? `app_cache_${appId}`;
 
@@ -68,7 +76,7 @@ export function AppProvider({ config, children }: AppProviderProps) {
     }
   });
 
-  const [isAppLoading, setIsAppLoading] = useState(!appInfo);
+  const [isAppLoading, setIsAppLoading] = useState(!!appId && !appInfo);
   const [appError, setAppError] = useState<Error | null>(null);
 
   const appInfoRef = useRef(appInfo);
@@ -76,6 +84,11 @@ export function AppProvider({ config, children }: AppProviderProps) {
 
   const loadApp = useCallback(
     async (bypassCache = false) => {
+      if (!appId) {
+        setIsAppLoading(false);
+        setAppError(null);
+        return;
+      }
       if (!bypassCache && cacheEnabled && appInfoRef.current) return;
 
       try {
@@ -112,7 +125,7 @@ export function AppProvider({ config, children }: AppProviderProps) {
   );
 
   const backgroundRefresh = useCallback(async () => {
-    if (!cacheEnabled || !appInfoRef.current) return;
+    if (!appId || !cacheEnabled || !appInfoRef.current) return;
 
     try {
       const cached = localStorage.getItem(cacheStorageKey);
@@ -153,6 +166,7 @@ export function AppProvider({ config, children }: AppProviderProps) {
   );
 
   useEffect(() => {
+    if (!appId) return;
     if (appInfoRef.current) {
       backgroundRefresh();
     } else {
