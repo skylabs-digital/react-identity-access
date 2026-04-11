@@ -99,6 +99,10 @@ jobs:
           GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
           NPM_CONFIG_PROVENANCE: 'true'
         run: |
+          # Snapshot the latest tag before running semantic-release so we can
+          # detect whether this run actually produced a new release.
+          BEFORE_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
+
           npx --yes \
             -p semantic-release@25.0.2 \
             -p @semantic-release/changelog@6.0.3 \
@@ -109,11 +113,13 @@ jobs:
             -p @semantic-release/release-notes-generator@14.1.0 \
             semantic-release
 
-          # Detect if a new release was published by checking latest tag vs before
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
-          if [ "$LATEST_TAG" != "none" ]; then
+          # A new release happened iff the latest tag advanced during this run.
+          AFTER_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
+          if [ "$AFTER_TAG" != "none" ] && [ "$AFTER_TAG" != "$BEFORE_TAG" ]; then
             echo "new-release-published=true" >> "$GITHUB_OUTPUT"
-            echo "new-release-version=${LATEST_TAG#v}" >> "$GITHUB_OUTPUT"
+            echo "new-release-version=${AFTER_TAG#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "new-release-published=false" >> "$GITHUB_OUTPUT"
           fi
 
   # Dual publish: also push to GitHub Packages so internal projects
