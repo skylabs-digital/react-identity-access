@@ -1,3 +1,10 @@
+## [3.2.3](https://github.com/skylabs-digital/react-identity-access/compare/v3.2.2...v3.2.3) (2026-04-16)
+
+
+### Bug Fixes
+
+* **auth:** retry protected requests once after 401 via SessionManager.forceRefresh ([316b1e0](https://github.com/skylabs-digital/react-identity-access/commit/316b1e0028ee41fd29fd18402c0fba874d152a43))
+
 ## [3.2.2](https://github.com/skylabs-digital/react-identity-access/compare/v3.2.1...v3.2.2) (2026-04-16)
 
 
