@@ -235,6 +235,12 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
   // capture latest state, but the exposed `actions` proxy stays stable.
   const actionsImplRef = useRef<AuthActionsValue>(null as unknown as AuthActionsValue);
 
+  // Tracks magic-link tokens whose side effects (setTokens/setUser/loadUserData)
+  // already ran. Pairs with AuthApiService.verifyMagicLink's TTL cache: when a
+  // remount re-invokes verifyMagicLink and the service returns the cached
+  // response, skip the side effects so we don't fire a redundant loadUserData.
+  const processedVerifyTokensRef = useRef<Set<string>>(new Set());
+
   const loadUserData = async (forceRefresh = false) => {
     try {
       if (!sessionManager.hasValidSession()) return;
@@ -436,6 +442,14 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       appId,
       tenantId: resolvedTenantId,
     });
+
+    // Cache-hit from a remount: session was already established by the first
+    // call. Re-running setTokens/loadUserData would just trigger a redundant
+    // /users/me fetch and a duplicate switchTenant.
+    if (processedVerifyTokensRef.current.has(token)) {
+      return verifyResponse;
+    }
+    processedVerifyTokensRef.current.add(token);
 
     const shouldSwitch = targetSlug && targetSlug !== tenantSlug;
 

@@ -87,21 +87,33 @@ describe('AuthApiService', () => {
       expect(httpService.post).toHaveBeenCalledTimes(1);
     });
 
-    it('should allow a new call after the first one completes', async () => {
+    it('serves cached result on subsequent call within TTL (survives remount)', async () => {
       // Arrange
-      (httpService.post as ReturnType<typeof vi.fn>).mockResolvedValue(mockVerifyResponse);
+      vi.useFakeTimers();
+      try {
+        (httpService.post as ReturnType<typeof vi.fn>).mockResolvedValue(mockVerifyResponse);
 
-      const service = new AuthApiService(httpService);
-      const request = { token: 'magic-token-3', email: 'test@example.com', appId: 'app-1' };
+        const service = new AuthApiService(httpService);
+        const request = { token: 'magic-token-3', email: 'test@example.com', appId: 'app-1' };
 
-      // Act — first call completes
-      await service.verifyMagicLink(request);
+        // First call hits the network.
+        const first = await service.verifyMagicLink(request);
 
-      // Second call after completion should trigger a new HTTP request
-      await service.verifyMagicLink(request);
+        // Second call after completion — simulates a remount of MagicLinkVerify
+        // triggered by the auth state change the first call produced. Must NOT
+        // re-hit the backend, since the token is single-use.
+        const second = await service.verifyMagicLink(request);
 
-      // Assert
-      expect(httpService.post).toHaveBeenCalledTimes(2);
+        expect(httpService.post).toHaveBeenCalledTimes(1);
+        expect(second).toEqual(first);
+
+        // After the TTL elapses, the cache is cleared and a fresh call goes through.
+        vi.advanceTimersByTime(60_001);
+        await service.verifyMagicLink(request);
+        expect(httpService.post).toHaveBeenCalledTimes(2);
+      } finally {
+        vi.useRealTimers();
+      }
     });
 
     it('should allow concurrent calls with different tokens', async () => {
@@ -137,7 +149,7 @@ describe('AuthApiService', () => {
       // Act — first call fails
       await expect(service.verifyMagicLink(request)).rejects.toThrow('Token already used');
 
-      // Retry should trigger a new HTTP request (map was cleaned up via .finally)
+      // Retry should trigger a new HTTP request (cache entry dropped on error)
       const result = await service.verifyMagicLink(request);
 
       // Assert

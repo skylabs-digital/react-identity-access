@@ -17,9 +17,18 @@ import type {
   UserTenantMembership,
 } from '../types/api';
 
+interface VerificationCacheEntry {
+  promise: Promise<VerifyMagicLinkResponse>;
+  timer?: ReturnType<typeof setTimeout>;
+}
+
 export class AuthApiService {
-  // Prevents duplicate verifyMagicLink calls (React StrictMode double-mount)
-  private pendingVerifications = new Map<string, Promise<VerifyMagicLinkResponse>>();
+  // Caches successful verifyMagicLink results briefly so remounts of the
+  // verify route (triggered by the auth state change the first call produces)
+  // don't hit the backend a second time with an already-consumed token.
+  // On error the entry is dropped immediately so the user's Retry works.
+  private verificationCache = new Map<string, VerificationCacheEntry>();
+  private readonly VERIFY_CACHE_TTL_MS = 60_000;
   // Prevents duplicate sendMagicLink calls (double-click, StrictMode double-invoke)
   private pendingMagicLinks = new Map<string, Promise<MagicLinkResponse>>();
 
@@ -96,16 +105,30 @@ export class AuthApiService {
 
   async verifyMagicLink(request: VerifyMagicLinkRequest): Promise<VerifyMagicLinkResponse> {
     const key = request.token;
-    const pending = this.pendingVerifications.get(key);
-    if (pending) return pending;
+    const cached = this.verificationCache.get(key);
+    if (cached) return cached.promise;
 
-    const promise = this.httpService
-      .post<VerifyMagicLinkResponse>('/auth/magic-link/verify', request, { skipAuth: true })
-      .finally(() => {
-        this.pendingVerifications.delete(key);
-      });
+    const promise = this.httpService.post<VerifyMagicLinkResponse>(
+      '/auth/magic-link/verify',
+      request,
+      { skipAuth: true }
+    );
 
-    this.pendingVerifications.set(key, promise);
+    const entry: VerificationCacheEntry = { promise };
+    this.verificationCache.set(key, entry);
+
+    promise.then(
+      () => {
+        entry.timer = setTimeout(
+          () => this.verificationCache.delete(key),
+          this.VERIFY_CACHE_TTL_MS
+        );
+      },
+      () => {
+        this.verificationCache.delete(key);
+      }
+    );
+
     return promise;
   }
 
