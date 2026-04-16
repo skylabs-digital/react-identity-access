@@ -1,3 +1,10 @@
+## [3.2.2](https://github.com/skylabs-digital/react-identity-access/compare/v3.2.1...v3.2.2) (2026-04-16)
+
+
+### Bug Fixes
+
+* **auth:** cache verifyMagicLink result to survive post-login remount ([d9fe672](https://github.com/skylabs-digital/react-identity-access/commit/d9fe6727c5918d9b8791e4207cb8fd278819d563))
+
 ## [3.2.1](https://github.com/skylabs-digital/react-identity-access/compare/v3.2.0...v3.2.1) (2026-04-11)
 
 
