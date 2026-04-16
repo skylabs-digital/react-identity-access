@@ -143,6 +143,190 @@ describe('SessionManager', () => {
     });
   });
 
+  // ─── forceRefresh ───
+
+  describe('forceRefresh', () => {
+    it('throws SessionExpiredError when no tokens exist and fires onSessionExpired', async () => {
+      const onExpired = vi.fn();
+      const sm = new SessionManager({
+        tokenStorage: storage,
+        autoRefresh: false,
+        onSessionExpired: onExpired,
+      });
+
+      await expect(sm.forceRefresh()).rejects.toThrow(SessionExpiredError);
+      expect(onExpired).toHaveBeenCalledOnce();
+      expect(onExpired.mock.calls[0][0].reason).toBe('token_invalid');
+    });
+
+    it('throws SessionExpiredError when refreshToken missing and fires onSessionExpired', async () => {
+      const onExpired = vi.fn();
+      const sm = new SessionManager({
+        tokenStorage: storage,
+        autoRefresh: false,
+        onSessionExpired: onExpired,
+      });
+      // Access token present but no refresh token
+      storage.set({ accessToken: 'a', expiresAt: Date.now() + 3600_000 });
+
+      await expect(sm.forceRefresh()).rejects.toThrow(SessionExpiredError);
+      expect(onExpired).toHaveBeenCalledOnce();
+      expect(onExpired.mock.calls[0][0].reason).toBe('token_invalid');
+    });
+
+    it('calls /auth/refresh even when token is NOT near expiry (distinguishes from getValidAccessToken)', async () => {
+      const fetchMock = vi.fn().mockResolvedValue({
+        ok: true,
+        json: () =>
+          Promise.resolve({
+            accessToken: 'forced-new-access',
+            refreshToken: 'forced-new-refresh',
+            expiresIn: 3600,
+          }),
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const sm = new SessionManager({
+        tokenStorage: storage,
+        autoRefresh: true,
+        refreshThreshold: 60_000,
+        baseUrl: 'http://api',
+        maxRefreshRetries: 0,
+      });
+      // Token fresh — 1 hour left, well beyond refreshThreshold
+      storage.set(makeTokens(3600));
+
+      const token = await sm.forceRefresh();
+
+      expect(token).toBe('forced-new-access');
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(fetchMock).toHaveBeenCalledWith(
+        'http://api/auth/refresh',
+        expect.objectContaining({ method: 'POST' })
+      );
+      sm.destroy();
+    });
+
+    it('concurrent forceRefresh calls dedupe to a single /auth/refresh', async () => {
+      let resolveRefresh: () => void;
+      const refreshGate = new Promise<void>(r => {
+        resolveRefresh = r;
+      });
+
+      const fetchMock = vi.fn().mockImplementation(async () => {
+        await refreshGate;
+        return {
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              accessToken: 'shared-forced',
+              refreshToken: 'new-r',
+              expiresIn: 3600,
+            }),
+        };
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const sm = new SessionManager({
+        tokenStorage: storage,
+        autoRefresh: true,
+        refreshThreshold: 60_000,
+        baseUrl: 'http://api',
+        maxRefreshRetries: 0,
+        refreshQueueTimeout: 5000,
+      });
+      storage.set(makeTokens(3600));
+
+      const p1 = sm.forceRefresh();
+      const p2 = sm.forceRefresh();
+      const p3 = sm.forceRefresh();
+
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      resolveRefresh!();
+
+      const [t1, t2, t3] = await Promise.all([p1, p2, p3]);
+      expect(t1).toBe('shared-forced');
+      expect(t2).toBe('shared-forced');
+      expect(t3).toBe('shared-forced');
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      sm.destroy();
+    });
+
+    it('queues on existing refreshPromise started by getValidAccessToken', async () => {
+      let resolveRefresh: () => void;
+      const refreshGate = new Promise<void>(r => {
+        resolveRefresh = r;
+      });
+
+      const fetchMock = vi.fn().mockImplementation(async () => {
+        await refreshGate;
+        return {
+          ok: true,
+          json: () =>
+            Promise.resolve({
+              accessToken: 'combined-refresh',
+              refreshToken: 'r2',
+              expiresIn: 3600,
+            }),
+        };
+      });
+      vi.stubGlobal('fetch', fetchMock);
+
+      const sm = new SessionManager({
+        tokenStorage: storage,
+        autoRefresh: true,
+        refreshThreshold: 300_000,
+        baseUrl: 'http://api',
+        maxRefreshRetries: 0,
+        refreshQueueTimeout: 5000,
+      });
+      // Near expiry — getValidAccessToken will start a refresh
+      storage.set(makeTokens(10));
+
+      const pValid = sm.getValidAccessToken();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      // forceRefresh should queue on the same in-flight refresh
+      const pForce = sm.forceRefresh();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      resolveRefresh!();
+      const [tValid, tForce] = await Promise.all([pValid, pForce]);
+      expect(tValid).toBe('combined-refresh');
+      expect(tForce).toBe('combined-refresh');
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      sm.destroy();
+    });
+
+    it('propagates SessionExpiredError on fatal refresh failure and fires onSessionExpired', async () => {
+      const onExpired = vi.fn();
+      vi.stubGlobal(
+        'fetch',
+        vi.fn().mockResolvedValue({
+          ok: false,
+          status: 401,
+          statusText: 'Unauthorized',
+          json: () => Promise.resolve({ message: 'Refresh token expired' }),
+        })
+      );
+
+      const sm = new SessionManager({
+        tokenStorage: storage,
+        autoRefresh: false,
+        baseUrl: 'http://api',
+        maxRefreshRetries: 0,
+        onSessionExpired: onExpired,
+      });
+      storage.set(makeTokens(3600));
+
+      await expect(sm.forceRefresh()).rejects.toThrow(SessionExpiredError);
+      expect(onExpired).toHaveBeenCalledOnce();
+      expect(onExpired.mock.calls[0][0].reason).toBe('token_expired');
+      sm.destroy();
+    });
+  });
+
   // ─── Error classification ───
 
   describe('Error classification during refresh', () => {

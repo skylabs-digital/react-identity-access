@@ -538,6 +538,39 @@ export class SessionManager {
   }
 
   /**
+   * Force a refresh ignoring local expiry heuristics. Callers (e.g. HttpService
+   * retrying a 401) use this when the backend rejected the current access token
+   * as invalid even though `expiresAt` claims it's still valid. Shares the same
+   * refreshPromise/queue as getValidAccessToken, so concurrent forceRefresh
+   * calls deduplicate to a single refresh network call.
+   *
+   * @throws {SessionExpiredError} if no refresh token → caller should logout
+   * @throws {TokenRefreshTimeoutError} if queue wait exceeds timeout
+   * @throws {TokenRefreshError} if refresh fails after all retries
+   */
+  async forceRefresh(): Promise<string> {
+    const tokens = this.getTokens();
+
+    if (!tokens?.accessToken) {
+      const error = new SessionExpiredError('token_invalid', 'No tokens available');
+      this.handleSessionExpired(error);
+      throw error;
+    }
+
+    if (!tokens.refreshToken) {
+      const error = new SessionExpiredError('token_invalid', 'No refresh token available');
+      this.handleSessionExpired(error);
+      throw error;
+    }
+
+    if (this.refreshPromise) {
+      return this.enqueueForToken();
+    }
+
+    return this.startRefreshAndResolveQueue(tokens.refreshToken, true);
+  }
+
+  /**
    * Backward-compatible getAuthHeaders — now delegates to getValidAccessToken.
    */
   async getAuthHeaders(): Promise<Record<string, string>> {
@@ -572,9 +605,9 @@ export class SessionManager {
     });
   }
 
-  private async startRefreshAndResolveQueue(refreshToken: string): Promise<string> {
+  private async startRefreshAndResolveQueue(refreshToken: string, force = false): Promise<string> {
     // Create the shared promise
-    this.refreshPromise = this.executeRefreshWithRetry(refreshToken);
+    this.refreshPromise = this.executeRefreshWithRetry(refreshToken, force);
 
     try {
       await this.refreshPromise;
@@ -625,7 +658,7 @@ export class SessionManager {
 
   // --- Refresh with retry + error classification ---
 
-  private async executeRefreshWithRetry(refreshToken: string): Promise<void> {
+  private async executeRefreshWithRetry(refreshToken: string, force = false): Promise<void> {
     let lastError: Error | undefined;
     const gen = this.sessionGeneration;
 
@@ -636,7 +669,7 @@ export class SessionManager {
       }
 
       try {
-        await this.performTokenRefresh(refreshToken, gen);
+        await this.performTokenRefresh(refreshToken, gen, force);
         return; // Success
       } catch (error) {
         const err = error instanceof Error ? error : new Error(String(error));
@@ -665,28 +698,39 @@ export class SessionManager {
    * Throws SessionExpiredError for fatal errors (no retry).
    * Throws generic Error for transient errors (will be retried).
    */
-  private async performTokenRefresh(refreshToken: string, gen: number): Promise<void> {
+  private async performTokenRefresh(
+    refreshToken: string,
+    gen: number,
+    force = false
+  ): Promise<void> {
     // Use Web Locks API to coordinate refresh across browser tabs.
     // Without this, multiple tabs sharing localStorage can send the same
     // refresh token simultaneously, triggering "reuse detected" on servers
     // that rotate refresh tokens.
     if (typeof navigator !== 'undefined' && navigator.locks) {
       return navigator.locks.request(`session-refresh:${this.storageKey}`, () =>
-        this.performTokenRefreshInner(refreshToken, gen)
+        this.performTokenRefreshInner(refreshToken, gen, force)
       );
     }
-    return this.performTokenRefreshInner(refreshToken, gen);
+    return this.performTokenRefreshInner(refreshToken, gen, force);
   }
 
-  private async performTokenRefreshInner(refreshToken: string, gen: number): Promise<void> {
+  private async performTokenRefreshInner(
+    refreshToken: string,
+    gen: number,
+    force = false
+  ): Promise<void> {
     if (!this.baseUrl) {
       throw new Error('Base URL not configured for token refresh');
     }
 
     // Re-read tokens from storage: another browser tab sharing localStorage
     // may have already refreshed while we were waiting for the lock or retrying.
+    // Skipped when `force` is true (caller saw the backend reject the token as
+    // invalid even though local expiresAt claims it's fresh — we MUST refetch).
     const freshTokens = this.getTokens();
     if (
+      !force &&
       freshTokens?.accessToken &&
       !this.isTokenExpired(freshTokens) &&
       !this.shouldRefreshToken(freshTokens)

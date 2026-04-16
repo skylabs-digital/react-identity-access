@@ -28,7 +28,8 @@ export class HttpService {
     method: string,
     endpoint: string,
     data?: any,
-    options?: RequestOptions
+    options?: RequestOptions,
+    isRetry = false
   ): Promise<T> {
     const url = `${this.baseUrl}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
     const requestTimeout = options?.timeout || this.timeout;
@@ -60,6 +61,23 @@ export class HttpService {
       });
 
       clearTimeout(timeoutId);
+
+      // Server rejected the access token as invalid even though SessionManager
+      // believed it was still valid (clock skew, backend-side revocation,
+      // expiresIn/JWT exp mismatch, etc.). Force a refresh via SessionManager
+      // and retry the request exactly once. forceRefresh throws on no-refresh
+      // or refresh-failed — that propagates out as the signal for the
+      // provider's onSessionExpired callback to log the user out.
+      if (response.status === 401 && !options?.skipAuth && this.sessionManager && !isRetry) {
+        // Drain body so the connection can be released before the retry.
+        try {
+          await response.text();
+        } catch {
+          // ignore — we're discarding the payload anyway
+        }
+        await this.sessionManager.forceRefresh();
+        return this.executeRequest<T>(method, endpoint, data, options, true);
+      }
 
       if (!response.ok) {
         throw new Error(`HTTP ${response.status}: ${response.statusText}`);
