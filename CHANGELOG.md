@@ -1,3 +1,10 @@
+# [3.3.0](https://github.com/skylabs-digital/react-identity-access/compare/v3.2.3...v3.3.0) (2026-05-01)
+
+
+### Features
+
+* **security:** add standardized security scan ([b6350e9](https://github.com/skylabs-digital/react-identity-access/commit/b6350e95e7650ec3dfd1682ba1113f3e448988f1))
+
 ## [3.2.3](https://github.com/skylabs-digital/react-identity-access/compare/v3.2.2...v3.2.3) (2026-04-16)
 
 
