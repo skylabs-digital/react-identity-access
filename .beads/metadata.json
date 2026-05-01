@@ -1,0 +1,7 @@
+{
+  "database": "dolt",
+  "backend": "dolt",
+  "dolt_mode": "embedded",
+  "dolt_database": "react_identity_access",
+  "project_id": "287a272e-1abb-40be-a2b0-7540c431bca0"
+}
