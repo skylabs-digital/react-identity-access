@@ -11,6 +11,7 @@ permissions:
 
 jobs:
   test:
+    if: github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -46,7 +47,7 @@ jobs:
   release:
     needs: test
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && github.actor != 'dependabot[bot]'
     permissions:
       contents: write
       issues: write
@@ -126,7 +127,7 @@ jobs:
   # can resolve all @skylabs-digital/* packages from a single registry.
   publish-gpr:
     needs: release
-    if: needs.release.outputs.new-release == 'true'
+    if: needs.release.outputs.new-release == 'true' && github.actor != 'dependabot[bot]'
     runs-on: ubuntu-latest
     permissions:
       contents: read
