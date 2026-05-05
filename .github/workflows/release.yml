@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, skylabs]
     steps:
       - name: Checkout
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
@@ -45,7 +45,7 @@ jobs:
 
   release:
     needs: test
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, skylabs]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push'
     permissions:
       contents: write
@@ -127,7 +127,7 @@ jobs:
   publish-gpr:
     needs: release
     if: needs.release.outputs.new-release == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, skylabs]
     permissions:
       contents: read
       packages: write

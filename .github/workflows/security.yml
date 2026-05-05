@@ -18,7 +18,7 @@ concurrency:
 jobs:
   osv-scan:
     name: OSV-Scanner (deps)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, skylabs]
     permissions:
       contents: read
       security-events: write
@@ -36,7 +36,7 @@ jobs:
 
   secrets-scan:
     name: Gitleaks (secrets in code + history)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, skylabs]
     steps:
       - name: Checkout (full history)
         uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
