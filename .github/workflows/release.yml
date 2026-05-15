@@ -1,16 +1,19 @@
-name: Release and Publish
+name: Release
 
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
+  schedule:
+    - cron: '0 6 * * 1'
 
 permissions:
   contents: read
 
 jobs:
   test:
+    if: github.actor != 'dependabot[bot]'
     runs-on: [self-hosted, linux, x64, skylabs]
     steps:
       - name: Checkout
@@ -43,10 +46,41 @@ jobs:
       - name: Build
         run: yarn build
 
-  release:
-    needs: test
+  osv-scan:
+    if: github.actor != 'dependabot[bot]'
+    name: OSV-Scanner (deps)
     runs-on: [self-hosted, linux, x64, skylabs]
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v4.3.0
+      - uses: google/osv-scanner-action/osv-scanner-action@c51854704019a247608d928f370c98740469d4b5  # v2.3.5
+        with:
+          scan-args: |-
+            --recursive
+            ./
+
+  gitleaks-scan:
+    if: github.actor != 'dependabot[bot]'
+    name: Gitleaks (secrets)
+    runs-on: [self-hosted, linux, x64, skylabs]
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v4.3.0
+        with:
+          fetch-depth: 0
+      - name: Install Gitleaks v8.30.1
+        run: |
+          set -euo pipefail
+          VERSION=8.30.1
+          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" -o gitleaks.tgz
+          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tgz" | sha256sum -c -
+          tar -xzf gitleaks.tgz gitleaks
+          sudo mv gitleaks /usr/local/bin/gitleaks
+      - name: Scan (full history)
+        run: gitleaks detect --source . --redact --exit-code 1 --verbose
+
+  release:
+    needs: [test, osv-scan, gitleaks-scan]
+    runs-on: [self-hosted, linux, x64, skylabs]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && github.actor != 'dependabot[bot]'
     permissions:
       contents: write
       issues: write
@@ -126,7 +160,7 @@ jobs:
   # can resolve all @skylabs-digital/* packages from a single registry.
   publish-gpr:
     needs: release
-    if: needs.release.outputs.new-release == 'true'
+    if: needs.release.outputs.new-release == 'true' && github.actor != 'dependabot[bot]'
     runs-on: [self-hosted, linux, x64, skylabs]
     permissions:
       contents: read
