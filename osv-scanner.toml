@@ -38,3 +38,37 @@ reason = "vite 5.x → 6.x major-version upgrade tracked separately. Dev/build d
 id = "GHSA-2g4f-4pwh-qvx6"
 ignoreUntil = 2026-08-15
 reason = "ajv 6.12.x — pinning to 6.14.0 globally breaks commitlint (which needs ajv 8.x API). Medium 5.5 in a build-time validator; not exposed at runtime. Re-evaluate when commitlint moves to ajv 8."
+
+# tar v6 advisories: every "fixed version" is in the v7 line. Forcing v7
+# on libnpmdiff/npm/pacote (transitive deps of semantic-release) risks
+# breaking the release pipeline because tar v7 dropped callback APIs.
+# Build/release-time only; not part of the published library bundle.
+[[IgnoredVulns]]
+id = "GHSA-34x7-hfp2-rc4v"
+ignoreUntil = 2026-08-15
+reason = "tar v6 — fixed only in v7 major (breaking). Build-time transitive of semantic-release; not in published bundle."
+
+[[IgnoredVulns]]
+id = "GHSA-83g3-92jg-28cx"
+ignoreUntil = 2026-08-15
+reason = "tar v6 — fixed only in v7 major (breaking). Build-time transitive of semantic-release; not in published bundle."
+
+[[IgnoredVulns]]
+id = "GHSA-8qq5-rm4j-mr97"
+ignoreUntil = 2026-08-15
+reason = "tar v6 — fixed only in v7 major (breaking). Build-time transitive of semantic-release; not in published bundle."
+
+[[IgnoredVulns]]
+id = "GHSA-9ppj-qmqm-q256"
+ignoreUntil = 2026-08-15
+reason = "tar v6 — fixed only in v7 major (breaking). Build-time transitive of semantic-release; not in published bundle."
+
+[[IgnoredVulns]]
+id = "GHSA-qffp-2rhf-9h96"
+ignoreUntil = 2026-08-15
+reason = "tar v6 — fixed only in v7 major (breaking). Build-time transitive of semantic-release; not in published bundle."
+
+[[IgnoredVulns]]
+id = "GHSA-r6q2-hw4h-h46w"
+ignoreUntil = 2026-08-15
+reason = "tar v6 — fixed only in v7 major (breaking). Build-time transitive of semantic-release; not in published bundle."
