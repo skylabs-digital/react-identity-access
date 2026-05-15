@@ -1,0 +1,40 @@
+# OSV-Scanner ignore configuration.
+#
+# This file enumerates advisories that cannot currently be remediated by a
+# dependency upgrade. Every entry MUST include a `reason` and an `ignoreUntil`
+# date so we revisit periodically.
+#
+# Most vulnerabilities flagged on this repo's lockfile are addressed via
+# `resolutions` in package.json (and example/package.json). What remains
+# below are advisories whose "fixed version" is either unreleased or
+# requires a major-version bump out of scope for the security gate.
+
+[[IgnoredVulns]]
+id = "GHSA-f23m-r3pf-42rh"
+ignoreUntil = 2026-08-15
+reason = "lodash advisory claims fix in 4.18.0, which has never been published. Upstream is dormant. Re-evaluate quarterly."
+
+[[IgnoredVulns]]
+id = "GHSA-r5fr-rjxr-66jc"
+ignoreUntil = 2026-08-15
+reason = "lodash advisory claims fix in 4.18.0, which has never been published. Upstream is dormant."
+
+[[IgnoredVulns]]
+id = "GHSA-xxjr-mmjv-4gpg"
+ignoreUntil = 2026-08-15
+reason = "lodash advisory claims fix in 4.17.23, which has never been published. Upstream is dormant."
+
+[[IgnoredVulns]]
+id = "GHSA-g3ch-rx76-35fx"
+ignoreUntil = 2026-08-15
+reason = "vue-template-compiler 2.7.16 — advisory has no published fix. Transitive dep of @vue/language-core via vite-plugin-dts; only loaded during type-declaration builds."
+
+[[IgnoredVulns]]
+id = "GHSA-4w7w-66w2-5vf9"
+ignoreUntil = 2026-08-15
+reason = "vite 5.x → 6.x major-version upgrade tracked separately. Dev/build dep only — not shipped in the published library bundle."
+
+[[IgnoredVulns]]
+id = "GHSA-2g4f-4pwh-qvx6"
+ignoreUntil = 2026-08-15
+reason = "ajv 6.12.x — pinning to 6.14.0 globally breaks commitlint (which needs ajv 8.x API). Medium 5.5 in a build-time validator; not exposed at runtime. Re-evaluate when commitlint moves to ajv 8."
