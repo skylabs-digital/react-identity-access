@@ -1,3 +1,10 @@
+## [3.4.1](https://github.com/skylabs-digital/react-identity-access/compare/v3.4.0...v3.4.1) (2026-05-15)
+
+
+### Bug Fixes
+
+* **ci:** move release job to ubuntu-latest for npm provenance support ([#20](https://github.com/skylabs-digital/react-identity-access/issues/20)) ([b4ebff1](https://github.com/skylabs-digital/react-identity-access/commit/b4ebff1d5eefe8f14cee40f07065d153213a9ad8))
+
 # [3.4.0](https://github.com/skylabs-digital/react-identity-access/compare/v3.3.0...v3.4.0) (2026-05-15)
 
 
