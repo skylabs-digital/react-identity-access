@@ -1,0 +1,33 @@
+# Gitleaks config for react-identity-access.
+#
+# Read automatically by `gitleaks detect` when run from the repo root.
+# Used by .github/workflows/release.yml/gitleaks-scan.
+#
+# IMPORTANT: keep this file narrow. Each allowlist entry MUST come with a
+# written comment explaining WHY it is here. Do NOT add `paths` regexes for
+# entire directories — that masks future leaks. Prefer commit-hash allowlists
+# (kills exactly one historical commit) over path-based ones (kills a whole
+# file forever).
+
+title = "react-identity-access Gitleaks Config"
+
+[allowlist]
+description = """
+Historical test fixtures in src/test/providerReadiness.test.tsx. The flagged
+strings are simulated tokens used by JWT parsing tests:
+- accessToken: 'access-123' / refreshToken: 'refresh-456' — short placeholders
+  flagged by the generic-api-key rule because of the `accessToken: '...'`
+  pattern shape.
+- Two RS256-shaped JWTs at lines 456/458 — generated for testing the JWT
+  decoder. The payload uses test@admin4.com and synthetic UUIDs; no real
+  user, tenant, or signing key is involved. The signatures are unverifiable
+  by any production system.
+
+The file no longer contains these strings at HEAD (refactored away), so the
+allowlist scopes exactly to the historical commit. Any future re-introduction
+of similar values in this file would re-trigger the scanner.
+"""
+commits = [
+  # feat: block auth ready state until user data loads after URL token consumption
+  "da81bd031b753260b2d61a774c07b6c53a6e8ba0",
+]
