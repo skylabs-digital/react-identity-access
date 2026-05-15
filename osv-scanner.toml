@@ -39,6 +39,11 @@ id = "GHSA-2g4f-4pwh-qvx6"
 ignoreUntil = 2026-08-15
 reason = "ajv 6.12.x — pinning to 6.14.0 globally breaks commitlint (which needs ajv 8.x API). Medium 5.5 in a build-time validator; not exposed at runtime. Re-evaluate when commitlint moves to ajv 8."
 
+[[IgnoredVulns]]
+id = "GHSA-vpq2-c234-7xj6"
+ignoreUntil = 2026-08-15
+reason = "@tootallnate/once v2 — fix is in v3 which is pure ESM, but the only caller (jsdom → http-proxy-agent) require()s it from CJS, triggering ERR_REQUIRE_ESM during yarn test:coverage on Node 18. Low severity 3.3 in a build-time transitive."
+
 # tar v6 advisories: every "fixed version" is in the v7 line. Forcing v7
 # on libnpmdiff/npm/pacote (transitive deps of semantic-release) risks
 # breaking the release pipeline because tar v7 dropped callback APIs.
