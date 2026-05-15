@@ -1906,7 +1906,7 @@ __metadata:
     react-router-dom: "npm:^6.8.0"
     semantic-release: "npm:^22.0.12"
     typescript: "npm:^5.9.2"
-    vite: "npm:^5.4.19"
+    vite: "npm:^6.4.2"
     vite-plugin-dts: "npm:^3.9.1"
     vitest: "npm:^1.6.0"
   peerDependencies:
