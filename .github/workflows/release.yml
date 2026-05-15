@@ -83,7 +83,12 @@ jobs:
 
   release:
     needs: [test, osv-scan, gitleaks-scan]
-    runs-on: [self-hosted, linux, x64, skylabs]
+    # npm publish with sigstore provenance (NPM_CONFIG_PROVENANCE=true below)
+    # is only supported on github-hosted runners — self-hosted runners cause
+    # a 422 "Unsupported GitHub Actions runner environment" from npm. Test
+    # and security jobs above can stay on self-hosted; release runs only on
+    # push to main (low frequency), so the github-hosted minutes are minimal.
+    runs-on: ubuntu-latest
     if: github.ref == 'refs/heads/main' && github.event_name == 'push' && github.actor != 'dependabot[bot]'
     permissions:
       contents: write
