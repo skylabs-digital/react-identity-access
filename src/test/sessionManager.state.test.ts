@@ -318,6 +318,51 @@ describe('SessionManager — state machine + subscribe', () => {
       expect(sm.getState()).toBe('expired');
     });
 
+    it('deduplicates with an already in-flight refresh (single network call)', async () => {
+      // Gate the refresh so we can fire ensureValidSession while it's mid-flight.
+      let resolveFetch: (v: unknown) => void = () => {};
+      const fetchMock = vi.fn().mockImplementation(
+        () =>
+          new Promise(r => {
+            resolveFetch = r;
+          })
+      );
+      vi.stubGlobal('fetch', fetchMock);
+
+      const sm = new SessionManager({
+        tokenStorage: storage,
+        autoRefresh: true,
+        baseUrl: 'http://api',
+        proactiveRefreshMargin: 0,
+        refreshThreshold: 0,
+        maxRefreshRetries: 0,
+      });
+      storage.set({ accessToken: 'old', refreshToken: 'rt', expiresAt: Date.now() - 1000 });
+
+      // Kick off a refresh via getValidAccessToken to populate refreshPromise.
+      const inFlightCall = sm.getValidAccessToken().catch(() => undefined);
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(sm.getRefreshInFlight()).toBe(true);
+
+      // Now run ensureValidSession concurrently — it must NOT start a second
+      // fetch. It should wait on the existing refreshPromise.
+      const ensurePromise = sm.ensureValidSession();
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+
+      // Release the refresh with a successful response.
+      resolveFetch({
+        ok: true,
+        json: async () => ({ accessToken: 'new', refreshToken: 'rt2', expiresIn: 3600 }),
+      });
+
+      const result = await ensurePromise;
+      await inFlightCall;
+
+      expect(result).toBe('authenticated');
+      expect(fetchMock).toHaveBeenCalledTimes(1);
+      expect(sm.getTokens()?.accessToken).toBe('new');
+    });
+
     it("returns 'expired' when access token is present but refresh token is missing", async () => {
       const onSessionExpired = vi.fn();
       const sm = new SessionManager({
