@@ -1,4 +1,13 @@
-import { createContext, useContext, ReactNode, useMemo, useState, useEffect, useRef } from 'react';
+import {
+  createContext,
+  useContext,
+  ReactNode,
+  useMemo,
+  useState,
+  useEffect,
+  useRef,
+  useSyncExternalStore,
+} from 'react';
 import { SessionManager } from '../services/SessionManager';
 import { AuthApiService } from '../services/AuthApiService';
 import { RoleApiService } from '../services/RoleApiService';
@@ -16,6 +25,7 @@ import type {
   VerifyMagicLinkResponse,
   MagicLinkResponse,
   UserTenantMembership,
+  SessionStatus,
 } from '../types/api';
 import type {
   LoginParams,
@@ -74,6 +84,13 @@ export interface AuthStateValue {
   isAuthenticated: boolean;
   isAuthInitializing: boolean;
   isAuthReady: boolean;
+  /**
+   * Fine-grained session state for consumers that need to distinguish
+   * "expired" (had a session that died) from "unauthenticated" (never logged
+   * in) or "refreshing" (silent renewal in progress). Booleans above remain
+   * the recommended API for the common "is the user logged in?" check.
+   */
+  sessionStatus: SessionStatus;
   currentUser: User | null;
   isUserLoading: boolean;
   userError: Error | null;
@@ -146,14 +163,6 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
   const [userError, setUserError] = useState<Error | null>(null);
   const [userTenants, setUserTenants] = useState<UserTenantMembership[]>(() => readUserTenants());
 
-  // === SYNCHRONOUS INITIALIZATION ===
-  // Marks first-render init so downstream effects can gate on it.
-  const initRef = useRef<{ done: boolean }>({ done: false });
-
-  if (!initRef.current.done) {
-    initRef.current.done = true;
-  }
-
   const sessionManager = useMemo(() => {
     return SessionManager.getInstance({
       baseUrl,
@@ -179,19 +188,24 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     config.proactiveRefreshMargin,
   ]);
 
-  // CRITICAL: Initialize isRestoringSession to TRUE if there's a valid session OR if tokens are expired but
-  // refreshable (backgroundRefresh is pending). This keeps isAuthReady false until
-  // the refresh attempt settles, preventing premature redirects to login.
-  const [isRestoringSession, setIsRestoringSession] = useState(() => {
-    const tokens = sessionManager.getTokens();
-    if (tokens) {
-      return sessionManager.hasValidSession() || !!tokens.refreshToken;
-    }
-    if (config.enableCookieSession) return true;
-    return false;
-  });
+  // Subscribe to SessionManager state changes so derived flags (isAuthenticated,
+  // sessionStatus) update reactively when a refresh completes, tokens are
+  // written by another tab, etc. The numeric snapshot collapses identical
+  // states so React skips renders when nothing meaningful changed.
+  const sessionTick = useSyncExternalStore(
+    cb => sessionManager.subscribe(cb),
+    () => sessionManager.getSnapshot(),
+    () => 0
+  );
 
-  const isAuthReady = initRef.current.done && !isRestoringSession;
+  // `bootstrapDone` is the single source of truth for isAuthReady. It flips
+  // true exactly once per AuthProvider mount, at the end of the bootstrap
+  // effect — regardless of whether the bootstrap ended in authenticated,
+  // unauthenticated, or expired. This is what kills the "trunco" state:
+  // the consumer can never observe isAuthReady=true while a refresh that
+  // could resolve the session is still pending.
+  const [bootstrapDone, setBootstrapDone] = useState(false);
+  const isAuthReady = bootstrapDone;
 
   const authenticatedHttpService = useMemo(() => {
     const service = new HttpService(baseUrl);
@@ -222,10 +236,26 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
 
   const userPermissions = useMemo(() => userRole?.permissions || [], [userRole]);
 
+  // `sessionTick` is required in the deps below: SessionManager mutations
+  // (refresh success, cross-tab logout, etc.) don't change currentUser or the
+  // sessionManager reference, so without the tick these memos would stay frozen
+  // even though hasValidSession()/getState() return different values.
   const isAuthenticated = useMemo(
     () => sessionManager.hasValidSession() && currentUser !== null,
-    [sessionManager, currentUser]
+    [sessionManager, currentUser, sessionTick]
   );
+
+  const sessionStatus = useMemo<SessionStatus>(() => {
+    if (!bootstrapDone) return 'initializing';
+    // SessionManager's machine state is authoritative for 'expired' (the
+    // tokens were cleared, but a session DID exist and died) vs 'idle' (no
+    // session ever existed in this lifetime).
+    const smState = sessionManager.getState();
+    if (smState === 'expired') return 'expired';
+    if (sessionManager.getRefreshInFlight()) return 'refreshing';
+    if (sessionManager.hasValidSession() && currentUser !== null) return 'authenticated';
+    return 'unauthenticated';
+  }, [sessionManager, bootstrapDone, currentUser, sessionTick]);
 
   const hasTenantContext = useMemo(() => currentUser?.tenantId != null, [currentUser]);
 
@@ -497,7 +527,10 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
   };
 
   const logout = () => {
-    sessionManager.clearSession();
+    // 'logout' reason suppresses onSessionExpired callbacks for any concurrent
+    // in-flight refresh that races the clear — a deliberate sign-out is not an
+    // expiration.
+    sessionManager.clearSession('logout');
     setCurrentUser(null);
     setUserError(null);
     setUserTenants([]);
@@ -631,6 +664,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       isAuthenticated,
       isAuthInitializing: !isAuthReady,
       isAuthReady,
+      sessionStatus,
       currentUser,
       isUserLoading,
       userError,
@@ -650,6 +684,7 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
   }, [
     isAuthenticated,
     isAuthReady,
+    sessionStatus,
     currentUser,
     isUserLoading,
     userError,
@@ -689,55 +724,73 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     };
   }, [appId, config.initialRoles, roleApiService]);
 
-  // Initialize user data from session on mount.
-  // If a background refresh is in progress (expired token being renewed), wait for it
-  // before checking session validity — prevents premature redirect to login.
+  // Single bootstrap effect. *Active* (not passive-waiting): if the access
+  // token is stale but a refresh token is present, this drives
+  // ensureValidSession() so the consumer never observes isAuthReady=true &&
+  // isAuthenticated=false while a refresh was still possible.
+  //
+  // StrictMode is safe because SessionManager.ensureValidSession()
+  // deduplicates refreshes globally via `refreshPromise`. The `completed` ref
+  // (not just "started") ensures that if the first mount's effect gets
+  // cancelled before settling, the remount's effect still runs to completion.
+  const bootstrapRef = useRef<{ completed: boolean }>({ completed: false });
+
   useEffect(() => {
     let cancelled = false;
 
-    const init = async () => {
-      if (!sessionManager.hasValidSession() && sessionManager.getTokens()?.refreshToken) {
-        await sessionManager.waitForPendingRefresh();
-      }
-      if (cancelled) return;
+    (async () => {
+      try {
+        if (bootstrapRef.current.completed) return;
 
-      if (
-        !sessionManager.hasValidSession() &&
-        !sessionManager.getTokens() &&
-        config.enableCookieSession
-      ) {
-        await sessionManager.attemptCookieSessionRestore();
+        // Cookie-session restore: only when storage has no tokens at all.
+        // attemptCookieSessionRestore is a no-op if cookieSession is disabled.
+        if (!sessionManager.getTokens() && config.enableCookieSession) {
+          await sessionManager.attemptCookieSessionRestore();
+          if (cancelled) return;
+        }
+
+        // Actively resolve to a terminal state. ensureValidSession refreshes
+        // when needed and fires onSessionExpired internally on fatal failure.
+        const result = await sessionManager.ensureValidSession();
         if (cancelled) return;
-      }
 
-      const user = sessionManager.getUser();
-      if (user && sessionManager.hasValidSession()) {
-        setCurrentUser(user);
+        if (result === 'authenticated') {
+          const cached = sessionManager.getUser();
+          if (cached) setCurrentUser(cached);
+          try {
+            await actionsImplRef.current.loadUserData(!cached);
+          } catch {
+            // loadUserData already logs in development.
+          }
+          if (cancelled) return;
+        }
+      } finally {
+        if (!cancelled) {
+          bootstrapRef.current.completed = true;
+          setBootstrapDone(true);
+        }
       }
-      setIsRestoringSession(false);
-    };
-    init();
+    })();
 
     return () => {
       cancelled = true;
     };
   }, [sessionManager, config.enableCookieSession]);
 
-  // Auto-load user data if we have tokens but no currentUser
+  // Cross-tab reconciler: when another tab clears the session (logout, expiry),
+  // SessionManager's storage listener fires `notify()` which bumps sessionTick.
+  // We use it to drop our local React state mirrors of user/tenants. We must
+  // NOT do this before bootstrap completes — during bootstrap the session is
+  // legitimately not-yet-valid and we shouldn't fire spurious cleanup.
   useEffect(() => {
-    if (!currentUser && !isUserLoading && !userError && sessionManager.hasValidSession()) {
-      actionsImplRef.current
-        .loadUserData()
-        .catch(() => {
-          // Silent fail - error already logged in loadUserData
-        })
-        .finally(() => {
-          setIsRestoringSession(false);
-        });
-    } else {
-      setIsRestoringSession(false);
+    if (!bootstrapDone) return;
+    if (!sessionManager.hasValidSession() && currentUser !== null) {
+      setCurrentUser(null);
+      setUserError(null);
+      setUserTenants([]);
+      clearUserTenants();
     }
-  }, [currentUser, isUserLoading, userError, sessionManager]);
+  }, [sessionTick, bootstrapDone, currentUser, sessionManager]);
 
   return (
     <AuthActionsContext.Provider value={actions}>

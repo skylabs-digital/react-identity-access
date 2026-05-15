@@ -14,16 +14,16 @@ permissions:
 jobs:
   test:
     if: github.actor != 'dependabot[bot]'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, skylabs]
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
 
       - name: Enable Corepack
         run: corepack enable
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
         with:
           node-version: '18'
           cache: 'yarn'
@@ -49,7 +49,7 @@ jobs:
   osv-scan:
     if: github.actor != 'dependabot[bot]'
     name: OSV-Scanner (deps)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, skylabs]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v4.3.0
       - uses: google/osv-scanner-action/osv-scanner-action@c51854704019a247608d928f370c98740469d4b5  # v2.3.5
@@ -61,7 +61,7 @@ jobs:
   gitleaks-scan:
     if: github.actor != 'dependabot[bot]'
     name: Gitleaks (secrets)
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, skylabs]
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v4.3.0
         with:
@@ -79,7 +79,7 @@ jobs:
 
   release:
     needs: [test, osv-scan, gitleaks-scan]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, skylabs]
     if: github.ref == 'refs/heads/main' && github.event_name == 'push' && github.actor != 'dependabot[bot]'
     permissions:
       contents: write
@@ -92,13 +92,13 @@ jobs:
     steps:
       - name: Generate GitHub App Token
         id: app-token
-        uses: actions/create-github-app-token@v1
+        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3  # v3.1.1
         with:
           app-id: ${{ secrets.SEMANTIC_RELEASE_APP_ID }}
           private-key: ${{ secrets.SEMANTIC_RELEASE_PRIVATE_KEY }}
 
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           fetch-depth: 0
           token: ${{ steps.app-token.outputs.token }}
@@ -107,7 +107,7 @@ jobs:
         run: corepack enable
 
       - name: Setup Node.js
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
         with:
           node-version: '22.14.0'
           cache: 'yarn'
@@ -161,13 +161,13 @@ jobs:
   publish-gpr:
     needs: release
     if: needs.release.outputs.new-release == 'true' && github.actor != 'dependabot[bot]'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, linux, x64, skylabs]
     permissions:
       contents: read
       packages: write
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
         with:
           ref: main
 
@@ -175,7 +175,7 @@ jobs:
         run: corepack enable
 
       - name: Setup Node.js for GitHub Packages
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
         with:
           node-version: '22'
           registry-url: 'https://npm.pkg.github.com'

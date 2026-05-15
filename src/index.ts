@@ -93,7 +93,7 @@ export type { TenantSelectorProps, TenantSelectorStyles } from './components/Ten
 
 // Export types
 export { UserType } from './types/api';
-export type { User, PlanFeature, TenantSubscriptionFeatures } from './types/api';
+export type { User, PlanFeature, TenantSubscriptionFeatures, SessionStatus } from './types/api';
 
 // Session error classes
 export {
@@ -108,7 +108,13 @@ export type { SessionExpiredReason } from './errors/SessionErrors';
 export { HttpService } from './services/HttpService';
 export type { RequestOptions } from './services/HttpService';
 export { SessionManager } from './services/SessionManager';
-export type { TokenData, SessionConfig, JwtPayload } from './services/SessionManager';
+export type {
+  TokenData,
+  SessionConfig,
+  JwtPayload,
+  SessionState,
+  RefreshStats,
+} from './services/SessionManager';
 
 // Main API Service - removed in favor of provider pattern
 
