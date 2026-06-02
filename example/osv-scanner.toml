@@ -1,0 +1,14 @@
+# OSV-Scanner ignore configuration for the example/ demo app lockfile.
+#
+# The org security gate (security.yml@v1) runs `osv-scanner --recursive ./`
+# WITHOUT an explicit --config, so osv-scanner discovers config per lockfile
+# directory. The root osv-scanner.toml therefore does NOT cover this nested
+# example/yarn.lock — this file does.
+#
+# The example app is a local demo only — it is never published and is not
+# part of the @skylabs-digital/react-identity-access bundle.
+
+[[IgnoredVulns]]
+id = "GHSA-4w7w-66w2-5vf9"
+ignoreUntil = 2026-08-15
+reason = "vite 5.x → 6.x major-version upgrade tracked separately. Demo-only dependency in example/; not shipped in the published library bundle."
