@@ -1,10 +1,10 @@
-import { HttpService } from './HttpService';
 import type {
-  Subscription,
-  CreateSubscriptionRequest,
   ApiResponse,
+  CreateSubscriptionRequest,
+  Subscription,
   TenantSubscriptionFeatures,
 } from '../types/api';
+import type { HttpService } from './HttpService';
 
 export class SubscriptionApiService {
   constructor(private httpService: HttpService) {}

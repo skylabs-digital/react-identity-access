@@ -35,6 +35,21 @@ ignoreUntil = 2026-08-15
 reason = "vite 5.x → 6.x major-version upgrade tracked separately. Dev/build dep only — not shipped in the published library bundle."
 
 [[IgnoredVulns]]
+id = "GHSA-5xrq-8626-4rwp"
+ignoreUntil = 2026-08-15
+reason = "vitest 3.2.x — fix is in vitest 4.1.0, which requires a vite 6+ major cascade (plugin-react/vite-plugin-dts) tracked separately with GHSA-4w7w-66w2-5vf9. The advisory affects the Vitest dev/API server when exposed; the test runner is build/CI-time only and is not part of the published library bundle (dist has zero runtime deps beyond the react/react-router peers)."
+
+[[IgnoredVulns]]
+id = "GHSA-ph9p-34f9-6g65"
+ignoreUntil = 2026-08-15
+reason = "tmp 0.2.5 — transitive via external-editor (inquirer/Stryker tooling). Build/CI-time only; not in the published library bundle. Fix is in 0.2.6 but no direct dependent pins it yet."
+
+[[IgnoredVulns]]
+id = "GHSA-58qx-3vcg-4xpx"
+ignoreUntil = 2026-08-15
+reason = "ws 8.18.3 — transitive via jsdom@22 (test environment only). Build/CI-time only; not in the published library bundle. Fix (ws 8.20.1) lands with a jsdom major bump tracked separately."
+
+[[IgnoredVulns]]
 id = "GHSA-2g4f-4pwh-qvx6"
 ignoreUntil = 2026-08-15
 reason = "ajv 6.12.x — pinning to 6.14.0 globally breaks commitlint (which needs ajv 8.x API). Medium 5.5 in a build-time validator; not exposed at runtime. Re-evaluate when commitlint moves to ajv 8."

@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { UserType } from '../types/api';
-import { DEFAULT_ZONE_PRESETS, DEFAULT_ZONE_ROOTS, AccessMode } from '../types/zoneRouting';
+import { type AccessMode, DEFAULT_ZONE_PRESETS, DEFAULT_ZONE_ROOTS } from '../types/zoneRouting';
 
 /**
  * Unit tests for zone routing logic

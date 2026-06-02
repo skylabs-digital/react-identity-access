@@ -1,7 +1,7 @@
-import { defineConfig } from 'vite';
+import { resolve } from 'node:path';
 import react from '@vitejs/plugin-react';
+import { defineConfig } from 'vite';
 import dts from 'vite-plugin-dts';
-import { resolve } from 'path';
 
 export default defineConfig({
   plugins: [
@@ -16,7 +16,7 @@ export default defineConfig({
       entry: resolve(__dirname, 'src/index.ts'),
       name: 'ReactIdentityAccess',
       formats: ['es', 'cjs'],
-      fileName: format => `index.${format === 'cjs' ? '' : format + '.'}js`,
+      fileName: format => `index.${format === 'cjs' ? '' : `${format}.`}js`,
     },
     rollupOptions: {
       external: [

@@ -1,11 +1,11 @@
-import { HttpService } from './HttpService';
 import type {
-  SubscriptionPlan,
-  CreateSubscriptionPlanRequest,
   ApiResponse,
+  CreateSubscriptionPlanRequest,
   PaginationParams,
+  SubscriptionPlan,
 } from '../types/api';
 import { buildPaginationQuery } from '../utils/query';
+import type { HttpService } from './HttpService';
 
 export class SubscriptionPlanApiService {
   constructor(private httpService: HttpService) {}

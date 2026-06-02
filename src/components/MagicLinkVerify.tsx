@@ -1,4 +1,5 @@
-import React, { useState, useEffect } from 'react';
+import type React from 'react';
+import { useEffect, useState } from 'react';
 import { useAuth } from '../providers/AuthProvider';
 
 export interface MagicLinkVerifyCopy {

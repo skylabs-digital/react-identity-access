@@ -1,15 +1,15 @@
 import {
   createContext,
-  useContext,
-  useMemo,
-  ReactNode,
-  useState,
-  useEffect,
+  type ReactNode,
   useCallback,
+  useContext,
+  useEffect,
+  useMemo,
   useRef,
+  useState,
 } from 'react';
-import { HttpService } from '../services/HttpService';
 import { AppApiService } from '../services/AppApiService';
+import { HttpService } from '../services/HttpService';
 import type { PublicAppInfo } from '../types/api';
 
 interface CachedAppInfo {

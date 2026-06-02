@@ -30,4 +30,3 @@ updates:
       prod-deps:
         dependency-type: production
         update-types: [patch, minor]
-

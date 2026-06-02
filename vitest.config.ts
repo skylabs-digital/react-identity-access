@@ -1,6 +1,6 @@
-import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { resolve } from 'path';
+import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
   plugins: [react()],
@@ -8,7 +8,15 @@ export default defineConfig({
     globals: true,
     environment: 'jsdom',
     setupFiles: ['./src/test/setup.ts'],
-    exclude: ['**/node_modules/**', '**/dist/**', '**/__tests__.disabled/**', '**/example/**', 'qa/**'],
+    exclude: [
+      '**/node_modules/**',
+      '**/dist/**',
+      '**/__tests__.disabled/**',
+      '**/example/**',
+      '**/.claude/**',
+      '**/.stryker-tmp/**',
+      'qa/**',
+    ],
     watch: false, // Disable watch mode by default
     pool: 'forks',
     poolOptions: {
@@ -19,17 +27,19 @@ export default defineConfig({
     testTimeout: 10000, // 10 second timeout
     hookTimeout: 5000, // 5 second hook timeout
     teardownTimeout: 5000,
-    isolate: false, // Disable test isolation to reduce memory usage
+    isolate: true, // Isolate test files to prevent cross-file DOM/state leakage
+    // (required for a clean Stryker `perTest` baseline run; the previous
+    // `isolate: false` leaked rendered DOM between files under Stryker)
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],
       exclude: ['node_modules/', 'src/test/', '**/*.d.ts', '**/*.config.*', 'dist/'],
       thresholds: {
         global: {
-          branches: 80,
-          functions: 80,
-          lines: 80,
-          statements: 80,
+          branches: 85,
+          functions: 90,
+          lines: 90,
+          statements: 90,
         },
       },
     },

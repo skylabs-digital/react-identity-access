@@ -1,4 +1,5 @@
-import React, { useState, useRef, useEffect } from 'react';
+import type React from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuthOptional } from '../providers/AuthProvider';
 import type { UserTenantMembership } from '../types/api';
 

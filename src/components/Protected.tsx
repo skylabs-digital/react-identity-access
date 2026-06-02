@@ -1,6 +1,6 @@
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useAuth } from '../providers/AuthProvider';
-import { UserType, Permission } from '../types/api';
+import { type Permission, UserType } from '../types/api';
 
 export interface ProtectedProps {
   children: ReactNode;

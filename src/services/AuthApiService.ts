@@ -1,21 +1,21 @@
-import { HttpService } from './HttpService';
 import type {
+  ApiResponse,
+  ChangePasswordRequest,
   LoginRequest,
   LoginResponse,
-  SignupRequest,
-  ChangePasswordRequest,
-  RefreshTokenRequest,
-  RefreshTokenResponse,
   MagicLinkRequest,
   MagicLinkResponse,
-  VerifyMagicLinkRequest,
-  VerifyMagicLinkResponse,
-  ApiResponse,
-  User,
+  RefreshTokenRequest,
+  RefreshTokenResponse,
+  SignupRequest,
   SwitchTenantRequest,
   SwitchTenantResponse,
+  User,
   UserTenantMembership,
+  VerifyMagicLinkRequest,
+  VerifyMagicLinkResponse,
 } from '../types/api';
+import type { HttpService } from './HttpService';
 
 interface VerificationCacheEntry {
   promise: Promise<VerifyMagicLinkResponse>;

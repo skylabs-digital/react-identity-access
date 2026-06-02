@@ -1,201 +1,54 @@
 name: Release
 
+# Thin caller — delegates the full FULL/REDUCED lib pipeline to the org
+# reusable (skylabs-digital/.github/.github/workflows/lib-release.yml). The
+# fork point (semantic-release publish on push-to-main only; ci + security on
+# every PR) lives INSIDE the reusable. This file only declares triggers.
+#
+# Standard: docs/standards/cicd-unified-release.md (Variant C — library).
+# Replaces the previously hand-rolled inline pipeline (test/release/publish-gpr
+# jobs) AND the bespoke standalone security.yml — the org reusable wires the
+# `security.yml@v1` gate (OSV + Gitleaks) into the pipeline so security now
+# blocks release. `run-mutation: true` wires Stryker incremental into CI as a
+# required check — closing the org-wide "Stryker-not-in-CI" lib gap.
+
 on:
-  push:
-    branches: [main]
   pull_request:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'qa/**'
+      - 'package.json'
+      - 'yarn.lock'
+      - '.yarnrc.yml'
+      - 'tsconfig.json'
+      - 'biome.json'
+      - 'vite.config.ts'
+      - 'vitest.config.ts'
+      - 'stryker.conf.json'
+      - '.releaserc.json'
+      - '.nvmrc'
+      - '.github/workflows/release.yml'
+  push:
     branches: [main]
   schedule:
     - cron: '0 6 * * 1'
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 permissions:
-  contents: read
+  contents: write
+  packages: write
+  id-token: write
 
 jobs:
-  test:
-    if: github.actor != 'dependabot[bot]'
-    runs-on: [self-hosted, linux, x64, skylabs]
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
-        with:
-          node-version: '18'
-          cache: 'yarn'
-
-      - name: Install dependencies
-        run: yarn install --immutable
-
-      - name: Type check
-        run: yarn type-check
-
-      - name: Format check
-        run: yarn format:check
-
-      - name: Run tests
-        run: yarn test:coverage
-
-      - name: Run QA simulator scenarios
-        run: yarn sim
-
-      - name: Build
-        run: yarn build
-
-  osv-scan:
-    if: github.actor != 'dependabot[bot]'
-    name: OSV-Scanner (deps)
-    runs-on: [self-hosted, linux, x64, skylabs]
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v4.3.0
-      - uses: google/osv-scanner-action/osv-scanner-action@c51854704019a247608d928f370c98740469d4b5  # v2.3.5
-        with:
-          # --config applies osv-scanner.toml ignores GLOBALLY (the default
-          # behaviour is per-lockfile-directory, which wouldn't cover
-          # example/yarn.lock).
-          scan-args: |-
-            --config=osv-scanner.toml
-            --recursive
-            ./
-
-  gitleaks-scan:
-    if: github.actor != 'dependabot[bot]'
-    name: Gitleaks (secrets)
-    runs-on: [self-hosted, linux, x64, skylabs]
-    steps:
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v4.3.0
-        with:
-          fetch-depth: 0
-      - name: Install Gitleaks v8.30.1
-        run: |
-          set -euo pipefail
-          VERSION=8.30.1
-          curl -sSL "https://github.com/gitleaks/gitleaks/releases/download/v${VERSION}/gitleaks_${VERSION}_linux_x64.tar.gz" -o gitleaks.tgz
-          echo "551f6fc83ea457d62a0d98237cbad105af8d557003051f41f3e7ca7b3f2470eb  gitleaks.tgz" | sha256sum -c -
-          tar -xzf gitleaks.tgz gitleaks
-          sudo mv gitleaks /usr/local/bin/gitleaks
-      - name: Scan (full history)
-        run: gitleaks detect --source . --redact --exit-code 1 --verbose
-
   release:
-    needs: [test, osv-scan, gitleaks-scan]
-    # npm publish with sigstore provenance (NPM_CONFIG_PROVENANCE=true below)
-    # is only supported on github-hosted runners — self-hosted runners cause
-    # a 422 "Unsupported GitHub Actions runner environment" from npm. Test
-    # and security jobs above can stay on self-hosted; release runs only on
-    # push to main (low frequency), so the github-hosted minutes are minimal.
-    runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/main' && github.event_name == 'push' && github.actor != 'dependabot[bot]'
-    permissions:
-      contents: write
-      issues: write
-      pull-requests: write
-      id-token: write
-    outputs:
-      new-release: ${{ steps.release.outputs.new-release-published }}
-      version: ${{ steps.release.outputs.new-release-version }}
-    steps:
-      - name: Generate GitHub App Token
-        id: app-token
-        uses: actions/create-github-app-token@1b10c78c7865c340bc4f6099eb2f838309f1e8c3  # v3.1.1
-        with:
-          app-id: ${{ secrets.SEMANTIC_RELEASE_APP_ID }}
-          private-key: ${{ secrets.SEMANTIC_RELEASE_PRIVATE_KEY }}
-
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
-        with:
-          fetch-depth: 0
-          token: ${{ steps.app-token.outputs.token }}
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Setup Node.js
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
-        with:
-          node-version: '22.14.0'
-          cache: 'yarn'
-          registry-url: 'https://registry.npmjs.org'
-
-      - name: Update npm
-        run: npm install -g npm@latest
-
-      - name: Install dependencies
-        run: yarn install --immutable
-
-      - name: Build
-        run: yarn build
-
-      - name: Remove local semantic-release packages
-        run: |
-          rm -rf node_modules/semantic-release
-          rm -rf node_modules/@semantic-release
-
-      - name: Release
-        id: release
-        env:
-          GITHUB_TOKEN: ${{ steps.app-token.outputs.token }}
-          NPM_CONFIG_PROVENANCE: 'true'
-        run: |
-          # Snapshot the latest tag before running semantic-release so we can
-          # detect whether this run actually produced a new release.
-          BEFORE_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
-
-          npx --yes \
-            -p semantic-release@25.0.2 \
-            -p @semantic-release/changelog@6.0.3 \
-            -p @semantic-release/commit-analyzer@13.0.1 \
-            -p @semantic-release/git@10.0.1 \
-            -p @semantic-release/github@12.0.0 \
-            -p @semantic-release/npm@13.1.3 \
-            -p @semantic-release/release-notes-generator@14.1.0 \
-            semantic-release
-
-          # A new release happened iff the latest tag advanced during this run.
-          AFTER_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "none")
-          if [ "$AFTER_TAG" != "none" ] && [ "$AFTER_TAG" != "$BEFORE_TAG" ]; then
-            echo "new-release-published=true" >> "$GITHUB_OUTPUT"
-            echo "new-release-version=${AFTER_TAG#v}" >> "$GITHUB_OUTPUT"
-          else
-            echo "new-release-published=false" >> "$GITHUB_OUTPUT"
-          fi
-
-  # Dual publish: also push to GitHub Packages so internal projects
-  # can resolve all @skylabs-digital/* packages from a single registry.
-  publish-gpr:
-    needs: release
-    if: needs.release.outputs.new-release == 'true' && github.actor != 'dependabot[bot]'
-    runs-on: [self-hosted, linux, x64, skylabs]
-    permissions:
-      contents: read
-      packages: write
-    steps:
-      - name: Checkout
-        uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd  # v6.0.2
-        with:
-          ref: main
-
-      - name: Enable Corepack
-        run: corepack enable
-
-      - name: Setup Node.js for GitHub Packages
-        uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e  # v6.4.0
-        with:
-          node-version: '22'
-          registry-url: 'https://npm.pkg.github.com'
-
-      - name: Install dependencies
-        run: yarn install --immutable
-
-      - name: Build
-        run: yarn build
-
-      - name: Publish to GitHub Packages
-        run: npm publish
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+    uses: skylabs-digital/.github/.github/workflows/lib-release.yml@main
+    with:
+      node-version: "24"
+      build-tool: vite
+      run-mutation: true
+      coverage-floor: 90
+    secrets: inherit

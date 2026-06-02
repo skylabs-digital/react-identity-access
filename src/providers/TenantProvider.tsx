@@ -1,17 +1,17 @@
 import {
   createContext,
-  useContext,
-  useMemo,
-  ReactNode,
-  useState,
-  useEffect,
+  type ReactNode,
   useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
 } from 'react';
-import { useApp } from './AppProvider';
 import { HttpService } from '../services/HttpService';
 import { TenantApiService } from '../services/TenantApiService';
-import { detectTenantSlug as detectTenant, buildTenantHostname } from '../utils/tenantDetection';
-import type { TenantSettings, JSONSchema, PublicTenantInfo } from '../types/api';
+import type { JSONSchema, PublicTenantInfo, TenantSettings } from '../types/api';
+import { buildTenantHostname, detectTenantSlug as detectTenant } from '../utils/tenantDetection';
+import { useApp } from './AppProvider';
 
 // Cache interface for tenant info
 interface CachedTenantInfo {

@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import {
-  detectSubdomainTenant,
-  detectSelectorTenant,
-  detectTenantSlug,
   buildTenantHostname,
+  detectSelectorTenant,
+  detectSubdomainTenant,
+  detectTenantSlug,
 } from '../utils/tenantDetection';
 
 describe('tenantDetection', () => {

@@ -1,4 +1,4 @@
-import { HttpService } from './HttpService';
+import type { HttpService } from './HttpService';
 
 export class HealthApiService {
   constructor(private httpService: HttpService) {}

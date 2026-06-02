@@ -1,9 +1,9 @@
-import { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { FeatureFlagApiService } from '../services/FeatureFlagApiService';
 import { HttpService } from '../services/HttpService';
+import type { FeatureFlagItem } from '../types/api';
 import { useAppOptional } from './AppProvider';
 import { useTenantOptional } from './TenantProvider';
-import type { FeatureFlagItem } from '../types/api';
 
 export interface FeatureFlagConfig {
   refreshInterval?: number; // in milliseconds, default 5 minutes

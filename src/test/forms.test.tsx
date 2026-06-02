@@ -1,9 +1,9 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { LoginForm } from '../components/LoginForm';
-import { SignupForm } from '../components/SignupForm';
 import { MagicLinkForm } from '../components/MagicLinkForm';
 import { PasswordRecoveryForm } from '../components/PasswordRecoveryForm';
+import { SignupForm } from '../components/SignupForm';
 import { AuthProvider } from '../providers/AuthProvider';
 import { SessionManager } from '../services/SessionManager';
 

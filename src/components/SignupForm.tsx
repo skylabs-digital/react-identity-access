@@ -1,8 +1,8 @@
 import { useState } from 'react';
+import { useAuthForm } from '../hooks/useAuthForm';
 import { useAuth } from '../providers/AuthProvider';
 import { useTenantOptional } from '../providers/TenantProvider';
-import { useAuthForm } from '../hooks/useAuthForm';
-import { AuthFormBaseStyles, buildFormStyles } from './authFormShared';
+import { type AuthFormBaseStyles, buildFormStyles } from './authFormShared';
 
 export interface SignupFormCopy {
   title?: string;

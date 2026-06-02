@@ -1,42 +1,42 @@
 import {
   createContext,
+  type ReactNode,
   useContext,
-  ReactNode,
-  useMemo,
-  useState,
   useEffect,
+  useMemo,
   useRef,
+  useState,
   useSyncExternalStore,
 } from 'react';
-import { SessionManager } from '../services/SessionManager';
+import type { SessionExpiredError } from '../errors/SessionErrors';
 import { AuthApiService } from '../services/AuthApiService';
-import { RoleApiService } from '../services/RoleApiService';
-import { UserApiService } from '../services/UserApiService';
-import { TenantApiService } from '../services/TenantApiService';
 import { HttpService } from '../services/HttpService';
-import { useAppOptional } from './AppProvider';
-import { useTenantOptional } from './TenantProvider';
-import { SessionExpiredError } from '../errors/SessionErrors';
+import { RoleApiService } from '../services/RoleApiService';
+import { SessionManager } from '../services/SessionManager';
+import { TenantApiService } from '../services/TenantApiService';
+import { UserApiService } from '../services/UserApiService';
 import type {
-  Role,
-  Permission,
-  User,
   LoginResponse,
-  VerifyMagicLinkResponse,
   MagicLinkResponse,
-  UserTenantMembership,
+  Permission,
+  Role,
   SessionStatus,
+  User,
+  UserTenantMembership,
+  VerifyMagicLinkResponse,
 } from '../types/api';
 import type {
+  ChangePasswordParams,
+  ConfirmPasswordResetParams,
   LoginParams,
+  RequestPasswordResetParams,
+  SendMagicLinkParams,
   SignupParams,
   SignupTenantAdminParams,
-  SendMagicLinkParams,
   VerifyMagicLinkParams,
-  RequestPasswordResetParams,
-  ConfirmPasswordResetParams,
-  ChangePasswordParams,
 } from '../types/authParams';
+import { useAppOptional } from './AppProvider';
+import { useTenantOptional } from './TenantProvider';
 
 const USER_TENANTS_STORAGE_KEY = 'userTenants';
 
