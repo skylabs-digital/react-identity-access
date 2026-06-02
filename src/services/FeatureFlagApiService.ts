@@ -1,13 +1,13 @@
-import { HttpService } from './HttpService';
 import type {
   ApiResponse,
+  CreateFeatureFlagRequest,
+  FeatureFlag,
   FeatureFlagItem,
   FeatureFlagValueResponse,
-  FeatureFlag,
-  CreateFeatureFlagRequest,
   PaginationParams,
 } from '../types/api';
 import { buildPaginationQuery } from '../utils/query';
+import type { HttpService } from './HttpService';
 
 export class FeatureFlagApiService {
   constructor(private httpService: HttpService) {}

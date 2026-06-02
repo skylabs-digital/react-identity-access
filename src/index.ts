@@ -1,156 +1,153 @@
 // Export providers
-export { AppProvider, useApp, useApi } from './providers/AppProvider';
-export type { AppConfig } from './providers/AppProvider';
-export {
-  AuthProvider,
-  useAuth,
-  useAuthOptional,
-  useAuthState,
-  useAuthActions,
-} from './providers/AuthProvider';
+
+export type { AppLoaderProps } from './components/AppLoader';
+export { AppLoader, useAppLoaderState } from './components/AppLoader';
+export { FeatureFlag } from './components/FeatureFlag';
+export type { LandingRouteProps } from './components/LandingRoute';
+export { LandingRoute } from './components/LandingRoute';
+export type { LoginFormCopy, LoginFormProps, LoginFormStyles } from './components/LoginForm';
+export { LoginForm } from './components/LoginForm';
 export type {
+  MagicLinkFormCopy,
+  MagicLinkFormProps,
+  MagicLinkFormStyles,
+} from './components/MagicLinkForm';
+export { MagicLinkForm } from './components/MagicLinkForm';
+export type {
+  MagicLinkVerifyCopy,
+  MagicLinkVerifyProps,
+  MagicLinkVerifyStyles,
+} from './components/MagicLinkVerify';
+export { MagicLinkVerify } from './components/MagicLinkVerify';
+export type {
+  PasswordRecoveryFormCopy,
+  PasswordRecoveryFormProps,
+  PasswordRecoveryFormStyles,
+} from './components/PasswordRecoveryForm';
+export { PasswordRecoveryForm } from './components/PasswordRecoveryForm';
+// Export component types
+export type { ProtectedProps } from './components/Protected';
+// Export components
+export { Protected } from './components/Protected';
+export type { ProtectedRouteProps } from './components/ProtectedRoute';
+export { ProtectedRoute } from './components/ProtectedRoute';
+export type { SignupFormCopy, SignupFormProps, SignupFormStyles } from './components/SignupForm';
+export { SignupForm } from './components/SignupForm';
+export type { SubscriptionGuardProps } from './components/SubscriptionGuard';
+export { SubscriptionGuard } from './components/SubscriptionGuard';
+export type { TenantRouteProps } from './components/TenantRoute';
+export { TenantRoute } from './components/TenantRoute';
+export type { TenantSelectorProps, TenantSelectorStyles } from './components/TenantSelector';
+export { TenantSelector } from './components/TenantSelector';
+// Zone-based routing (RFC-005) - replaces TenantRoute, LandingRoute, ProtectedRoute
+export {
+  AdminZone,
+  AuthenticatedZone,
+  GuestZone,
+  OpenZone,
+  PublicZone,
+  TenantAuthenticatedZone,
+  TenantGuestZone,
+  TenantOpenZone,
+  TenantZone,
+  UserZone,
+  ZoneRoute,
+} from './components/ZoneRoute';
+export type { SessionExpiredReason } from './errors/SessionErrors';
+// Session error classes
+export {
+  ConfigurationError,
+  SessionExpiredError,
+  TokenRefreshError,
+  TokenRefreshTimeoutError,
+} from './errors/SessionErrors';
+export type { AppConfig } from './providers/AppProvider';
+export { AppProvider, useApi, useApp } from './providers/AppProvider';
+export type {
+  AuthActionsValue,
   AuthConfig,
   AuthContextValue,
   AuthStateValue,
-  AuthActionsValue,
 } from './providers/AuthProvider';
-export { FeatureFlagProvider, useFeatureFlags } from './providers/FeatureFlagProvider';
+export {
+  AuthProvider,
+  useAuth,
+  useAuthActions,
+  useAuthOptional,
+  useAuthState,
+} from './providers/AuthProvider';
 export type { FeatureFlagConfig, FeatureFlagContextValue } from './providers/FeatureFlagProvider';
-export type { FeatureFlag as FeatureFlagType } from './types/api';
-export { SubscriptionProvider, useSubscription } from './providers/SubscriptionProvider';
+export { FeatureFlagProvider, useFeatureFlags } from './providers/FeatureFlagProvider';
+export type { RoutingContextValue, RoutingProviderProps } from './providers/RoutingProvider';
+// Zone routing provider (RFC-005)
+export { RoutingProvider, useRouting, useRoutingOptional } from './providers/RoutingProvider';
 export type {
   SubscriptionConfig,
   SubscriptionContextValue,
 } from './providers/SubscriptionProvider';
+export { SubscriptionProvider, useSubscription } from './providers/SubscriptionProvider';
+export type { TenantConfig } from './providers/TenantProvider';
 export {
   TenantProvider,
+  useSettings,
   useTenant,
+  useTenantInfo,
   useTenantOptional,
   useTenantSettings,
-  useSettings,
-  useTenantInfo,
 } from './providers/TenantProvider';
-export type { TenantConfig } from './providers/TenantProvider';
-// Zone routing provider (RFC-005)
-export { RoutingProvider, useRouting, useRoutingOptional } from './providers/RoutingProvider';
-export type { RoutingContextValue, RoutingProviderProps } from './providers/RoutingProvider';
-
-// Export components
-export { Protected } from './components/Protected';
-export { ProtectedRoute } from './components/ProtectedRoute';
-export { TenantRoute } from './components/TenantRoute';
-export { LandingRoute } from './components/LandingRoute';
-// Zone-based routing (RFC-005) - replaces TenantRoute, LandingRoute, ProtectedRoute
-export {
-  ZoneRoute,
-  TenantZone,
-  PublicZone,
-  AuthenticatedZone,
-  GuestZone,
-  AdminZone,
-  UserZone,
-  OpenZone,
-  TenantAuthenticatedZone,
-  TenantOpenZone,
-  TenantGuestZone,
-} from './components/ZoneRoute';
-export { SubscriptionGuard } from './components/SubscriptionGuard';
-export { FeatureFlag } from './components/FeatureFlag';
-export { LoginForm } from './components/LoginForm';
-export { SignupForm } from './components/SignupForm';
-export { MagicLinkForm } from './components/MagicLinkForm';
-export { MagicLinkVerify } from './components/MagicLinkVerify';
-export { PasswordRecoveryForm } from './components/PasswordRecoveryForm';
-export { AppLoader, useAppLoaderState } from './components/AppLoader';
-export { TenantSelector } from './components/TenantSelector';
-
-// Export component types
-export type { ProtectedProps } from './components/Protected';
-export type { ProtectedRouteProps } from './components/ProtectedRoute';
-export type { TenantRouteProps } from './components/TenantRoute';
-export type { LandingRouteProps } from './components/LandingRoute';
-export type { ZoneRouteProps } from './types/zoneRouting';
-export type { SubscriptionGuardProps } from './components/SubscriptionGuard';
-export type { LoginFormProps, LoginFormCopy, LoginFormStyles } from './components/LoginForm';
-export type { SignupFormProps, SignupFormCopy, SignupFormStyles } from './components/SignupForm';
-export type {
-  MagicLinkVerifyProps,
-  MagicLinkVerifyCopy,
-  MagicLinkVerifyStyles,
-} from './components/MagicLinkVerify';
-export type {
-  MagicLinkFormProps,
-  MagicLinkFormCopy,
-  MagicLinkFormStyles,
-} from './components/MagicLinkForm';
-export type {
-  PasswordRecoveryFormProps,
-  PasswordRecoveryFormCopy,
-  PasswordRecoveryFormStyles,
-} from './components/PasswordRecoveryForm';
-export type { AppLoaderProps } from './components/AppLoader';
-export type { TenantSelectorProps, TenantSelectorStyles } from './components/TenantSelector';
-
-// Export types
-export { UserType } from './types/api';
-export type { User, PlanFeature, TenantSubscriptionFeatures } from './types/api';
-
-// Session error classes
-export {
-  SessionExpiredError,
-  TokenRefreshTimeoutError,
-  TokenRefreshError,
-  ConfigurationError,
-} from './errors/SessionErrors';
-export type { SessionExpiredReason } from './errors/SessionErrors';
-
+export type { RequestOptions } from './services/HttpService';
 // Base Services
 export { HttpService } from './services/HttpService';
-export type { RequestOptions } from './services/HttpService';
+export type { JwtPayload, SessionConfig, TokenData } from './services/SessionManager';
 export { SessionManager } from './services/SessionManager';
-export type { TokenData, SessionConfig, JwtPayload } from './services/SessionManager';
+export type {
+  FeatureFlag as FeatureFlagType,
+  PlanFeature,
+  TenantSubscriptionFeatures,
+  User,
+} from './types/api';
+// Export types
+export { UserType } from './types/api';
+export type { ZoneRouteProps } from './types/zoneRouting';
 
 // Main API Service - removed in favor of provider pattern
 
+// Zone routing hooks and types (RFC-005)
+export { buildRedirectUrl, useZoneNavigation } from './hooks/useZoneNavigation';
+export { AppApiService } from './services/AppApiService';
 // Domain API Services
 export { AuthApiService } from './services/AuthApiService';
-export { UserApiService } from './services/UserApiService';
-export { RoleApiService } from './services/RoleApiService';
-export { PermissionApiService } from './services/PermissionApiService';
-export { AppApiService } from './services/AppApiService';
-export { TenantApiService } from './services/TenantApiService';
-export { SubscriptionApiService } from './services/SubscriptionApiService';
-export { SubscriptionPlanApiService } from './services/SubscriptionPlanApiService';
 export { FeatureFlagApiService } from './services/FeatureFlagApiService';
 export { HealthApiService } from './services/HealthApiService';
-
+export { PermissionApiService } from './services/PermissionApiService';
+export { RoleApiService } from './services/RoleApiService';
+export { SubscriptionApiService } from './services/SubscriptionApiService';
+export { SubscriptionPlanApiService } from './services/SubscriptionPlanApiService';
+export { TenantApiService } from './services/TenantApiService';
+export { UserApiService } from './services/UserApiService';
+export type { JSONSchema } from './types/api';
 // Types
 export * from './types/api';
-export type { JSONSchema } from './types/api';
-
 // Auth parameter types (RFC-002)
 export type {
+  ChangePasswordParams,
+  ConfirmPasswordResetParams,
   LoginParams,
+  RequestPasswordResetParams,
+  SendMagicLinkParams,
   SignupParams,
   SignupTenantAdminParams,
-  SendMagicLinkParams,
   VerifyMagicLinkParams,
-  RequestPasswordResetParams,
-  ConfirmPasswordResetParams,
-  ChangePasswordParams,
 } from './types/authParams';
-
-// Zone routing hooks and types (RFC-005)
-export { useZoneNavigation, buildRedirectUrl } from './hooks/useZoneNavigation';
 export type {
-  AccessMode,
   AccessDeniedReason,
   AccessDeniedType,
-  ZoneRoots,
-  ZonePresets,
-  ZonePresetConfig,
-  RoutingConfig,
+  AccessMode,
   ReturnToStorage,
+  RoutingConfig,
   UseZoneNavigationReturn,
+  ZonePresetConfig,
+  ZonePresets,
+  ZoneRoots,
 } from './types/zoneRouting';
-export { DEFAULT_ZONE_ROOTS, DEFAULT_ZONE_PRESETS } from './types/zoneRouting';
+export { DEFAULT_ZONE_PRESETS, DEFAULT_ZONE_ROOTS } from './types/zoneRouting';

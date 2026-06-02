@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'vitest';
-import { UserType } from '../types/api';
+import { describe, expect, it } from 'vitest';
 import { HttpService } from '../services/HttpService';
 import { SessionManager } from '../services/SessionManager';
+import { UserType } from '../types/api';
 
 describe('react-identity-access', () => {
   describe('UserType enum', () => {

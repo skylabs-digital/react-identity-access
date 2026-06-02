@@ -1,8 +1,8 @@
-import { describe, it, expect, vi } from 'vitest';
 import { renderHook } from '@testing-library/react';
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
+import { describe, expect, it, vi } from 'vitest';
 import { RoutingProvider, useRouting, useRoutingOptional } from '../providers/RoutingProvider';
-import { DEFAULT_ZONE_ROOTS, DEFAULT_ZONE_PRESETS } from '../types/zoneRouting';
+import { DEFAULT_ZONE_PRESETS, DEFAULT_ZONE_ROOTS } from '../types/zoneRouting';
 
 /**
  * Tests for RoutingProvider and related hooks

@@ -1,13 +1,13 @@
-import { describe, it, expect } from 'vitest';
+import { describe, expect, it } from 'vitest';
+import { ConfigurationError } from '../errors/SessionErrors';
 import {
   validateBaseUrl,
-  validateNumber,
   validateBoolean,
-  validateTokenShape,
-  validateExpiresIn,
   validateExpiresAt,
+  validateExpiresIn,
+  validateNumber,
+  validateTokenShape,
 } from '../utils/configValidation';
-import { ConfigurationError } from '../errors/SessionErrors';
 
 describe('configValidation', () => {
   describe('validateBaseUrl', () => {

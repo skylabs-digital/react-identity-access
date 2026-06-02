@@ -1,12 +1,12 @@
-import { HttpService } from './HttpService';
 import type {
-  Role,
-  CreateRoleRequest,
-  AssignRoleRequest,
   ApiResponse,
+  AssignRoleRequest,
+  CreateRoleRequest,
   PaginationParams,
+  Role,
 } from '../types/api';
 import { buildPaginationQuery } from '../utils/query';
+import type { HttpService } from './HttpService';
 
 export class RoleApiService {
   constructor(private httpService: HttpService) {}

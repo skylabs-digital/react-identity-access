@@ -1,9 +1,9 @@
-import { createContext, useContext, ReactNode, useMemo, useState, useEffect } from 'react';
-import { SubscriptionApiService } from '../services/SubscriptionApiService';
+import { createContext, type ReactNode, useContext, useEffect, useMemo, useState } from 'react';
 import { HttpService } from '../services/HttpService';
+import { SubscriptionApiService } from '../services/SubscriptionApiService';
+import type { PlanFeature, TenantSubscriptionFeatures } from '../types/api';
 import { useAppOptional } from './AppProvider';
 import { useTenantOptional } from './TenantProvider';
-import type { TenantSubscriptionFeatures, PlanFeature } from '../types/api';
 
 export interface SubscriptionConfig {
   refreshInterval?: number; // in milliseconds, default 10 minutes
@@ -108,7 +108,7 @@ export function SubscriptionProvider({ config = {}, children }: SubscriptionProv
       return features.find(f => f.key === featureKey);
     };
 
-    const getFeatureValue = <T = any,>(featureKey: string, defaultValue?: T): T => {
+    const getFeatureValue = <T = any>(featureKey: string, defaultValue?: T): T => {
       const feature = features.find(f => f.key === featureKey);
       return feature ? feature.value : (defaultValue as T);
     };

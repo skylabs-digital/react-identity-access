@@ -1,8 +1,8 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { ConfigurationError } from '../errors/SessionErrors';
 import { AuthProvider, useAuth, useAuthOptional } from '../providers/AuthProvider';
 import { SessionManager } from '../services/SessionManager';
-import { ConfigurationError } from '../errors/SessionErrors';
 
 // Minimal stub that just reports auth readiness and the sessionManager baseUrl.
 function AuthProbe() {

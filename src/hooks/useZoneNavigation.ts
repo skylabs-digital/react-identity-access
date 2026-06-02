@@ -5,9 +5,9 @@ import { useTenant } from '../providers/TenantProvider';
 import { UserType } from '../types/api';
 import {
   DEFAULT_ZONE_ROOTS,
-  ReturnToStorage,
-  ZoneRoots,
-  UseZoneNavigationReturn,
+  type ReturnToStorage,
+  type UseZoneNavigationReturn,
+  type ZoneRoots,
 } from '../types/zoneRouting';
 
 const DEFAULT_RETURN_TO_PARAM = 'returnTo';

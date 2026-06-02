@@ -1,16 +1,16 @@
 import {
-  SessionExpiredError,
-  TokenRefreshTimeoutError,
-  TokenRefreshError,
   ConfigurationError,
+  SessionExpiredError,
+  TokenRefreshError,
+  TokenRefreshTimeoutError,
 } from '../errors/SessionErrors';
 import {
   validateBaseUrl,
-  validateNumber,
   validateBoolean,
-  validateTokenShape,
-  validateExpiresIn,
   validateExpiresAt,
+  validateExpiresIn,
+  validateNumber,
+  validateTokenShape,
 } from '../utils/configValidation';
 import { decodeJwt, extractJwtClaim, extractJwtExpiry } from '../utils/jwt';
 
@@ -683,7 +683,7 @@ export class SessionManager {
 
         // Don't wait after the last attempt
         if (attempt < this.maxRefreshRetries) {
-          const backoff = this.retryBackoffBase * Math.pow(2, attempt);
+          const backoff = this.retryBackoffBase * 2 ** attempt;
           await this.sleep(backoff);
         }
       }

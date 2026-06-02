@@ -1,12 +1,12 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
-import { SessionManager } from '../services/SessionManager';
-import type { TokenStorage } from '../services/SessionManager';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-  SessionExpiredError,
-  TokenRefreshTimeoutError,
-  TokenRefreshError,
   ConfigurationError,
+  SessionExpiredError,
+  TokenRefreshError,
+  TokenRefreshTimeoutError,
 } from '../errors/SessionErrors';
+import type { TokenStorage } from '../services/SessionManager';
+import { SessionManager } from '../services/SessionManager';
 
 // Helper to create an in-memory TokenStorage
 function createMemoryStorage(): TokenStorage & { data: any } {

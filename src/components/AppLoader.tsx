@@ -1,9 +1,9 @@
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { useApp } from '../providers/AppProvider';
-import { useTenantOptional } from '../providers/TenantProvider';
 import { useAuthOptional } from '../providers/AuthProvider';
 import { useFeatureFlagsOptional } from '../providers/FeatureFlagProvider';
 import { useSubscriptionOptional } from '../providers/SubscriptionProvider';
+import { useTenantOptional } from '../providers/TenantProvider';
 
 export interface AppLoaderProps {
   children: ReactNode;

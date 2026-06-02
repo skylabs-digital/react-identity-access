@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { AuthApiService } from '../services/AuthApiService';
 import type { HttpService } from '../services/HttpService';
 import type { MagicLinkResponse, VerifyMagicLinkResponse } from '../types/api';

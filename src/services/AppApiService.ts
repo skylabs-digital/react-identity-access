@@ -1,12 +1,12 @@
-import { HttpService } from './HttpService';
 import type {
   ApiResponse,
   App,
   CreateAppRequest,
-  PublicAppInfo,
   PaginationParams,
+  PublicAppInfo,
 } from '../types/api';
 import { buildPaginationQuery } from '../utils/query';
+import type { HttpService } from './HttpService';
 
 export class AppApiService {
   constructor(private httpService: HttpService) {}

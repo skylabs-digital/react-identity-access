@@ -1,6 +1,6 @@
-import { HttpService } from './HttpService';
-import type { User, CreateUserRequest, ApiResponse, PaginationParams } from '../types/api';
+import type { ApiResponse, CreateUserRequest, PaginationParams, User } from '../types/api';
 import { buildPaginationQuery } from '../utils/query';
+import type { HttpService } from './HttpService';
 
 export class UserApiService {
   constructor(private httpService: HttpService) {}

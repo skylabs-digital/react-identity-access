@@ -1,14 +1,14 @@
-import { HttpService } from './HttpService';
 import type {
-  Tenant,
+  ApiResponse,
   CreateTenantRequest,
+  PaginationParams,
   PublicTenantInfo,
+  Tenant,
   TenantSettings,
   UpdateTenantSettingsRequest,
-  ApiResponse,
-  PaginationParams,
 } from '../types/api';
 import { buildPaginationQuery } from '../utils/query';
+import type { HttpService } from './HttpService';
 
 export class TenantApiService {
   constructor(

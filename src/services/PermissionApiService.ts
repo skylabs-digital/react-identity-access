@@ -1,11 +1,11 @@
-import { HttpService } from './HttpService';
 import type {
-  Permission,
-  CreatePermissionRequest,
   ApiResponse,
+  CreatePermissionRequest,
   PaginationParams,
+  Permission,
 } from '../types/api';
 import { buildPaginationQuery } from '../utils/query';
+import type { HttpService } from './HttpService';
 
 export class PermissionApiService {
   constructor(private httpService: HttpService) {}

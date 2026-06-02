@@ -1,17 +1,17 @@
-import { FC, useEffect, useMemo } from 'react';
+import { type FC, useEffect, useMemo } from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../providers/AuthProvider';
-import { useTenant } from '../providers/TenantProvider';
 import { useRoutingOptional } from '../providers/RoutingProvider';
+import { useTenant } from '../providers/TenantProvider';
 import { UserType } from '../types/api';
-import {
-  AccessMode,
+import type {
   AccessDeniedReason,
   AccessDeniedType,
-  ZoneRouteProps,
+  AccessMode,
+  ReturnToStorage,
   ZonePresetConfig,
   ZoneRoots,
-  ReturnToStorage,
+  ZoneRouteProps,
 } from '../types/zoneRouting';
 
 interface ZoneState {
