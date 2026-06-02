@@ -37,6 +37,7 @@
     "test:ui": "vitest --ui",
     "test:coverage": "vitest run --coverage",
     "test:mutation": "stryker run",
+    "mutation": "stryker run",
     "sim": "vitest run --config qa/vitest.config.ts",
     "sim:watch": "vitest --config qa/vitest.config.ts",
     "sim:verbose": "vitest run --config qa/vitest.config.ts --reporter=verbose",
