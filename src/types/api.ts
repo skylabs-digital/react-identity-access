@@ -1,3 +1,24 @@
+/**
+ * Discriminated session lifecycle status surfaced by `AuthProvider`.
+ *
+ * - `initializing`: AuthProvider has not yet finished its bootstrap (token
+ *   restore + initial refresh + user fetch).
+ * - `authenticated`: a valid access token exists and the user object is loaded.
+ *   The consumer can render protected UI.
+ * - `unauthenticated`: no tokens at all (anonymous / never logged in).
+ * - `refreshing`: a token refresh network call is currently in flight. The
+ *   session may still be authenticated under the hood — this is for UIs that
+ *   want to render a subtle "renewing" indicator.
+ * - `expired`: tokens existed but the refresh path failed terminally. The
+ *   `onSessionExpired` AuthConfig callback has already been invoked.
+ */
+export type SessionStatus =
+  | 'initializing'
+  | 'authenticated'
+  | 'unauthenticated'
+  | 'refreshing'
+  | 'expired';
+
 // Common API Response Types
 export interface ApiResponse<T> {
   success: boolean;

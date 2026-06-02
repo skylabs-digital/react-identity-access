@@ -167,7 +167,6 @@ export function AppProvider({ config, children }: AppProviderProps) {
       loadApp();
     }
     // Run once on mount — loadApp/backgroundRefresh read the latest state via ref
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return <AppContext.Provider value={contextValue}>{children}</AppContext.Provider>;

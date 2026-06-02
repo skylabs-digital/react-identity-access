@@ -153,7 +153,6 @@ export function MagicLinkForm({
     };
 
     run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [verifyToken]);
 
   const getInputStyle = (field: Field) => ({

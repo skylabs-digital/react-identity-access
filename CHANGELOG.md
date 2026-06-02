@@ -1,3 +1,38 @@
+## [3.4.1](https://github.com/skylabs-digital/react-identity-access/compare/v3.4.0...v3.4.1) (2026-05-15)
+
+
+### Bug Fixes
+
+* **ci:** move release job to ubuntu-latest for npm provenance support ([#20](https://github.com/skylabs-digital/react-identity-access/issues/20)) ([b4ebff1](https://github.com/skylabs-digital/react-identity-access/commit/b4ebff1d5eefe8f14cee40f07065d153213a9ad8))
+
+# [3.4.0](https://github.com/skylabs-digital/react-identity-access/compare/v3.3.0...v3.4.0) (2026-05-15)
+
+
+### Bug Fixes
+
+* **auth:** resolve session robustly with state machine, active bootstrap, cross-tab sync ([#13](https://github.com/skylabs-digital/react-identity-access/issues/13)) ([8039043](https://github.com/skylabs-digital/react-identity-access/commit/80390430c99f96647e744bc859977ab55180175c))
+* **security:** revert @tootallnate/once pin (v3 ESM breaks CJS http-proxy-agent) ([18bff6b](https://github.com/skylabs-digital/react-identity-access/commit/18bff6bd8f94e940acedbc30beff8fed13621eb1))
+* **security:** scope resolutions per-major; coverage tooling was breaking ([#19](https://github.com/skylabs-digital/react-identity-access/issues/19)) ([c3f622f](https://github.com/skylabs-digital/react-identity-access/commit/c3f622ffc0af94e0cd70ab935d615661d8dba660))
+
+
+### Features
+
+* **ci:** unify security.yml into release.yml (+ OSV + Gitleaks gates) ([8c4cf7e](https://github.com/skylabs-digital/react-identity-access/commit/8c4cf7e5edfaf6bf7cc12ab746a94bc656011a5a))
+
+# [3.3.0](https://github.com/skylabs-digital/react-identity-access/compare/v3.2.3...v3.3.0) (2026-05-01)
+
+
+### Features
+
+* **security:** add standardized security scan ([b6350e9](https://github.com/skylabs-digital/react-identity-access/commit/b6350e95e7650ec3dfd1682ba1113f3e448988f1))
+
+## [3.2.3](https://github.com/skylabs-digital/react-identity-access/compare/v3.2.2...v3.2.3) (2026-04-16)
+
+
+### Bug Fixes
+
+* **auth:** retry protected requests once after 401 via SessionManager.forceRefresh ([316b1e0](https://github.com/skylabs-digital/react-identity-access/commit/316b1e0028ee41fd29fd18402c0fba874d152a43))
+
 ## [3.2.2](https://github.com/skylabs-digital/react-identity-access/compare/v3.2.1...v3.2.2) (2026-04-16)
 
 

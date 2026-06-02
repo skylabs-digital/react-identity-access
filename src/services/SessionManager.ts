@@ -63,10 +63,34 @@ interface QueueEntry {
   timeoutId: ReturnType<typeof setTimeout>;
 }
 
-export class SessionManager {
-  // --- Singleton registry (keyed by storageKey) ---
-  private static instances = new Map<string, SessionManager>();
+export type SessionState = 'idle' | 'restoring' | 'authenticated' | 'expired';
 
+export interface RefreshStats {
+  state: SessionState;
+  isRefreshing: boolean;
+  inFlight: boolean;
+  queued: number;
+  sessionGeneration: number;
+  consecutiveBackgroundFailures: number;
+  lastExpiryReason: string | null;
+}
+
+// Single source of truth for SessionManager instances. Stored on globalThis so a
+// duplicated copy of this module (dual ESM/CJS bundles, HMR, pnpm peer
+// mismatch) still shares one instance per storageKey. Without this, two
+// SessionManagers can fire two `/auth/refresh` calls with the same refresh
+// token, triggering "reuse detected" on servers with token rotation.
+const GLOBAL_REGISTRY_KEY = '__RIA_SESSION_INSTANCES_V1__';
+const sessionRegistry: Map<string, SessionManager> = (() => {
+  const g = globalThis as Record<string, unknown>;
+  const existing = g[GLOBAL_REGISTRY_KEY] as Map<string, SessionManager> | undefined;
+  if (existing instanceof Map) return existing;
+  const fresh = new Map<string, SessionManager>();
+  g[GLOBAL_REGISTRY_KEY] = fresh;
+  return fresh;
+})();
+
+export class SessionManager {
   /**
    * Get or create a SessionManager instance for the given config.
    * Returns the same instance when called with the same storageKey/tenantSlug.
@@ -74,22 +98,22 @@ export class SessionManager {
    */
   static getInstance(config: SessionConfig = {}): SessionManager {
     const key = SessionManager.resolveStorageKey(config);
-    const existing = SessionManager.instances.get(key);
+    const existing = sessionRegistry.get(key);
     if (existing) {
       existing.updateConfig(config);
       return existing;
     }
     const instance = new SessionManager(config);
-    SessionManager.instances.set(key, instance);
+    sessionRegistry.set(key, instance);
     return instance;
   }
 
   /** Reset all singleton instances. For testing only. */
   static resetAllInstances(): void {
-    for (const instance of SessionManager.instances.values()) {
+    for (const instance of sessionRegistry.values()) {
       instance.destroy();
     }
-    SessionManager.instances.clear();
+    sessionRegistry.clear();
   }
 
   private static resolveStorageKey(config: SessionConfig): string {
@@ -121,6 +145,21 @@ export class SessionManager {
   private consecutiveBackgroundFailures = 0;
   private static readonly MAX_BACKGROUND_FAILURES = 3;
 
+  // State machine + reactivity
+  private state: SessionState = 'idle';
+  private isRefreshing = false;
+  private lastExpiryReason: string | null = null;
+  // Set while clearSession('logout') is running so handleSessionExpired can
+  // suppress onSessionExpired (a logout in flight is not an expiration).
+  private logoutInFlight = false;
+  private listeners = new Set<() => void>();
+  // Distinct from `sessionGeneration` (which the refresh code uses to detect
+  // a fatal session change like logout). `notifyVersion` ticks on ANY observable
+  // change — including normal token rotation via setTokens — so React's
+  // useSyncExternalStore re-renders. Keeping them separate prevents a token
+  // rotation from looking like a session clear to an in-flight refresh.
+  private notifyVersion = 0;
+
   constructor(config: SessionConfig = {}) {
     SessionManager.validateConfig(config);
 
@@ -141,7 +180,16 @@ export class SessionManager {
 
     this.tokenStorage = config.tokenStorage || this.createTokenStorage(this.storageKey);
 
+    // Initial state from persisted storage.
+    const initialTokens = this.tokenStorage.get();
+    if (initialTokens?.accessToken) {
+      // Tokens present — final state depends on whether they're valid; the
+      // AuthProvider bootstrap will call ensureValidSession() to settle.
+      this.state = 'restoring';
+    }
+
     this.attachVisibilityListener();
+    this.attachStorageListener();
     this.scheduleProactiveRefresh();
   }
 
@@ -280,6 +328,15 @@ export class SessionManager {
 
     // Reschedule proactive refresh with new expiry
     this.scheduleProactiveRefresh();
+
+    // Do NOT bump sessionGeneration here — it's used by the refresh code to
+    // detect a fatal session change (logout, expiry). A normal token rotation
+    // would falsely look like a session clear and abort the very refresh that
+    // wrote the tokens.
+    if (!this.isTokenExpired(tokenData)) {
+      this.transitionTo('authenticated');
+    }
+    this.notify();
   }
 
   getTokens(): TokenData | null {
@@ -389,6 +446,128 @@ export class SessionManager {
       }
     }
     this.visibilityListener = null;
+  }
+
+  // --- Cross-tab synchronization via storage events ---
+
+  private storageListener: ((e: StorageEvent) => void) | null = null;
+
+  private attachStorageListener(): void {
+    if (this.storageListener) return;
+    if (typeof window === 'undefined' || typeof window.addEventListener !== 'function') {
+      return;
+    }
+    // `storage` events fire only in OTHER tabs that share the same origin.
+    // We never receive our own writes — so handlers must NOT write back to
+    // localStorage (would not loop in the writing tab, but is wasteful).
+    this.storageListener = (e: StorageEvent) => {
+      if (e.key !== this.storageKey) return;
+      // storageArea may be undefined in some synthetic events (tests, polyfills).
+      if (e.storageArea && e.storageArea !== localStorage) return;
+      if (this.isDestroyed) return;
+
+      if (e.newValue === null) {
+        // Another tab cleared the session (logout or expiry). Invalidate any
+        // in-flight refresh here and notify so React state can reconcile.
+        // Do NOT call clearSession() — storage is already empty and that
+        // would re-emit a storage event we'd ignore anyway.
+        this.sessionGeneration++;
+        this.cancelProactiveTimer();
+        const expiredError = new SessionExpiredError(
+          'token_invalid',
+          'Session cleared in another tab'
+        );
+        this.rejectQueue(expiredError);
+        this.transitionTo('idle');
+      } else {
+        // Another tab refreshed (or logged in). Reschedule the proactive timer
+        // off the new expiry; transition to authenticated if tokens look good.
+        this.scheduleProactiveRefresh();
+        const tokens = this.getTokens();
+        if (tokens?.accessToken && !this.isTokenExpired(tokens)) {
+          this.transitionTo('authenticated');
+        }
+      }
+      this.notify();
+    };
+    try {
+      window.addEventListener('storage', this.storageListener);
+    } catch {
+      this.storageListener = null;
+    }
+  }
+
+  private detachStorageListener(): void {
+    if (this.storageListener && typeof window !== 'undefined') {
+      try {
+        window.removeEventListener('storage', this.storageListener);
+      } catch {
+        // ignore
+      }
+    }
+    this.storageListener = null;
+  }
+
+  // --- Reactivity (useSyncExternalStore-compatible) ---
+
+  /**
+   * Subscribe to session state changes. Returns an unsubscribe function.
+   * Fires on: setTokens, setUser, clearUser, clearSession, handleSessionExpired,
+   * refresh in-flight transitions, and cross-tab storage events.
+   */
+  subscribe(listener: () => void): () => void {
+    this.listeners.add(listener);
+    return () => {
+      this.listeners.delete(listener);
+    };
+  }
+
+  /**
+   * Numeric snapshot for useSyncExternalStore. Strictly monotonic — every
+   * call to `notify()` bumps it so React will observe a fresh value even
+   * when the higher-level state ordinal and refreshing flag look identical.
+   */
+  getSnapshot(): number {
+    return this.notifyVersion;
+  }
+
+  /** True iff a refresh network call is currently in flight or queued. */
+  getRefreshInFlight(): boolean {
+    return this.refreshPromise !== null;
+  }
+
+  /** Current state of the session machine. */
+  getState(): SessionState {
+    return this.state;
+  }
+
+  /** Diagnostic snapshot — useful for tests and DevTools. */
+  getRefreshStats(): RefreshStats {
+    return {
+      state: this.state,
+      isRefreshing: this.isRefreshing,
+      inFlight: this.refreshPromise !== null,
+      queued: this.refreshQueue.length,
+      sessionGeneration: this.sessionGeneration,
+      consecutiveBackgroundFailures: this.consecutiveBackgroundFailures,
+      lastExpiryReason: this.lastExpiryReason,
+    };
+  }
+
+  private notify(): void {
+    this.notifyVersion++;
+    for (const listener of this.listeners) {
+      try {
+        listener();
+      } catch {
+        // A misbehaving subscriber must not break the others.
+      }
+    }
+  }
+
+  private transitionTo(next: SessionState): void {
+    if (this.state === next) return;
+    this.state = next;
   }
 
   private backgroundRefresh(): void {
@@ -571,6 +750,62 @@ export class SessionManager {
   }
 
   /**
+   * Active bootstrap resolution: drive the session to a terminal state.
+   *
+   * Unlike `waitForPendingRefresh()` which only awaits a refresh someone else
+   * already started, this method actively triggers the refresh when needed.
+   * Use it from `AuthProvider` during initial mount so a page load with a
+   * stale access token but valid refresh token doesn't expose
+   * `isAuthenticated=false` before the refresh even runs.
+   *
+   * Resolves to:
+   *  - `'authenticated'`: tokens exist and are valid (refreshed if necessary)
+   *  - `'unauthenticated'`: no tokens at all (callers should treat as anon)
+   *  - `'expired'`: tokens existed but refresh failed fatally; the
+   *    `onSessionExpired` callback was already fired by `handleSessionExpired`.
+   *
+   * Never throws — all error paths collapse into `'expired'`.
+   */
+  async ensureValidSession(): Promise<'authenticated' | 'unauthenticated' | 'expired'> {
+    const tokens = this.getTokens();
+    if (!tokens?.accessToken) {
+      this.transitionTo('idle');
+      this.notify();
+      return 'unauthenticated';
+    }
+
+    if (!this.isTokenExpired(tokens) && !this.shouldRefreshToken(tokens)) {
+      this.transitionTo('authenticated');
+      this.notify();
+      return 'authenticated';
+    }
+
+    if (!tokens.refreshToken) {
+      this.handleSessionExpired(
+        new SessionExpiredError('token_invalid', 'No refresh token available')
+      );
+      return 'expired';
+    }
+
+    try {
+      await this.getValidAccessToken();
+      this.transitionTo('authenticated');
+      this.notify();
+      return 'authenticated';
+    } catch {
+      // handleSessionExpired already ran for fatal errors and transitioned to
+      // 'expired'. Transient/timeout errors leave the session intact-ish but
+      // unverified — surface as 'expired' so the consumer redirects rather
+      // than leaving the user on a half-loaded page.
+      if (this.state !== 'expired') {
+        this.transitionTo('expired');
+        this.notify();
+      }
+      return 'expired';
+    }
+  }
+
+  /**
    * Backward-compatible getAuthHeaders — now delegates to getValidAccessToken.
    */
   async getAuthHeaders(): Promise<Record<string, string>> {
@@ -606,8 +841,16 @@ export class SessionManager {
   }
 
   private async startRefreshAndResolveQueue(refreshToken: string, force = false): Promise<string> {
+    // Captured before the refresh starts. If `sessionGeneration` advances
+    // before we reach the fatal-error branch below, it means a logout (or
+    // other explicit clear) intervened — the user already knows the session
+    // is gone, so the onSessionExpired callback would be spurious.
+    const startGen = this.sessionGeneration;
+
     // Create the shared promise
     this.refreshPromise = this.executeRefreshWithRetry(refreshToken, force);
+    this.isRefreshing = true;
+    this.notify();
 
     try {
       await this.refreshPromise;
@@ -624,9 +867,13 @@ export class SessionManager {
       const err = error instanceof Error ? error : new Error('Token refresh failed');
 
       if (err instanceof SessionExpiredError) {
-        // Fatal — reject all and trigger session expiry
+        // Fatal — reject all queued.
         this.rejectQueue(err);
-        this.handleSessionExpired(err);
+        // Only escalate to onSessionExpired if no concurrent logout cleared
+        // the session out from under us.
+        if (this.sessionGeneration === startGen) {
+          this.handleSessionExpired(err);
+        }
       } else {
         // Transient — reject all queued with the error
         this.rejectQueue(err);
@@ -635,6 +882,8 @@ export class SessionManager {
       throw err;
     } finally {
       this.refreshPromise = null;
+      this.isRefreshing = false;
+      this.notify();
     }
   }
 
@@ -831,8 +1080,25 @@ export class SessionManager {
   // --- Session expiry handler ---
 
   private handleSessionExpired(error: SessionExpiredError): void {
+    // A logout intentionally clearing the session must not look like an
+    // expiration to consumers — even if a concurrent refresh races and reaches
+    // here while clearSession('logout') is in flight.
+    const wasLogout = this.logoutInFlight;
+
+    this.lastExpiryReason = error.message;
     this.cancelProactiveTimer();
-    this.clearSession();
+    // clearTokens removes the entire storage entry (tokens + user data).
+    // We do NOT call clearSession() here because that would double-emit
+    // and double-notify; we only want the storage clear + queue rejection.
+    this.sessionGeneration++;
+    this.clearTokens();
+    const expiredError = new SessionExpiredError('token_invalid', 'Session cleared');
+    this.rejectQueue(expiredError);
+
+    this.transitionTo(wasLogout ? 'idle' : 'expired');
+    this.notify();
+
+    if (wasLogout) return;
 
     if (this.onSessionExpired) {
       this.onSessionExpired(error);
@@ -847,6 +1113,7 @@ export class SessionManager {
   setUser(user: any): void {
     const currentData = this.tokenStorage.get() || {};
     this.tokenStorage.set({ ...currentData, user });
+    this.notify();
   }
 
   getUser(): any | null {
@@ -858,11 +1125,23 @@ export class SessionManager {
     const currentData = this.tokenStorage.get() || {};
     delete currentData.user;
     this.tokenStorage.set(currentData);
+    this.notify();
   }
 
   // --- Session lifecycle ---
 
-  clearSession(): void {
+  /**
+   * Clear all session state.
+   *
+   * @param reason - 'logout' for intentional sign-out (suppresses any
+   *   onSessionExpired callbacks fired by in-flight refreshes that race the
+   *   logout); 'expired' for fatal-error paths. Defaults to 'expired' for
+   *   backward compatibility.
+   */
+  clearSession(reason: 'logout' | 'expired' = 'expired'): void {
+    const wasLogout = reason === 'logout';
+    if (wasLogout) this.logoutInFlight = true;
+
     this.sessionGeneration++;
     this.cancelProactiveTimer();
     // clearTokens removes the entire storage entry (tokens + user data)
@@ -871,6 +1150,11 @@ export class SessionManager {
     // Reject any pending queue entries
     const expiredError = new SessionExpiredError('token_invalid', 'Session cleared');
     this.rejectQueue(expiredError);
+
+    this.transitionTo(wasLogout ? 'idle' : 'expired');
+    this.notify();
+
+    if (wasLogout) this.logoutInFlight = false;
   }
 
   /**
@@ -880,9 +1164,11 @@ export class SessionManager {
   destroy(): void {
     this.isDestroyed = true;
     // Remove from singleton registry
-    SessionManager.instances.delete(this.storageKey);
+    sessionRegistry.delete(this.storageKey);
     this.cancelProactiveTimer();
     this.detachVisibilityListener();
+    this.detachStorageListener();
+    this.listeners.clear();
     const error = new SessionExpiredError('token_invalid', 'SessionManager destroyed');
     this.rejectQueue(error);
   }

@@ -98,16 +98,14 @@ export {
 export type { RequestOptions } from './services/HttpService';
 // Base Services
 export { HttpService } from './services/HttpService';
-export type { JwtPayload, SessionConfig, TokenData } from './services/SessionManager';
-export { SessionManager } from './services/SessionManager';
 export type {
-  FeatureFlag as FeatureFlagType,
-  PlanFeature,
-  TenantSubscriptionFeatures,
-  User,
-} from './types/api';
-// Export types
-export { UserType } from './types/api';
+  JwtPayload,
+  RefreshStats,
+  SessionConfig,
+  SessionState,
+  TokenData,
+} from './services/SessionManager';
+export { SessionManager } from './services/SessionManager';
 export type { ZoneRouteProps } from './types/zoneRouting';
 
 // Main API Service - removed in favor of provider pattern

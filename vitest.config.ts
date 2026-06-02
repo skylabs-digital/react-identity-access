@@ -13,6 +13,8 @@ export default defineConfig({
       '**/dist/**',
       '**/__tests__.disabled/**',
       '**/example/**',
+      '**/.claude/**',
+      '**/.stryker-tmp/**',
       'qa/**',
     ],
     watch: false, // Disable watch mode by default
@@ -25,7 +27,9 @@ export default defineConfig({
     testTimeout: 10000, // 10 second timeout
     hookTimeout: 5000, // 5 second hook timeout
     teardownTimeout: 5000,
-    isolate: false, // Disable test isolation to reduce memory usage
+    isolate: true, // Isolate test files to prevent cross-file DOM/state leakage
+    // (required for a clean Stryker `perTest` baseline run; the previous
+    // `isolate: false` leaked rendered DOM between files under Stryker)
     coverage: {
       provider: 'v8',
       reporter: ['text', 'json', 'html'],

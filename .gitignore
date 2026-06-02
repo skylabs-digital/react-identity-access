@@ -90,6 +90,13 @@ jspm_packages/
 tmp/
 temp/
 
+# Stryker mutation testing sandbox / temp output
+.stryker-tmp/
+reports/mutation/
+
+# Claude Code local worktrees / scratch
+.claude/worktrees/
+
 # Editor directories and files
 .vscode/
 .idea/

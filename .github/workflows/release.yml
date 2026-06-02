@@ -11,10 +11,6 @@ name: Release
 # `security.yml@v1` gate (OSV + Gitleaks) into the pipeline so security now
 # blocks release. `run-mutation: true` wires Stryker incremental into CI as a
 # required check — closing the org-wide "Stryker-not-in-CI" lib gap.
-#
-# NOTE: requires skylabs-digital/.github PR #2 (org reusable) to be MERGED
-# before this workflow can resolve `lib-release.yml@main`. Until then CI here
-# will fail to start the `release` job — see the PR body.
 
 on:
   pull_request:
