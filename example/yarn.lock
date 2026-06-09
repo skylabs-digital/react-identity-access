@@ -671,8 +671,8 @@ __metadata:
   linkType: soft
 
 "@skylabs-digital/react-identity-access@file:..::locator=%40skylabs-digital%2Freact-identity-access-example%40workspace%3A.":
-  version: 3.3.0
-  resolution: "@skylabs-digital/react-identity-access@file:..#..::hash=c2c606&locator=%40skylabs-digital%2Freact-identity-access-example%40workspace%3A."
+  version: 3.4.1
+  resolution: "@skylabs-digital/react-identity-access@file:..#..::hash=7be705&locator=%40skylabs-digital%2Freact-identity-access-example%40workspace%3A."
   peerDependencies:
     react: ">=18.0.0"
     react-dom: ">=18.0.0"
@@ -682,7 +682,7 @@ __metadata:
       optional: false
     react-dom:
       optional: false
-  checksum: 10c0/c7db41dc0cb2e64e35e64d9ac861b990f90ce9ac3a755b4ca3984e2c4c9417fc5c5dfacd3f65575883c448d831b8a66ac5f5e2e3855b47228920b759d2328257
+  checksum: 10c0/715a499fa000374e1c9f7b3db40e0e0ee58b6a3ab78f86e1b8389a751aa1a2a19b0e835c02dfd253dd4549f04b58e42602cb6fb94f7b3a14bbe8e02cb30859ec
   languageName: node
   linkType: hard
 
