@@ -35,6 +35,16 @@ ignoreUntil = 2026-08-15
 reason = "vite 5.x → 6.x major-version upgrade tracked separately. Dev/build dep only — not shipped in the published library bundle."
 
 [[IgnoredVulns]]
+id = "GHSA-fx2h-pf6j-xcff"
+ignoreUntil = 2026-08-15
+reason = "vite server.fs.deny bypass on Windows alternate paths — OSV affected range for the 5.x line is [0, 6.4.3), i.e. there is NO patched 5.4.x release; the only fix is the vite 5→6 major bump tracked with GHSA-4w7w-66w2-5vf9. Dev/build dep only — vite is a build tool, not shipped in the published library bundle (dist has zero runtime deps beyond the react/react-router peers)."
+
+[[IgnoredVulns]]
+id = "GHSA-v6wh-96g9-6wx3"
+ignoreUntil = 2026-08-15
+reason = "vite HTML transform / middleware advisory — like GHSA-fx2h-pf6j-xcff its only fix is the vite 5→6 major bump (fixed 6.4.3, no 5.4.x patch). Medium 5.5. Dev/build dep only — not shipped in the published library bundle. Tracked with GHSA-4w7w-66w2-5vf9."
+
+[[IgnoredVulns]]
 id = "GHSA-5xrq-8626-4rwp"
 ignoreUntil = 2026-08-15
 reason = "vitest 3.2.x — fix is in vitest 4.1.0, which requires a vite 6+ major cascade (plugin-react/vite-plugin-dts) tracked separately with GHSA-4w7w-66w2-5vf9. The advisory affects the Vitest dev/API server when exposed; the test runner is build/CI-time only and is not part of the published library bundle (dist has zero runtime deps beyond the react/react-router peers)."

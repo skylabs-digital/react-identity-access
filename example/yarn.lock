@@ -671,8 +671,8 @@ __metadata:
   linkType: soft
 
 "@skylabs-digital/react-identity-access@file:..::locator=%40skylabs-digital%2Freact-identity-access-example%40workspace%3A.":
-  version: 3.3.0
-  resolution: "@skylabs-digital/react-identity-access@file:..#..::hash=c2c606&locator=%40skylabs-digital%2Freact-identity-access-example%40workspace%3A."
+  version: 3.5.0
+  resolution: "@skylabs-digital/react-identity-access@file:..#..::hash=38ad0f&locator=%40skylabs-digital%2Freact-identity-access-example%40workspace%3A."
   peerDependencies:
     react: ">=18.0.0"
     react-dom: ">=18.0.0"
@@ -682,7 +682,7 @@ __metadata:
       optional: false
     react-dom:
       optional: false
-  checksum: 10c0/c7db41dc0cb2e64e35e64d9ac861b990f90ce9ac3a755b4ca3984e2c4c9417fc5c5dfacd3f65575883c448d831b8a66ac5f5e2e3855b47228920b759d2328257
+  checksum: 10c0/7eefa5dcd033e6c216f0c6a76aaae359920fee2701b1fb9f761c302ba0f8fd2d66b9a546337f61fb35ee25aad46899df3ebb57367b6554db1bf7aeb319e9754c
   languageName: node
   linkType: hard
 
@@ -1358,10 +1358,10 @@ __metadata:
   languageName: node
   linkType: hard
 
-"undici@npm:^6.25.0":
-  version: 6.25.0
-  resolution: "undici@npm:6.25.0"
-  checksum: 10c0/2597cc6689bdb02c210c557b1f85febbfda65becae6e6fc1061508e2f33734d25207f81cd8af56ada9956329eb3a7bd7431e87dcfeceba20ee87059b57dcf985
+"undici@npm:^6.27.0":
+  version: 6.27.0
+  resolution: "undici@npm:6.27.0"
+  checksum: 10c0/f88c3dae3957dbf9d93cb481440aced317bd3c4941b5914fea5efba516d51138988cdb5c76006f0bb1337e41d56c3443351055d492e73af2428521c37ba2a76f
   languageName: node
   linkType: hard
 
