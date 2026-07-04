@@ -1,3 +1,18 @@
+# [3.5.0](https://github.com/skylabs-digital/react-identity-access/compare/v3.4.1...v3.5.0) (2026-07-04)
+
+
+### Bug Fixes
+
+* **auth:** add clock-based expiry watchdog so an idle dead token is detected with no request — `isAuthenticated`/state flip to `expired` and `onSessionExpired` fires on the clock alone
+* **auth:** keep the proactive-refresh chain alive across multiple cycles when the refresh response omits `expiresIn` (expiry derived from the JWT `exp` claim); treat empty-string `refreshToken` as absent; never silently stop when expiry is not derivable
+* **auth:** refresh-on-return — a `window` `focus` listener plus `visibilitychange` now trigger an immediate refresh (not just a timer reschedule) when the token is expired-or-past-threshold and a refresh token exists, so a session recovers after long idle within refresh TTL
+
+
+### Features
+
+* **auth:** forward `refreshThreshold`, `autoRefresh`, `maxRefreshRetries`, `retryBackoffBase`, and `storageKey` from `AuthConfig` to `SessionManager` (all optional, backward compatible)
+
+
 ## [3.4.1](https://github.com/skylabs-digital/react-identity-access/compare/v3.4.0...v3.4.1) (2026-05-15)
 
 

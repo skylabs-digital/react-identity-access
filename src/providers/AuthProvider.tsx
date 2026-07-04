@@ -72,6 +72,16 @@ export interface AuthConfig {
   initialRoles?: Role[];
   refreshQueueTimeout?: number;
   proactiveRefreshMargin?: number;
+  /** How long before expiry (ms) a token is considered "should refresh". */
+  refreshThreshold?: number;
+  /** Enable/disable the proactive refresh timer + watchdog. Default true. */
+  autoRefresh?: boolean;
+  /** Max retries per refresh attempt for transient errors. */
+  maxRefreshRetries?: number;
+  /** Base ms for exponential backoff between refresh retries. */
+  retryBackoffBase?: number;
+  /** localStorage key used to persist the session. */
+  storageKey?: string;
   autoSwitchSingleTenant?: boolean;
   onTenantSelectionRequired?: (tenants: UserTenantMembership[]) => void;
   enableCookieSession?: boolean;
@@ -169,6 +179,11 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
       enableCookieSession: config.enableCookieSession,
       refreshQueueTimeout: config.refreshQueueTimeout,
       proactiveRefreshMargin: config.proactiveRefreshMargin,
+      refreshThreshold: config.refreshThreshold,
+      autoRefresh: config.autoRefresh,
+      maxRefreshRetries: config.maxRefreshRetries,
+      retryBackoffBase: config.retryBackoffBase,
+      storageKey: config.storageKey,
       onSessionExpired: (error: SessionExpiredError) => {
         setCurrentUser(null);
         setUserError(null);
@@ -186,6 +201,11 @@ export function AuthProvider({ config = {}, children }: AuthProviderProps) {
     config.enableCookieSession,
     config.refreshQueueTimeout,
     config.proactiveRefreshMargin,
+    config.refreshThreshold,
+    config.autoRefresh,
+    config.maxRefreshRetries,
+    config.retryBackoffBase,
+    config.storageKey,
   ]);
 
   // Subscribe to SessionManager state changes so derived flags (isAuthenticated,

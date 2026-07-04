@@ -140,6 +140,12 @@ export class SessionManager {
   private refreshQueue: QueueEntry[] = [];
   private proactiveTimerId: ReturnType<typeof setTimeout> | null = null;
   private backgroundRetryTimerId: ReturnType<typeof setTimeout> | null = null;
+  // Clock-based expiry watchdog: fires at the token's REAL expiry (not the
+  // proactive margin). Guarantees an idle session whose token silently crosses
+  // expiresAt is detected — flipping isAuthenticated/state to `expired` and
+  // firing onSessionExpired — WITHOUT requiring any request. Distinct from the
+  // proactive timer, which fires earlier to renew a still-valid token.
+  private expiryWatchdogTimerId: ReturnType<typeof setTimeout> | null = null;
   private isDestroyed = false;
   private sessionGeneration = 0;
   private consecutiveBackgroundFailures = 0;
@@ -211,6 +217,16 @@ export class SessionManager {
     if (config.baseUrl) this.baseUrl = config.baseUrl;
     if (config.enableCookieSession !== undefined)
       this.enableCookieSession = config.enableCookieSession;
+    // Safe-to-mutate refresh tuning on an existing instance. storageKey and
+    // autoRefresh are intentionally NOT re-applied here: changing them would
+    // require re-initializing storage/timers, so they bind at construction.
+    if (config.refreshThreshold !== undefined) this.refreshThreshold = config.refreshThreshold;
+    if (config.maxRefreshRetries !== undefined) this.maxRefreshRetries = config.maxRefreshRetries;
+    if (config.retryBackoffBase !== undefined) this.retryBackoffBase = config.retryBackoffBase;
+    if (config.proactiveRefreshMargin !== undefined)
+      this.proactiveRefreshMargin = config.proactiveRefreshMargin;
+    if (config.refreshQueueTimeout !== undefined)
+      this.refreshQueueTimeout = config.refreshQueueTimeout;
   }
 
   // --- Storage helpers ---
@@ -387,7 +403,25 @@ export class SessionManager {
     if (!this.autoRefresh || this.isDestroyed) return;
 
     const tokens = this.getTokens();
-    if (!tokens?.expiresAt || !tokens.refreshToken) return;
+    if (!tokens?.accessToken) return;
+
+    // The clock-based watchdog is armed independently of the proactive timer.
+    // It guards against an idle token silently crossing expiry (proactive
+    // refresh disabled, no refresh token, or a refresh that never renews).
+    this.scheduleExpiryWatchdog(tokens.expiresAt);
+
+    // Treat empty-string refreshToken explicitly as "no refresh token": the
+    // chain cannot renew, so the watchdog alone governs this session.
+    const hasRefreshToken = typeof tokens.refreshToken === 'string' && tokens.refreshToken !== '';
+    if (!hasRefreshToken) return;
+
+    if (!tokens.expiresAt) {
+      // We have a refresh token but cannot derive expiry (no expiresIn, no JWT
+      // exp). Do NOT silently die: attempt an immediate refresh so a response
+      // carrying a valid JWT exp re-arms both timers on the next cycle.
+      this.backgroundRefresh();
+      return;
+    }
 
     const refreshAt = tokens.expiresAt - this.proactiveRefreshMargin;
     const delay = refreshAt - Date.now();
@@ -403,6 +437,67 @@ export class SessionManager {
     }, delay);
   }
 
+  /**
+   * Arm the clock-based expiry watchdog to fire at the token's real expiry.
+   * When it fires, if no valid token remains (a proactive/background refresh
+   * did not renew it), the session is transitioned to `expired` and
+   * onSessionExpired fires — making an idle dead session detectable WITHOUT
+   * any network request.
+   */
+  private scheduleExpiryWatchdog(expiresAt: number | undefined): void {
+    if (this.expiryWatchdogTimerId !== null) {
+      clearTimeout(this.expiryWatchdogTimerId);
+      this.expiryWatchdogTimerId = null;
+    }
+    if (!this.autoRefresh || this.isDestroyed || !expiresAt) return;
+
+    const delay = expiresAt - Date.now();
+    if (delay <= 0) {
+      // Already expired on arrival — check on the next tick so any in-flight
+      // refresh (e.g. one just kicked off by scheduleProactiveRefresh) can win.
+      this.expiryWatchdogTimerId = setTimeout(() => this.handleWatchdogFire(), 0);
+      return;
+    }
+    this.expiryWatchdogTimerId = setTimeout(() => this.handleWatchdogFire(), delay);
+  }
+
+  private handleWatchdogFire(): void {
+    this.expiryWatchdogTimerId = null;
+    if (this.isDestroyed) return;
+
+    const tokens = this.getTokens();
+    // Token was renewed (or cleared) before the watchdog fired — nothing to do.
+    if (tokens?.accessToken && !this.isTokenExpired(tokens)) return;
+    if (!tokens?.accessToken) return;
+
+    // A refresh (proactive or background retry) is actively in flight — let it
+    // settle. Its own error handling (circuit breaker) owns the expiry decision.
+    if (this.refreshPromise) return;
+
+    // If a refresh token exists and autoRefresh is on, recovery is still
+    // possible: the background-refresh + circuit-breaker machinery, or a
+    // refresh-on-return, will resolve this session. The watchdog must NOT
+    // pre-empt that — it only closes sessions that CANNOT recover on their own
+    // (no refresh token, or a background retry is not scheduled). Re-arm a
+    // background refresh to guarantee forward progress, then defer.
+    const canRefresh =
+      typeof tokens.refreshToken === 'string' &&
+      tokens.refreshToken !== '' &&
+      this.autoRefresh &&
+      !!this.baseUrl;
+    if (canRefresh) {
+      if (this.backgroundRetryTimerId === null) this.backgroundRefresh();
+      return;
+    }
+
+    // No way to recover: the token crossed its real expiry with no valid
+    // replacement and nothing can refresh it. Close the session on the clock
+    // alone so isAuthenticated flips and consumers redirect.
+    this.handleSessionExpired(
+      new SessionExpiredError('token_expired', 'Access token expired (idle watchdog)')
+    );
+  }
+
   private cancelProactiveTimer(): void {
     if (this.proactiveTimerId !== null) {
       clearTimeout(this.proactiveTimerId);
@@ -412,28 +507,67 @@ export class SessionManager {
       clearTimeout(this.backgroundRetryTimerId);
       this.backgroundRetryTimerId = null;
     }
+    if (this.expiryWatchdogTimerId !== null) {
+      clearTimeout(this.expiryWatchdogTimerId);
+      this.expiryWatchdogTimerId = null;
+    }
   }
 
   // --- Visibility-aware rescheduling ---
 
   private visibilityListener: (() => void) | null = null;
+  private focusListener: (() => void) | null = null;
+
+  /**
+   * Called when the app regains foreground (tab visible or window focused).
+   * If the token is expired-or-past-refresh-threshold but a refresh token
+   * exists, trigger an IMMEDIATE refresh so a user returning after minutes or
+   * hours of idle (within refresh TTL) has the session recover automatically —
+   * rather than only rescheduling a timer that may fire much later. Otherwise
+   * just recompute the proactive/watchdog timers off the current clock.
+   */
+  private handleAppReturnToForeground(): void {
+    if (this.isDestroyed) return;
+    const tokens = this.getTokens();
+    const hasRefreshToken =
+      tokens?.accessToken && typeof tokens.refreshToken === 'string' && tokens.refreshToken !== '';
+    if (hasRefreshToken && (this.isTokenExpired(tokens) || this.shouldRefreshToken(tokens))) {
+      this.backgroundRefresh();
+      return;
+    }
+    // Browsers throttle/drop setTimeout while the tab is hidden, and clock
+    // skew (NTP, laptop sleep) can make a pending timer miss its window.
+    // Rescheduling recomputes from current Date.now().
+    this.scheduleProactiveRefresh();
+  }
 
   private attachVisibilityListener(): void {
     if (this.visibilityListener) return;
     if (typeof document === 'undefined' || typeof document.addEventListener !== 'function') {
       return;
     }
-    // Browsers throttle/drop setTimeout while the tab is hidden, and clock
-    // skew (NTP, laptop sleep) can make a pending timer miss its window.
-    // Rescheduling on visibility recomputes from current Date.now().
     this.visibilityListener = () => {
       if (document.visibilityState !== 'visible' || this.isDestroyed) return;
-      this.scheduleProactiveRefresh();
+      this.handleAppReturnToForeground();
     };
     try {
       document.addEventListener('visibilitychange', this.visibilityListener);
     } catch {
       this.visibilityListener = null;
+    }
+    // window `focus` covers cases visibilitychange misses (e.g. alt-tab back to
+    // an already-"visible" tab, or environments that don't dispatch
+    // visibilitychange). Refresh-on-return uses whichever fires first.
+    if (typeof window !== 'undefined' && typeof window.addEventListener === 'function') {
+      this.focusListener = () => {
+        if (this.isDestroyed) return;
+        this.handleAppReturnToForeground();
+      };
+      try {
+        window.addEventListener('focus', this.focusListener);
+      } catch {
+        this.focusListener = null;
+      }
     }
   }
 
@@ -446,6 +580,14 @@ export class SessionManager {
       }
     }
     this.visibilityListener = null;
+    if (this.focusListener && typeof window !== 'undefined') {
+      try {
+        window.removeEventListener('focus', this.focusListener);
+      } catch {
+        // ignore
+      }
+    }
+    this.focusListener = null;
   }
 
   // --- Cross-tab synchronization via storage events ---
