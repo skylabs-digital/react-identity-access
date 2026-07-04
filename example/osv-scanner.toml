@@ -12,3 +12,13 @@
 id = "GHSA-4w7w-66w2-5vf9"
 ignoreUntil = 2026-08-15
 reason = "vite 5.x → 6.x major-version upgrade tracked separately. Demo-only dependency in example/; not shipped in the published library bundle."
+
+[[IgnoredVulns]]
+id = "GHSA-fx2h-pf6j-xcff"
+ignoreUntil = 2026-08-15
+reason = "vite server.fs.deny bypass on Windows alternate paths — OSV affected range for the 5.x line is [0, 6.4.3), i.e. there is NO patched 5.4.x release; the only fix is the vite 5→6 major bump tracked with GHSA-4w7w-66w2-5vf9. Demo-only dependency in example/; not shipped in the published library bundle."
+
+[[IgnoredVulns]]
+id = "GHSA-v6wh-96g9-6wx3"
+ignoreUntil = 2026-08-15
+reason = "vite HTML transform / middleware advisory — like GHSA-fx2h-pf6j-xcff its only fix is the vite 5→6 major bump (fixed 6.4.3, no 5.4.x patch). Demo-only dependency in example/; not shipped in the published library bundle."
