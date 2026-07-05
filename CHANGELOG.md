@@ -1,3 +1,17 @@
+# [3.5.0](https://github.com/skylabs-digital/react-identity-access/compare/v3.4.1...v3.5.0) (2026-07-05)
+
+
+### Bug Fixes
+
+* **security:** mirror vite advisory ignores into example/osv-scanner.toml ([974cdff](https://github.com/skylabs-digital/react-identity-access/commit/974cdffe5b460213bb80e9b5ebd3085da7d500d2))
+* **security:** remediate OSV high-severity dev-dep advisories ([21f80b9](https://github.com/skylabs-digital/react-identity-access/commit/21f80b90f440ce6e4e2bea5cc662e8a80203ed30)), closes [hi#severity](https://github.com/hi/issues/severity)
+* **session:** infinite idle session — clock watchdog, robust proactive chain, refresh-on-return ([532b4aa](https://github.com/skylabs-digital/react-identity-access/commit/532b4aa4f8619c2dd06df0bc84e156f16c280fab))
+
+
+### Features
+
+* **session:** clock expiry watchdog, refresh-on-return, configurable refresh knobs ([8e1794f](https://github.com/skylabs-digital/react-identity-access/commit/8e1794fd5e088eedcd3056d8e4eee3e4028b0a9a))
+
 # [3.5.0](https://github.com/skylabs-digital/react-identity-access/compare/v3.4.1...v3.5.0) (2026-07-04)
 
 
